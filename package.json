@@ -1,33 +1,59 @@
 {
-  "name": "elevradsnett",
+  "name": "sites-project",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview --host 127.0.0.1",
+    "dev": "vinext dev",
+    "build": "vinext build",
+    "start": "wrangler dev --config dist/server/wrangler.json",
+    "lint": "oxlint app components/elevradsnett-app.tsx lib tests --allow react/react-compiler --allow jsx-a11y/no-autofocus --allow jsx-a11y/prefer-tag-over-role",
     "test": "vitest run",
-    "test:db": "node tests/database.mjs",
-    "check": "npm run build && npm test && npm run test:db"
+    "format": "oxfmt"
   },
   "dependencies": {
-    "@fontsource/poppins": "^5.3.0",
-    "@supabase/supabase-js": "^2.57.0",
-    "lucide-react": "^0.468.0",
-    "papaparse": "^5.5.3",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "zod": "^4.1.5"
+    "@base-ui/react": "1.7.0",
+    "@shadcn/react": "0.3.0",
+    "@supabase/supabase-js": "^2.57.4",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "cmdk": "1.1.1",
+    "date-fns": "4.1.0",
+    "embla-carousel-react": "8.5.2",
+    "input-otp": "1.4.2",
+    "lucide-react": "1.31.0",
+    "react": "19.2.6",
+    "react-day-picker": "9.8.1",
+    "react-dom": "19.2.6",
+    "react-resizable-panels": "4.5.8",
+    "react-server-dom-webpack": "19.2.6",
+    "recharts": "3.8.0",
+    "shadcn": "4.18.0",
+    "tailwind-merge": "3.6.0",
+    "tw-animate-css": "1.4.0",
+    "vinext": "1.0.0-beta.5",
+    "zod": "^4.1.11"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.3.10",
-    "@types/papaparse": "^5.3.16",
-    "@types/react": "^19.1.12",
-    "@types/react-dom": "^19.1.9",
-    "@vitejs/plugin-react": "^5.0.2",
-    "typescript": "^5.9.2",
-    "vite": "^7.1.4",
-    "vitest": "^3.2.4"
-  }
+    "@cloudflare/vite-plugin": "1.37.1",
+    "@cloudflare/workers-types": "4.20260515.1",
+    "@openai/sites-vite-plugin": "0.2.0",
+    "@tailwindcss/postcss": "4.2.1",
+    "@types/node": "22.19.19",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.2",
+    "@vitejs/plugin-rsc": "0.5.26",
+    "oxfmt": "0.61.0",
+    "oxlint": "1.76.0",
+    "oxlint-tsgolint": "7.0.2001",
+    "tailwindcss": "4.2.1",
+    "typescript": "5.9.3",
+    "vite": "8.0.13",
+    "vitest": "^3.2.4",
+    "wrangler": "4.92.0"
+  },
+  "type": "module"
 }

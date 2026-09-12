@@ -1,0 +1,9 @@
+export type OrganizationType = 'national' | 'county_board' | 'local_board' | 'school';
+export type OrganizationStatus = 'active' | 'deactivated' | 'archived';
+export type Audience = 'public' | 'county' | 'local' | 'friends';
+export type Representation = { id:string; organizationId:string; name:string; initials:string; publicRole:string; canPublish:boolean; type:OrganizationType };
+export type Organization = { id:string; type:OrganizationType; name:string; initials:string; county:string; localBoard?:string; schoolLevel?:'upper_secondary'|'lower_secondary'; status:OrganizationStatus; bio:string; followers:number; following?:boolean };
+export type Post = { id:string; organizationId:string; initials:string; organizationName:string; actorName:string; actorRole:string; createdAt:string; body:string; audience:Audience; priority?:boolean; edited?:boolean; likes:number; comments:number; poll?:{ question:string; options:{ id:string; label:string; votes:number }[]; closesAt:string }; eventId?:string };
+export type Event = { id:string; host:string; title:string; description:string; start:string; end:string; place:string; deadline:string; capacity:number; registered:number; status:'draft'|'published'|'cancelled'|'completed'; audience:string };
+export type Conversation = { id:string; name:string; initials:string; kind:'direct'|'group'|'managed'; unread:number; muted?:boolean; members:number; messages:{ id:string; from:string; mine?:boolean; text:string; time:string }[] };
+export type SearchResult = { id:string; type:'Skole'|'Styre'|'Person'|'Arrangement'|'Innlegg'; title:string; subtitle:string; inactive?:boolean };
