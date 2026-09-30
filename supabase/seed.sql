@@ -8,3 +8,7 @@ insert into public.organizations(id,type,external_id,name,slug,county,local_boar
 ('00000000-0000-4000-8000-000000000014','local_board','demo-local-oslo-ost','Oslo Øst lokallag','oslo-ost','Oslo',null,null,null,'Demo-lokallag.','active',true),
 ('00000000-0000-4000-8000-000000000020','school','demo-school-elvebakken','Elvebakken vgs','elvebakken-vgs','Oslo','00000000-0000-4000-8000-000000000013','upper_secondary','elevrad@example.invalid','Demo-skole.','active',true)
 on conflict(id) do nothing;
+
+-- Designdata: skolenavn, elevtall og prioriterte saker.
+update public.organizations set school_name='Elvebakken videregående skole',student_count=1240 where id='00000000-0000-4000-8000-000000000020';
+update public.organizations set priorities_heading='Prioriterte saker 2026/2027' where id='00000000-0000-4000-8000-000000000001';

@@ -9,7 +9,10 @@
 | Innlegg | Publisert + offentlig + synlig | Offentlig og tillatte fylke/lokallag/venneråd | Egne utkast og moderering | Alle |
 | Kommentarer | Synlige kommentarer til lesbare innlegg | Lese + skrive med aktivt verv | Moderere eget/område | Alle |
 | Reaksjoner/avstemning | Aggregerte resultater via sikre spørringer | Egen reaksjon; én organisasjonsstemme | Som bruker | Alle |
-| Arrangementer | Publiserte | Interesse og egne delegatinvitasjoner | Påmelding og delegater for egen organisasjon | Alle |
+| Arrangementer | Publiserte + aggregerte tall via `get_event_engagement` | Interesse («Interessert») for egen organisasjon via `set_event_response` | Påmelding («Skal») og delegater for egen organisasjon | Alle |
+| Prioriterte saker | Aktive organisasjoners saker | Som anonym | Opprette/endre for egen organisasjon (innholdsansvarlig og opp) | Alle |
+| Offentlige tillitsvalgte | Navn og offentlig verv via `get_public_officers` | Som anonym | Som anonym; verv endres via medlemskap | Alle |
+| Valgplan | Ingen | Kan foreslå valgmåned én gang via `complete_onboarding` | Endre egen organisasjons plan | Alle |
 | Samtaler/meldinger | Ingen | Kun aktivt medlemskap og egen historikkgrense | Ingen ekstra lesetilgang | Ingen ekstra lesetilgang |
 | Private vedlegg | Ingen | Signed URL for aktivt samtalemedlem | Ingen ekstra tilgang | Ingen ekstra tilgang |
 | Moderering | Ingen | Egne rapporter | Konkrete saker i området | Alle saker |

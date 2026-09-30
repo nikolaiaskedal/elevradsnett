@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics=""><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"><style>*{box-sizing:border-box}body{margin:0;background:#fff;font-family:Poppins,system-ui,sans-serif;color:#0A466E;-webkit-font-smoothing:antialiased}a{color:#FF6340;text-decoration:none}a:hover{color:#0A466E}button{font-family:Poppins,system-ui,sans-serif}@keyframes pop{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}@keyframes fade{from{opacity:0}to{opacity:1}}</style></helmet>
+<header style="position:sticky;top:0;z-index:40;background:rgba(255,255,255,.9);backdrop-filter:blur(14px);border-bottom:1px solid #E7ECF0">
+<div style="max-width:1280px;margin:0 auto;padding:12px 32px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+<button onClick="{{ goFeed }}" style="border:0;background:none;padding:0;cursor:pointer;display:flex;align-items:center;gap:9px">
+<span style="width:32px;height:32px;border-radius:6px;background:#FF6340;display:flex;align-items:center;justify-content:center"><span style="width:11px;height:11px;border-radius:50%;background:#fff"></span></span>
+<span style="font:600 14px/1 Poppins,sans-serif;letter-spacing:-.4px;color:#0A466E">elevråds<span style="color:#FF6340">nett</span></span>
+</button>
+<nav style="display:flex;gap:4px;flex:1;flex-wrap:wrap;min-width:220px">
+<button onClick="{{ goFeed }}" style="border:0;background:none;cursor:pointer;padding:9px 14px;border-radius:7px;font:500 14px Poppins,sans-serif;color:{{ navHjem }};display:flex;align-items:center;gap:7px" style-hover="background:#F4F7F9">Hjem</button>
+<button onClick="{{ goArr }}" style="border:0;background:none;cursor:pointer;padding:9px 14px;border-radius:7px;font:500 14px Poppins,sans-serif;color:{{ navArr }};display:flex;align-items:center;gap:7px" style-hover="background:#F4F7F9">Arrangementer</button>
+<button onClick="{{ goMsg }}" style="border:0;background:none;cursor:pointer;padding:9px 14px;border-radius:7px;font:500 14px Poppins,sans-serif;color:{{ navMsg }};display:flex;align-items:center;gap:7px" style-hover="background:#F4F7F9">Meldinger<span style="min-width:19px;height:19px;padding:0 5px;border-radius:6px;background:#FFE0D9;color:#FF6340;font:600 14px/19px Poppins,sans-serif;text-align:center">2</span></button>
+<button onClick="{{ goProfil }}" style="border:0;background:none;cursor:pointer;padding:9px 14px;border-radius:7px;font:500 14px Poppins,sans-serif;color:{{ navProfil }};display:flex;align-items:center;gap:7px" style-hover="background:#F4F7F9">Profil</button>
+<button onClick="{{ goLogin }}" style="border:0;background:none;cursor:pointer;padding:9px 14px;border-radius:7px;font:500 14px Poppins,sans-serif;color:{{ navLogin }};display:flex;align-items:center;gap:7px" style-hover="background:#F4F7F9">Logg inn</button>
+</nav>
+<button onClick="{{ openComposer }}" style="border:0;cursor:pointer;background:#FF6340;color:#fff;padding:11px 20px;border-radius:8px;font:600 14px Poppins,sans-serif;box-shadow:0 6px 16px rgba(255,99,64,.28);text-transform:none" style-hover="background:#ef5330">Nytt innlegg</button>
+</div>
+
+
+</header>
+
+<main style="max-width:1280px;margin:0 auto;padding:26px 32px 110px;display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap">
+<div style="flex:1;min-width:300px;display:flex;flex-direction:column;gap:18px">
+
+<sc-if value="{{ isFeed }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap">
+<div><h1 style="margin:0;font:600 14.5px/1.2 Poppins,sans-serif;letter-spacing:-.6px">Hjem</h1></div>
+
+</div>
+
+
+
+<div style="display:flex;gap:10px;align-items:center;border:1px solid #E7ECF0;border-radius:11px;padding:10px 12px 10px 18px;background:#F9FBFC">
+<span style="width:14px;height:14px;border:2px solid #85A2B7;border-radius:50%;flex:none"></span>
+<input value="{{ query }}" onChange="{{ onQuery }}" onKeyDown="{{ onQueryKey }}" placeholder="Søk etter elevråd, fylkeslag, skoler eller temaer" style="flex:1;min-width:0;border:0;background:none;outline:none;font:400 14px Poppins,sans-serif;color:#0A466E">
+<button onClick="{{ goSearch }}" style="border:0;background:#FF6340;color:#fff;padding:10px 20px;border-radius:8px;font:600 14px Poppins,sans-serif;cursor:pointer;flex:none" style-hover="background:#ef5330">Søk</button>
+</div>
+
+
+
+<section style="border:1px solid #CEDAE2;border-radius:12px;background:#F9FBFC;padding:18px 20px">
+<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+<h2 style="margin:0;font:600 14.5px Poppins,sans-serif">Nettverk</h2>
+<button onClick="{{ goUtforsk }}" style="border:0;background:none;padding:0;cursor:pointer;font:600 14px Poppins,sans-serif;color:#FF6340">Se alle</button>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px">
+
+<div style="display:flex;flex-direction:column;gap:10px">
+<p style="margin:0 0 2px;font:500 14px Poppins,sans-serif;letter-spacing:.4px;text-transform:uppercase;color:#85A2B7">Aktivt i ditt fylke</p>
+<sc-for list="{{ feedOrgs }}" as="o" hint-placeholder-count="3">
+<div style="background:#fff;border:1px solid #E7ECF0;border-radius:10px;padding:12px 14px;display:flex;gap:11px;align-items:center">
+<span style="flex:none;width:40px;height:40px;border-radius:7px;background:#0A466E;color:#fff;font:600 14px/40px Poppins,sans-serif;text-align:center">{{ o.initials }}</span>
+<div style="flex:1;min-width:0">
+<button onClick="{{ o.onOpen }}" style="border:0;background:none;padding:0;cursor:pointer;font:600 14px/1.3 Poppins,sans-serif;color:#0A466E;text-align:left" style-hover="color:#FF6340">{{ o.name }}</button>
+<p style="margin:2px 0 0;font:400 14px Poppins,sans-serif;color:#85A2B7">{{ o.sub }}</p>
+</div>
+<button onClick="{{ o.onFollow }}" style="flex:none;border:1px solid {{ o.followBorder }};background:{{ o.followBg }};color:{{ o.followColor }};padding:8px 13px;border-radius:7px;font:600 14px Poppins,sans-serif;cursor:pointer">{{ o.followLabel }}</button>
+</div>
+</sc-for>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px;border-left:1px solid #CEDAE2;padding-left:18px">
+<p style="margin:0 0 2px;font:500 14px Poppins,sans-serif;letter-spacing:.4px;text-transform:uppercase;color:#85A2B7">Fylkeslag og EO</p>
+<sc-for list="{{ orgLevels }}" as="o" hint-placeholder-count="2">
+<div style="background:#fff;border:1px solid #E7ECF0;border-radius:10px;padding:12px 14px;display:flex;gap:11px;align-items:center">
+<span style="flex:none;width:40px;height:40px;border-radius:7px;background:#FF6340;color:#fff;font:600 14px/40px Poppins,sans-serif;text-align:center">{{ o.initials }}</span>
+<div style="flex:1;min-width:0">
+<button onClick="{{ o.onOpen }}" style="border:0;background:none;padding:0;cursor:pointer;font:600 14px/1.3 Poppins,sans-serif;color:#0A466E;text-align:left" style-hover="color:#FF6340">{{ o.name }}</button>
+<p style="margin:2px 0 0;font:400 14px Poppins,sans-serif;color:#85A2B7">{{ o.sub }}</p>
+</div>
+<button onClick="{{ o.onOpen }}" style="flex:none;border:1px solid #E7ECF0;background:#fff;color:#0A466E;padding:8px 13px;border-radius:7px;font:600 14px Poppins,sans-serif;cursor:pointer" style-hover="border-color:#FF6340;color:#FF6340">Åpne</button>
+</div>
+</sc-for>
+</div>
+
+</div>
+</section>
+
+<section style="border:1px solid #FFE0D9;border-radius:12px;background:#FFF7F5;padding:18px 20px">
+<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+<h2 style="margin:0;font:600 14.5px Poppins,sans-serif">Arrangementer</h2>
+<button onClick="{{ goArr }}" style="border:0;background:none;padding:0;cursor:pointer;font:600 14px Poppins,sans-serif;color:#FF6340">Se alle</button>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
+<sc-for list="{{ feedEvents }}" as="e" hint-placeholder-count="3">
+<button onClick="{{ e.onOpen }}" style="text-align:left;border:1px solid #FFE0D9;background:#fff;border-radius:10px;padding:14px;cursor:pointer;display:flex;gap:12px;align-items:center" style-hover="border-color:#FF6340">
+<span style="flex:none;width:50px;height:50px;border-radius:8px;background:#FFEFEC;color:#FF6340;font:600 14px/1.2 Poppins,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center">{{ e.day }}<span style="font:500 14px Poppins,sans-serif;letter-spacing:.4px">{{ e.month }}</span></span>
+<span style="flex:1;min-width:0">
+<span style="display:block;font:600 14px/1.3 Poppins,sans-serif;color:#0A466E">{{ e.title }}</span>
+<span style="display:block;margin-top:3px;font:400 14px Poppins,sans-serif;color:#85A2B7">{{ e.meta }}</span>
+</span>
+</button>
+</sc-for>
+</div>
+</section>
+
+
+
+
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:8px 0 -4px">
+<h2 style="margin:0;font:600 14.5px Poppins,sans-serif">Nytt fra elevrådene</h2>
+<div style="display:flex;gap:6px;background:#F4F7F9;padding:4px;border-radius:7px">
+<button onClick="{{ setAlle }}" style="border:0;cursor:pointer;background:#fff;color:#0A466E;padding:7px 14px;border-radius:6px;font:500 14px Poppins,sans-serif;box-shadow:0 1px 3px rgba(10,70,110,.08)">Alle</button>
+<button onClick="{{ setAlle }}" style="border:0;cursor:pointer;background:none;color:#85A2B7;padding:7px 14px;border-radius:6px;font:500 14px Poppins,sans-serif">Oslo</button>
+</div>
+</div>
+<sc-for list="{{ posts }}" as="post" hint-placeholder-count="4">
+<article style="border:1px solid #E7ECF0;border-radius:13px;background:#fff;overflow:hidden;box-shadow:0 1px 2px rgba(10,70,110,.04),0 10px 30px rgba(10,70,110,.04)">
+<sc-if value="{{ post.priority }}" hint-placeholder-val="{{ false }}">
+
+</sc-if>
+<div style="padding:18px 20px 0;display:flex;gap:13px;align-items:flex-start">
+<button onClick="{{ post.onOrg }}" style="border:0;padding:0;cursor:pointer;flex:none;width:46px;height:46px;border-radius:8px;color:#fff;font:600 14px/46px Poppins,sans-serif;text-align:center;background:#0A466E" style-hover="opacity:.85">{{ post.initials }}</button>
+<div style="flex:1;min-width:0">
+<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+<button onClick="{{ post.onOrg }}" style="border:0;background:none;padding:0;cursor:pointer;font:600 14px Poppins,sans-serif;color:#0A466E;text-align:left" style-hover="color:#FF6340">{{ post.orgName }}</button>
+<sc-if value="{{ post.verified }}" hint-placeholder-val="{{ false }}"></sc-if>
+</div>
+<p style="margin:2px 0 0;font:400 14px Poppins,sans-serif;color:#85A2B7">{{ post.meta }}</p>
+</div>
+<button style="border:0;background:none;cursor:pointer;color:#CEDAE2;font:600 14px Poppins,sans-serif;padding:0 4px" style-hover="color:#85A2B7">···</button>
+</div>
+<p style="margin:14px 20px 0;font:400 14px/1.62 Poppins,sans-serif;color:#12405f;text-wrap:pretty;white-space:pre-line">{{ post.text }}</p>
+
+<sc-if value="{{ post.image }}" hint-placeholder-val="{{ true }}">
+<div style="margin:16px 20px 0;border-radius:10px;overflow:hidden;border:1px solid #E7ECF0;height:330px;background:repeating-linear-gradient(135deg,#FFEFEC 0 14px,#FFE0D9 14px 28px);display:flex;align-items:flex-end;padding:16px">
+<span style="background:rgba(255,255,255,.92);border-radius:6px;padding:7px 11px;font:400 14px ui-monospace,Menlo,monospace;color:#0A466E">{{ post.image.label }}</span>
+</div>
+</sc-if>
+<sc-if value="{{ post.poll }}" hint-placeholder-val="{{ false }}">
+<div style="margin:16px 20px 0;border:1px solid #CEDAE2;border-radius:10px;padding:16px;background:#F9FBFC">
+<p style="margin:0 0 12px;font:600 14px Poppins,sans-serif">{{ post.poll.question }}</p>
+<div style="display:flex;flex-direction:column;gap:8px">
+<sc-for list="{{ post.poll.options }}" as="opt" hint-placeholder-count="3">
+<button onClick="{{ opt.onVote }}" style="position:relative;width:100%;text-align:left;border:1px solid #CEDAE2;background:#fff;border-radius:7px;padding:11px 14px;cursor:pointer;overflow:hidden" style-hover="border-color:#FF6340">
+<span style="position:absolute;top:0;bottom:0;left:0;background:#FFE0D9;width:{{ opt.width }}"></span>
+<span style="position:relative;display:flex;justify-content:space-between;gap:12px;font:500 14px Poppins,sans-serif;color:#0A466E"><span>{{ opt.label }}</span><span style="color:#85A2B7">{{ opt.pctLabel }}</span></span>
+</button>
+</sc-for>
+</div>
+<p style="margin:11px 0 0;font:400 14px Poppins,sans-serif;color:#85A2B7">{{ post.poll.footer }}</p>
+</div>
+</sc-if>
+<div style="margin:16px 20px 0;padding:13px 0 15px;border-top:1px solid #F1F5F7;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+<button onClick="{{ post.onLike }}" style="border:0;background:none;color:{{ post.likeColor }};padding:6px 4px;font:600 14px Poppins,sans-serif;cursor:pointer;display:flex;align-items:center;gap:7px" style-hover="color:#FF6340"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 20.5 9 8.5l6.5 6.5-12 5.5Z"></path><path d="M13 3.5v2"></path><path d="M18.5 5.5 17 7"></path><path d="M20.5 11h-2"></path><path d="M16.5 11.5c1-2.5 3-3 5-2.5"></path></svg>{{ post.likeCount }}</button>
+<button onClick="{{ post.onComments }}" style="border:0;background:none;color:{{ post.commentColor }};padding:6px 4px;margin-left:12px;font:600 14px Poppins,sans-serif;cursor:pointer;display:flex;align-items:center;gap:7px" style-hover="color:#FF6340"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12.5c0 3.9-3.6 7-8 7-1 0-2-.15-2.9-.44L4.5 20.5l1.2-3.4C4.6 15.85 4 14.25 4 12.5c0-3.9 3.6-7 8-7s8 3.1 8 7Z"></path></svg>{{ post.commentCount }}</button>
+<button style="border:0;background:none;color:#0A466E;padding:6px 4px;margin-left:12px;font:600 14px Poppins,sans-serif;cursor:pointer;display:flex;align-items:center;gap:7px" style-hover="opacity:.7"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4.5 20 11l-7 6.5v-3.7c-4.6 0-7.3 1.3-8.6 4 0-5.6 2.9-8.8 8.6-9.1V4.5Z"></path></svg></button>
+</div>
+<sc-if value="{{ post.commentsOpen }}" hint-placeholder-val="{{ false }}">
+<div style="background:#F9FBFC;border-top:1px solid #F1F5F7;padding:16px 20px;display:flex;flex-direction:column;gap:13px">
+<sc-for list="{{ post.comments }}" as="c" hint-placeholder-count="2">
+<div style="display:flex;gap:11px;align-items:flex-start">
+<span style="flex:none;width:34px;height:34px;border-radius:6px;background:#CEDAE2;color:#0A466E;font:600 14px/34px Poppins,sans-serif;text-align:center">{{ c.initials }}</span>
+<div style="flex:1;background:#fff;border:1px solid #E7ECF0;border-radius:8px;padding:10px 13px">
+<p style="margin:0;font:600 14px Poppins,sans-serif">{{ c.who }}<span style="font-weight:400;color:#85A2B7"> · {{ c.time }}</span></p>
+<p style="margin:3px 0 0;font:400 14px/1.55 Poppins,sans-serif;color:#12405f">{{ c.text }}</p>
+</div>
+</div>
+</sc-for>
+<div style="display:flex;gap:9px;align-items:center">
+<span style="flex:none;width:34px;height:34px;border-radius:6px;background:#0A466E;color:#fff;font:600 14px/34px Poppins,sans-serif;text-align:center">IH</span>
+<input value="{{ post.draft }}" onChange="{{ post.onDraft }}" onKeyDown="{{ post.onDraftKey }}" placeholder="Skriv en kommentar som Elvebakken elevråd …" style="flex:1;border:1px solid #E7ECF0;border-radius:12px;padding:10px 15px;font:400 14px Poppins,sans-serif;color:#0A466E;background:#fff;outline:none">
+<button onClick="{{ post.onSendComment }}" style="border:0;background:#FF6340;color:#fff;padding:10px 16px;border-radius:12px;font:600 14px Poppins,sans-serif;cursor:pointer">Send</button>
+</div>
+</div>
+</sc-if>
+</article>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ isUtforsk }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:26px">
+<div>
+<h1 style="margin:0 0 12px;font:600 14.5px/1.2 Poppins,sans-serif;letter-spacing:-.6px">Utforsk</h1>
+<div style="display:flex;gap:10px;align-items:center;border:1px solid #E7ECF0;border-radius:11px;padding:14px 18px;background:#F9FBFC">
+<span style="width:14px;height:14px;border:2px solid #85A2B7;border-radius:50%;flex:none"></span>
+<input value="{{ query }}" onChange="{{ onQuery }}" placeholder="Søk etter elevråd, fylkeslag, skoler eller temaer" style="flex:1;border:0;background:none;outline:none;font:400 14px Poppins,sans-serif;color:#0A466E">
+</div>
+
+</div>
+<section>
+<h2 style="margin:0 0 4px;font:600 14.5px Poppins,sans-serif">Aktivt i ditt fylke</h2>
+<p style="margin:0 0 14px;font:400 14px Poppins,sans-serif;color:#85A2B7">Oslo · {{ osloCount }} elevråd på plattformen</p>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px">
+<sc-for list="{{ osloOrgs }}" as="o" hint-placeholder-count="4">
+<div style="border:1px solid #E7ECF0;border-radius:11px;padding:16px;background:#fff;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:11px;align-items:center">
+<span style="flex:none;width:44px;height:44px;border-radius:8px;background:#0A466E;color:#fff;font:600 14px/44px Poppins,sans-serif;text-align:center">{{ o.initials }}</span>
+<div style="min-width:0">
+<button onClick="{{ o.onOpen }}" style="border:0;background:none;padding:0;cursor:pointer;font:600 14px/1.3 Poppins,sans-serif;color:#0A466E;text-align:left" style-hover="color:#FF6340">{{ o.name }}</button>
+<p style="margin:2px 0 0;font:400 14px Poppins,sans-serif;color:#85A2B7">{{ o.sub }}</p>
+</div>
+</div>
+<div style="display:flex;gap:8px">
+<button onClick="{{ o.onFollow }}" style="flex:1;border:1px solid {{ o.followBorder }};background:{{ o.followBg }};color:{{ o.followColor }};padding:8px;border-radius:7px;font:600 14px Poppins,sans-serif;cursor:pointer">{{ o.followLabel }}</button>
+<button onClick="{{ o.onOpen }}" style="flex:1;border:1px solid #E7ECF0;background:#fff;color:#0A466E;padding:8px;border-radius:7px;font:600 14px Poppins,sans-serif;cursor:pointer" style-hover="border-color:#85A2B7">Se side</button>
+</div>
+</div>
+</sc-for>
+</div>
+</section>
+<section>
+<h2 style="margin:0 0 14px;font:600 14.5px Poppins,sans-serif">Fylkeslag og EO</h2>
+<div style="display:flex;flex-direction:column;gap:12px">
+<sc-for list="{{ orgLevels }}" as="o" hint-placeholder-count="2">
+<div style="border:1px solid #CEDAE2;border-radius:11px;padding:16px 18px;background:#F9FBFC;display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+<span style="flex:none;width:48px;height:48px;border-radius:8px;background:#FF6340;color:#fff;font:600 14px/48px Poppins,sans-serif;text-align:center">{{ o.initials }}</span>
+<div style="flex:1;min-width:180px">
+<div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+<button onClick="{{ o.onOpen }}" style="border:0;background:none;padding:0;cursor:pointer;font:600 14px Poppins,sans-serif;color:#0A466E" style-hover="color:#FF6340">{{ o.name }}</button>
+
+</div>
+<p style="margin:3px 0 0;font:400 14px Poppins,sans-serif;color:#85A2B7">{{ o.sub }}</p>
+</div>
+<button onClick="{{ o.onOpen }}" style="border:1px solid #E7ECF0;background:#fff;color:#0A466E;padding:9px 16px;border-radius:7px;font:600 14px Poppins,sans-serif;cursor:pointer" style-hover="border-color:#FF6340;color:#FF6340">Åpne</button>
+</div>
+</sc-for>
+</div>
+</section>
+<section>
+<h2 style="margin:0 0 14px;font:600 14.5px Poppins,sans-serif">Nye innlegg</h2>
+<div style="display:flex;flex-direction:column;gap:12px">
+<sc-for list="{{ newPosts }}" as="p" hint-placeholder-count="3">
+<button onClick="{{ p.onOpen }}" style="text-align:left;border:1px solid #E7ECF0;border-radius:11px;padding:16px;background:#fff;cursor:pointer;display:flex;gap:14px;align-items:flex-start" style-hover="border-color:#FFB19F">
+<span style="flex:none;width:64px;height:64px;border-radius:9px;background:repeating-linear-gradient(135deg,#E7ECF0 0 10px,#CEDAE2 10px 20px)"></span>
+<span style="flex:1;min-width:0">
+<span style="display:block;font:600 14px Poppins,sans-serif;color:#0A466E">{{ p.orgName }}</span>
+<span style="display:block;margin-top:4px;font:400 14px/1.5 Poppins,sans-serif;color:#5b7f96">{{ p.excerpt }}</span>
+</span>
+</button>
+</sc-for>
+</div>
+</section>
+</div>
+</sc-if>
+
+<sc-if value="{{ isArr }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:18px">
+<div><h1 style="margin:0;font:600 14.5px/1.2 Poppins,sans-serif;letter-spacing:-.6px">Arrangementer</h1><p style="margin:5px 0 0;font:400 14px Poppins,sans-serif;color:#85A2B7">Kurs, samlinger og møter for elevråd</p></div>
+<sc-for list="{{ events }}" as="ev" hint-placeholder-count="4">
+<article style="border:1px solid #E7ECF0;border-radius:13px;background:#fff;overflow:hidden;box-shadow:0 1px 2px rgba(10,70,110,.04)">
+<button onClick="{{ ev.onOpen }}" style="display:block;width:100%;border:0;padding:0;cursor:pointer;height:180px;background:repeating-linear-gradient(135deg,#FFE0D9 0 16px,#FFEFEC 16px 32px);position:relative">
+<span style="position:absolute;left:16px;bottom:14px;background:rgba(255,255,255,.92);border-radius:6px;padding:7px 11px;font:400 14px ui-monospace,Menlo,monospace;color:#0A466E">{{ ev.imageLabel }}</span>
+<span style="position:absolute;right:16px;top:16px;background:#0A466E;color:#fff;border-radius:7px;padding:8px 12px;font:600 14px Poppins,sans-serif">{{ ev.badge }}</span>
+</button>
+<div style="padding:18px 20px 20px">
+<p style="margin:0;font:600 14px Poppins,sans-serif;letter-spacing:.4px;text-transform:uppercase;color:#FF6340">{{ ev.date }}</p>
+<h3 style="margin:6px 0 0;font:600 14.5px/1.3 Poppins,sans-serif;letter-spacing:-.3px">{{ ev.title }}</h3>
+<p style="margin:6px 0 0;font:400 14px Poppins,sans-serif;color:#85A2B7">{{ ev.meta }}</p>
+<p style="margin:11px 0 0;font:400 14px/1.6 Poppins,sans-serif;color:#12405f;text-wrap:pretty">{{ ev.desc }}</p>
+<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+<button onClick="{{ ev.onGoing }}" style="border:1px solid {{ ev.goingBorder }};background:{{ ev.goingBg }};color:{{ ev.goingColor }};padding:10px 18px;border-radius:8px;font:600 14px Poppins,sans-serif;cursor:pointer">Skal</button>
+<button onClick="{{ ev.onInterested }}" style="border:1px solid {{ ev.intBorder }};background:{{ ev.intBg }};color:{{ ev.intColor }};padding:10px 18px;border-radius:8px;font:600 14px Poppins,sans-serif;cursor:pointer">Interessert</button>
+<button onClick="{{ ev.onOpen }}" style="border:0;background:none;color:#85A2B7;padding:10px 8px;border-radius:8px;font:600 14px Poppins,sans-serif;cursor:pointer" style-hover="color:#0A466E">Detaljer</button>
+</div>
+</div>
+</article>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ isEvent }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:16px">
+<button onClick="{{ goArr }}" style="align-self:flex-start;border:1px solid #E7ECF0;background:#fff;color:#0A466E;padding:8px 14px;border-radius:7px;font:500 14px Poppins,sans-serif;cursor:pointer" style-hover="border-color:#85A2B7">← Alle arrangementer</button>
+<div style="border:1px solid #E7ECF0;border-radius:13px;overflow:hidden;background:#fff">
+<div style="height:230px;background:repeating-linear-gradient(135deg,#FFE0D9 0 16px,#FFEFEC 16px 32px);display:flex;align-items:flex-end;padding:18px">
+<span style="background:rgba(255,255,255,.92);border-radius:6px;padding:7px 11px;font:400 14px ui-monospace,Menlo,monospace;color:#0A466E">{{ event.imageLabel }}</span>
+</div>
+<div style="padding:24px">
+<p style="margin:0;font:600 14px Poppins,sans-serif;letter-spacing:.4px;text-transform:uppercase;color:#FF6340">{{ event.date }}</p>
+<h1 style="margin:7px 0 0;font:600 14.5px/1.2 Poppins,sans-serif;letter-spacing:-.8px">{{ event.title }}</h1>
+<div style="margin:16px 0 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
+<sc-for list="{{ event.facts }}" as="f" hint-placeholder-count="3">
+<div style="border:1px solid #E7ECF0;border-radius:9px;padding:13px 15px;background:#F9FBFC">
+<p style="margin:0;font:500 14px Poppins,sans-serif;letter-spacing:.3px;text-transform:uppercase;color:#85A2B7">{{ f.label }}</p>
+<p style="margin:5px 0 0;font:600 14px Poppins,sans-serif;color:#0A466E">{{ f.value }}</p>
+</div>
+</sc-for>
+</div>
+<p style="margin:20px 0 0;font:400 14px/1.7 Poppins,sans-serif;color:#12405f;text-wrap:pretty;white-space:pre-line">{{ event.long }}</p>
+<div style="margin-top:22px;display:flex;gap:9px;flex-wrap:wrap">
+<button onClick="{{ event.onGoing }}" style="border:1px solid {{ event.goingBorder }};background:{{ event.goingBg }};color:{{ event.goingColor }};padding:12px 22px;border-radius:8px;font:600 14px Poppins,sans-serif;cursor:pointer">Skal</button>
+<button onClick="{{ event.onInterested }}" style="border:1px solid {{ event.intBorder }};background:{{ event.intBg }};color:{{ event.intColor }};padding:12px 22px;border-radius:8px;font:600 14px Poppins,sans-serif;cursor:pointer">Interessert</button>
+</div>
+<p style="margin:14px 0 0;font:400 14px Poppins,sans-serif;color:#85A2B7">{{ event.attending }}</p>
+<div style="margin-top:22px;padding-top:20px;border-top:1px solid #F1F5F7">
+<h2 style="margin:0 0 12px;font:600 14.5px Poppins,sans-serif">Arrangør</h2>
+<div style="display:flex;gap:12px;align-items:center">
+<span style="flex:none;width:46px;height:46px;border-radius:8px;background:#FF6340;color:#fff;font:600 14px/46px Poppins,sans-serif;text-align:center">{{ event.hostInitials }}</span>
+<div><button onClick="{{ event.onHost }}" style="border:0;background:none;padding:0;cursor:pointer;font:600 14px Poppins,sans-serif;color:#0A466E" style-hover="color:#FF6340">{{ event.host }}</button><p style="margin:2px 0 0;font:400 14px Poppins,sans-serif;color:#85A2B7">{{ event.hostSub }}</p></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isOrg }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:18px">
+<div style="border:1px solid #E7ECF0;border-radius:13px;overflow:hidden;background:#fff">
+<div style="height:120px;background:{{ org.cover }}"></div>
+<div style="padding:0 22px 22px;margin-top:-34px">
+<div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap">
+<span style="flex:none;width:88px;height:88px;border-radius:14px;border:4px solid #fff;background:{{ org.avatarBg }};color:#fff;font:600 14px/80px Poppins,sans-serif;text-align:center">{{ org.initials }}</span>
+<div style="flex:1;min-width:200px;padding-bottom:4px">
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+<h1 style="margin:0;font:600 14.5px/1.2 Poppins,sans-serif;letter-spacing:-.6px">{{ org.name }}</h1>
+<sc-if value="{{ org.verified }}" hint-placeholder-val="{{ false }}"></sc-if>
+</div>
+<p style="margin:5px 0 0;font:400 14px Poppins,sans-serif;color:#85A2B7">{{ org.line }}</p>
+</div>
+</div>
+<p style="margin:16px 0 0;font:400 14px/1.65 Poppins,sans-serif;color:#12405f;max-width:56ch;text-wrap:pretty">{{ org.bio }}</p>
+<div style="margin-top:16px;display:flex;gap:9px;flex-wrap:wrap">
+
+<button onClick="{{ org.onContact }}" style="border:1px solid #E7ECF0;background:#fff;color:#0A466E;padding:11px 22px;border-radius:8px;font:600 14px Poppins,sans-serif;cursor:pointer" style-hover="border-color:#FF6340;color:#FF6340">{{ org.contactLabel }}</button>
+</div>
+<div style="margin-top:18px;display:flex;gap:22px;flex-wrap:wrap;padding-top:16px;border-top:1px solid #F1F5F7">
+<sc-for list="{{ org.stats }}" as="s" hint-placeholder-count="3">
+<div><p style="margin:0;font:600 14px Poppins,sans-serif">{{ s.value }}</p><p style="margin:1px 0 0;font:400 14px Poppins,sans-serif;color:#85A2B7">{{ s.label }}</p></div>
+</sc-for>
+</div>
+</div>
+</div>
+
+<sc-if value="{{ org.hasPriorities }}" hint-placeholder-val="{{ false }}">
+<section style="border:1px solid #FFE0D9;border-radius:13px;background:#FFF7F5;padding:20px 22px">
+<h2 style="margin:0 0 14px;font:600 14.5px Poppins,sans-serif">{{ org.prioritiesTitle }}</h2>
+<div style="display:flex;flex-direction:column;gap:10px">
+<sc-for list="{{ org.priorities }}" as="p" hint-placeholder-count="3">
+<div style="background:#fff;border:1px solid #FFE0D9;border-radius:9px;padding:14px 16px;display:flex;gap:13px;align-items:flex-start">
+<span style="flex:none;width:26px;height:26px;border-radius:5px;background:#FF6340;color:#fff;font:600 14px/26px Poppins,sans-serif;text-align:center">{{ p.num }}</span>
+<div><p style="margin:0;font:600 14px Poppins,sans-serif">{{ p.title }}</p><p style="margin:3px 0 0;font:400 14px/1.55 Poppins,sans-serif;color:#5b7f96">{{ p.desc }}</p></div>
+</div>
+</sc-for>
+</div>
+</section>
+</sc-if>
+
+<sc-if value="{{ org.hasPeople }}" hint-placeholder-val="{{ true }}">
+<section style="border:1px solid #E7ECF0;border-radius:13px;background:#fff;padding:20px 22px">
+<h2 style="margin:0 0 14px;font:600 14.5px Poppins,sans-serif">{{ org.peopleTitle }}</h2>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px">
+<sc-for list="{{ org.people }}" as="p" hint-placeholder-count="4">
+<div style="display:flex;gap:11px;align-items:center;border:1px solid #E7ECF0;border-radius:9px;padding:12px">
+<span style="flex:none;width:40px;height:40px;border-radius:7px;background:#CEDAE2;color:#0A466E;font:600 14px/40px Poppins,sans-serif;text-align:center">{{ p.initials }}</span>
+<div style="min-width:0"><p style="margin:0;font:600 14px Poppins,sans-serif">{{ p.name }}</p><p style="margin:2px 0 0;font:400 14px Poppins,sans-serif;color:#85A2B7">{{ p.role }}</p></div>
+</div>
+</sc-for>
+</div>
+</section>
+</sc-if>
+
+<sc-if value="{{ org.hasMembers }}" hint-placeholder-val="{{ false }}">
+
+</sc-if>
+
+<sc-if value="{{ org.hasEvents }}" hint-placeholder-val="{{ false }}">
+<section style="border:1px solid #CEDAE2;border-radius:13px;background:#F9FBFC;padding:20px 22px">
+<h2 style="margin:0 0 14px;font:600 14.5px Poppins,sans-serif">Kommende arrangementer</h2>
+<div style="display:flex;flex-direction:column;gap:10px">
+<sc-for list="{{ org.events }}" as="e" hint-placeholder-count="2">
+<button onClick="{{ e.onOpen }}" style="text-align:left;border:1px solid #E7ECF0;background:#fff;border-radius:9px;padding:14px 16px;cursor:pointer;display:flex;gap:14px;align-items:center;flex-wrap:wrap" style-hover="border-color:#FF6340">
+<span style="flex:none;width:52px;height:52px;border-radius:8px;background:#FFEFEC;color:#FF6340;font:600 14px/1.25 Poppins,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center">{{ e.day }}<span style="font-weight:500">{{ e.month }}</span></span>
+<span style="flex:1;min-width:150px"><span style="display:block;font:600 14px Poppins,sans-serif;color:#0A466E">{{ e.title }}</span><span style="display:block;margin-top:3px;font:400 14px Poppins,sans-serif;color:#85A2B7">{{ e.meta }}</span></span>
+</button>
+</sc-for>
+</div>
+</section>
+</sc-if>
+
+<section>
+<h2 style="margin:0 0 14px;font:600 14.5px Poppins,sans-serif">{{ org.postsTitle }}</h2>
+<div style="display:flex;flex-direction:column;gap:16px">
+<sc-for list="{{ orgPosts }}" as="post" hint-placeholder-count="2">
+<article style="border:1px solid #E7ECF0;border-radius:13px;background:#fff;overflow:hidden">
+<div style="padding:18px 20px 0;display:flex;gap:13px;align-items:flex-start">
+<span style="flex:none;width:44px;height:44px;border-radius:8px;background:#0A466E;color:#fff;font:600 14px/44px Poppins,sans-serif;text-align:center">{{ post.initials }}</span>
+<div><p style="margin:0;font:600 14px Poppins,sans-serif">{{ post.orgName }}</p><p style="margin:2px 0 0;font:400 14px Poppins,sans-serif;color:#85A2B7">{{ post.meta }}</p></div>
+</div>
+<p style="margin:13px 20px 0;font:400 14px/1.62 Poppins,sans-serif;color:#12405f;white-space:pre-line;text-wrap:pretty">{{ post.text }}</p>
+<sc-if value="{{ post.image }}" hint-placeholder-val="{{ true }}">
+<div style="margin:14px 20px 0;border-radius:10px;overflow:hidden;border:1px solid #E7ECF0;height:280px;background:repeating-linear-gradient(135deg,#FFEFEC 0 14px,#FFE0D9 14px 28px);display:flex;align-items:flex-end;padding:14px">
+<span style="background:rgba(255,255,255,.92);border-radius:6px;padding:6px 10px;font:400 14px ui-monospace,Menlo,monospace;color:#0A466E">{{ post.image.label }}</span>
+</div>
+</sc-if>
+<div style="margin:14px 20px 0;padding:12px 0 16px;border-top:1px solid #F1F5F7;display:flex;gap:8px;flex-wrap:wrap">
+<button onClick="{{ post.onLike }}" style="border:0;background:none;color:{{ post.likeColor }};padding:6px 4px;font:600 14px Poppins,sans-serif;cursor:pointer;display:flex;align-items:center;gap:7px" style-hover="color:#FF6340"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 20.5 9 8.5l6.5 6.5-12 5.5Z"></path><path d="M13 3.5v2"></path><path d="M18.5 5.5 17 7"></path><path d="M20.5 11h-2"></path><path d="M16.5 11.5c1-2.5 3-3 5-2.5"></path></svg>{{ post.likeCount }}</button>
+<button onClick="{{ post.onGoFeed }}" style="border:0;background:none;color:#0A466E;padding:6px 4px;margin-left:12px;font:600 14px Poppins,sans-serif;cursor:pointer;display:flex;align-items:center;gap:7px" style-hover="color:#FF6340"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12.5c0 3.9-3.6 7-8 7-1 0-2-.15-2.9-.44L4.5 20.5l1.2-3.4C4.6 15.85 4 14.25 4 12.5c0-3.9 3.6-7 8-7s8 3.1 8 7Z"></path></svg>{{ post.commentCount }}</button>
+<button style="border:0;background:none;color:#0A466E;padding:6px 4px;margin-left:12px;font:600 14px Poppins,sans-serif;cursor:pointer;display:flex;align-items:center;gap:7px" style-hover="opacity:.7"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4.5 20 11l-7 6.5v-3.7c-4.6 0-7.3 1.3-8.6 4 0-5.6 2.9-8.8 8.6-9.1V4.5Z"></path></svg></button>
+</div>
+</article>
+</sc-for>
+</div>
+</section>
+</div>
+</sc-if>
+
+<sc-if value="{{ isMsg }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:16px">
+<h1 style="margin:0;font:600 14.5px/1.2 Poppins,sans-serif;letter-spacing:-.6px">Meldinger</h1>
+<div style="border:1px solid #E7ECF0;border-radius:13px;background:#fff;overflow:hidden;display:flex;flex-wrap:wrap;min-height:520px">
+<div style="flex:1 1 240px;min-width:220px;border-right:1px solid #E7ECF0;padding:12px;display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;gap:9px;align-items:center;border:1px solid #E7ECF0;border-radius:9px;padding:9px 12px;background:#F9FBFC;margin-bottom:4px">
+<span style="width:12px;height:12px;border:2px solid #85A2B7;border-radius:50%;flex:none"></span>
+<input value="{{ msgQuery }}" onChange="{{ onMsgQuery }}" placeholder="Søk elevråd eller fylkeslag" style="flex:1;min-width:0;border:0;background:none;outline:none;font:400 14px Poppins,sans-serif;color:#0A466E">
+</div>
+<sc-if value="{{ noMsgHits }}" hint-placeholder-val="{{ false }}">
+<p style="margin:6px 4px;font:400 14px Poppins,sans-serif;color:#85A2B7">Ingen treff. Prøv navnet på skolen eller fylkeslaget.</p>
+</sc-if>
+<sc-for list="{{ convos }}" as="c" hint-placeholder-count="3">
+<button onClick="{{ c.onOpen }}" style="text-align:left;border:1px solid {{ c.border }};background:{{ c.bg }};border-radius:9px;padding:12px;cursor:pointer;display:flex;gap:11px;align-items:center" style-hover="border-color:#FFB19F">
+<span style="flex:none;width:40px;height:40px;border-radius:7px;background:#0A466E;color:#fff;font:600 14px/40px Poppins,sans-serif;text-align:center">{{ c.initials }}</span>
+<span style="flex:1;min-width:0"><span style="display:block;font:600 14px Poppins,sans-serif;color:#0A466E">{{ c.name }}</span><span style="display:block;margin-top:2px;font:400 14px Poppins,sans-serif;color:#85A2B7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.preview }}</span></span>
+</button>
+</sc-for>
+</div>
+<div style="flex:2 1 320px;min-width:260px;display:flex;flex-direction:column">
+<div style="padding:15px 18px;border-bottom:1px solid #E7ECF0;display:flex;gap:11px;align-items:center">
+<span style="flex:none;width:38px;height:38px;border-radius:7px;background:#0A466E;color:#fff;font:600 14px/38px Poppins,sans-serif;text-align:center">{{ convo.initials }}</span>
+<div><p style="margin:0;font:600 14px Poppins,sans-serif">{{ convo.name }}</p><p style="margin:1px 0 0;font:400 14px Poppins,sans-serif;color:#85A2B7">{{ convo.sub }}</p></div>
+</div>
+<div style="flex:1;padding:18px;display:flex;flex-direction:column;gap:10px;background:#F9FBFC">
+<sc-for list="{{ convo.messages }}" as="m" hint-placeholder-count="4">
+<div style="display:flex;justify-content:{{ m.align }}">
+<div style="max-width:78%;background:{{ m.bg }};color:{{ m.color }};border:1px solid {{ m.border }};border-radius:9px;padding:11px 14px">
+<p style="margin:0;font:400 14px/1.55 Poppins,sans-serif">{{ m.text }}</p>
+<p style="margin:5px 0 0;font:400 14px Poppins,sans-serif;opacity:.65">{{ m.time }}</p>
+</div>
+</div>
+</sc-for>
+</div>
+<div style="padding:14px;border-top:1px solid #E7ECF0;display:flex;gap:9px">
+<input value="{{ msgDraft }}" onChange="{{ onMsgDraft }}" onKeyDown="{{ onMsgKey }}" placeholder="Skriv en melding …" style="flex:1;border:1px solid #E7ECF0;border-radius:8px;padding:12px 15px;font:400 14px Poppins,sans-serif;color:#0A466E;outline:none">
+<button onClick="{{ onSendMsg }}" style="border:0;background:#FF6340;color:#fff;padding:12px 20px;border-radius:8px;font:600 14px Poppins,sans-serif;cursor:pointer">Send</button>
+</div>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isProfil }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:16px">
+<div style="border:1px solid #E7ECF0;border-radius:13px;background:#fff;padding:24px;display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+<span style="flex:none;width:80px;height:80px;border-radius:13px;background:#0A466E;color:#fff;font:600 14px/80px Poppins,sans-serif;text-align:center">IH</span>
+<div style="flex:1;min-width:200px">
+<h1 style="margin:0;font:600 14.5px/1.2 Poppins,sans-serif;letter-spacing:-.5px">Ida Halvorsen</h1>
+<p style="margin:5px 0 0;font:500 14px Poppins,sans-serif;color:#FF6340">Elevrådsleder</p>
+<p style="margin:3px 0 0;font:400 14px Poppins,sans-serif;color:#85A2B7">Elvebakken videregående skole · Oslo</p>
+</div>
+<button onClick="{{ goElvebakken }}" style="border:1px solid #E7ECF0;background:#fff;color:#0A466E;padding:11px 18px;border-radius:8px;font:600 14px Poppins,sans-serif;cursor:pointer" style-hover="border-color:#FF6340;color:#FF6340">Åpne elevrådets side</button>
+</div>
+<div style="border:1px solid #E7ECF0;border-radius:13px;background:#fff;padding:20px 22px">
+<h2 style="margin:0 0 14px;font:600 14.5px Poppins,sans-serif">Representerer</h2>
+<button onClick="{{ goElvebakken }}" style="width:100%;text-align:left;border:1px solid #E7ECF0;background:#F9FBFC;border-radius:9px;padding:14px 16px;cursor:pointer;display:flex;gap:13px;align-items:center" style-hover="border-color:#FF6340">
+<span style="flex:none;width:44px;height:44px;border-radius:8px;background:#0A466E;color:#fff;font:600 14px/44px Poppins,sans-serif;text-align:center">EV</span>
+<span><span style="display:block;font:600 14px Poppins,sans-serif;color:#0A466E">Elvebakken vgs elevråd</span><span style="display:block;margin-top:2px;font:400 14px Poppins,sans-serif;color:#85A2B7">elevrad@elvebakken.elevrad.no</span></span>
+</button>
+<p style="margin:16px 0 8px;font:600 14px Poppins,sans-serif;letter-spacing:.4px;text-transform:uppercase;color:#85A2B7">Roller i systemet</p>
+<div style="display:flex;gap:7px;flex-wrap:wrap">
+<span style="border:1px solid #FFE0D9;background:#FFEFEC;color:#FF6340;padding:6px 12px;border-radius:11px;font:600 14px Poppins,sans-serif">Elevrådsleder</span>
+<span style="border:1px solid #E7ECF0;background:#F9FBFC;color:#85A2B7;padding:6px 12px;border-radius:11px;font:500 14px Poppins,sans-serif">Elevrådsmedlem</span>
+<span style="border:1px solid #E7ECF0;background:#F9FBFC;color:#85A2B7;padding:6px 12px;border-radius:11px;font:500 14px Poppins,sans-serif">Fylkesstyremedlem</span>
+<span style="border:1px solid #E7ECF0;background:#F9FBFC;color:#85A2B7;padding:6px 12px;border-radius:11px;font:500 14px Poppins,sans-serif">Sentralstyremedlem</span>
+<span style="border:1px solid #E7ECF0;background:#F9FBFC;color:#85A2B7;padding:6px 12px;border-radius:11px;font:500 14px Poppins,sans-serif">Administrator</span><span style="border: 1px solid #E7ECF0; color: #FFFFFF; padding: 6px 12px; border-radius: 11px; font: 500 14px Poppins,sans-serif; background-color: #0A466E">*Verv* i Elevorganisasjonen i *Fylkeslag*</span>
+</div>
+<p style="margin:10px 0 0;font:400 14px/1.5 Poppins,sans-serif;color:#85A2B7">Rollene er forberedt i designet. Tilgangsstyring kommer senere.</p>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isLogin }}" hint-placeholder-val="{{ false }}">
+<div style="max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:16px">
+
+<div style="display:flex;gap:8px;align-items:center">
+<sc-for list="{{ loginSteps }}" as="st" hint-placeholder-count="3">
+<div style="flex:1;height:4px;border-radius:4px;background:{{ st.bg }}"></div>
+</sc-for>
+</div>
+<p style="margin:0;font:500 14px Poppins,sans-serif;color:#85A2B7">{{ loginStepLabel }}</p>
+
+<sc-if value="{{ isStep1 }}" hint-placeholder-val="{{ true }}">
+<div style="border:1px solid #E7ECF0;border-radius:13px;background:#fff;padding:24px">
+<h1 style="margin:0;font:600 14.5px/1.3 Poppins,sans-serif">Finn skolen din</h1>
+<p style="margin:6px 0 16px;font:400 14px/1.6 Poppins,sans-serif;color:#85A2B7">Søk opp skolen du går på. Elevrådet ditt blir koblet til den.</p>
+<div style="display:flex;gap:9px;align-items:center;border:1px solid #E7ECF0;border-radius:9px;padding:11px 14px;background:#F9FBFC">
+<span style="width:12px;height:12px;border:2px solid #85A2B7;border-radius:50%;flex:none"></span>
+<input value="{{ schoolQuery }}" onChange="{{ onSchoolQuery }}" placeholder="Søk etter skole" style="flex:1;min-width:0;border:0;background:none;outline:none;font:400 14px Poppins,sans-serif;color:#0A466E" />
+</div>
+<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;max-height:280px;overflow:auto">
+<sc-for list="{{ schoolHits }}" as="s" hint-placeholder-count="5">
+<button onClick="{{ s.onPick }}" style="text-align:left;border:1px solid {{ s.border }};background:{{ s.bg }};border-radius:9px;padding:12px 14px;cursor:pointer;display:flex;gap:11px;align-items:center" style-hover="border-color:#FFB19F">
+<span style="flex:none;width:38px;height:38px;border-radius:7px;background:#0A466E;color:#fff;font:600 14px/38px Poppins,sans-serif;text-align:center">{{ s.initials }}</span>
+<span style="flex:1;min-width:0">
+<span style="display:block;font:600 14px Poppins,sans-serif;color:#0A466E">{{ s.name }}</span>
+<span style="display:block;margin-top:2px;font:400 14px Poppins,sans-serif;color:#85A2B7">{{ s.place }}</span>
+</span>
+<span style="font:600 14px Poppins,sans-serif;color:{{ s.tickColor }}">{{ s.tick }}</span>
+</button>
+</sc-for>
+<sc-if value="{{ noSchoolHits }}" hint-placeholder-val="{{ false }}">
+<p style="margin:4px 2px;font:400 14px/1.6 Poppins,sans-serif;color:#85A2B7">Fant ikke skolen. Be elevrådet ta kontakt med fylkeslaget, så legges den inn.</p>
+</sc-if>
+</div>
+<button onClick="{{ onNext }}" style="width:100%;margin-top:18px;border:0;background:{{ nextBg }};color:#fff;padding:13px;border-radius:9px;font:600 14px Poppins,sans-serif;cursor:pointer">Fortsett</button>
+</div>
+<div style="border:1px solid #CEDAE2;border-radius:13px;background:#F9FBFC;padding:18px 20px;display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+<div style="flex:1;min-width:180px">
+<p style="margin:0;font:600 14px Poppins,sans-serif;color:#0A466E">Logg inn med Feide</p>
+<p style="margin:3px 0 0;font:400 14px Poppins,sans-serif;color:#85A2B7">Kommer senere</p>
+</div>
+<button style="border:1px solid #CEDAE2;background:#fff;color:#85A2B7;padding:11px 18px;border-radius:9px;font:600 14px Poppins,sans-serif;cursor:not-allowed">Ikke tilgjengelig</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ isStep2 }}" hint-placeholder-val="{{ false }}">
+<div style="border:1px solid #E7ECF0;border-radius:13px;background:#fff;padding:24px">
+<h1 style="margin:0;font:600 14.5px/1.3 Poppins,sans-serif">Om deg</h1>
+<p style="margin:6px 0 16px;font:400 14px/1.6 Poppins,sans-serif;color:#85A2B7">{{ chosenSchoolLine }}</p>
+<label for="navn" style="display:block;font:500 14px Poppins,sans-serif;color:#85A2B7;margin-bottom:6px">Navn</label>
+<input id="navn" value="{{ loginName }}" onChange="{{ onLoginName }}" placeholder="Fornavn og etternavn" style="width:100%;border:1px solid #E7ECF0;border-radius:9px;padding:12px 14px;font:400 14px Poppins,sans-serif;color:#0A466E;outline:none" />
+<p style="margin:18px 0 8px;font:500 14px Poppins,sans-serif;color:#85A2B7">Logg inn med</p>
+<div style="display:flex;gap:6px;background:#F4F7F9;padding:4px;border-radius:9px">
+<button onClick="{{ setTlf }}" style="flex:1;border:0;cursor:pointer;background:{{ tlfBg }};color:{{ tlfColor }};padding:10px;border-radius:7px;font:600 14px Poppins,sans-serif">Telefonnummer</button>
+<button onClick="{{ setEpost }}" style="flex:1;border:0;cursor:pointer;background:{{ epostBg }};color:{{ epostColor }};padding:10px;border-radius:7px;font:600 14px Poppins,sans-serif">E-post</button>
+</div>
+<input value="{{ contactValue }}" onChange="{{ onContact }}" placeholder="{{ contactPlaceholder }}" style="width:100%;margin-top:10px;border:1px solid #E7ECF0;border-radius:9px;padding:12px 14px;font:400 14px Poppins,sans-serif;color:#0A466E;outline:none" />
+<p style="margin:8px 0 0;font:400 14px/1.5 Poppins,sans-serif;color:#85A2B7">Vi sender en engangskode hit for å bekrefte at det er deg.</p>
+<div style="display:flex;gap:9px;margin-top:20px">
+<button onClick="{{ onBack }}" style="border:1px solid #E7ECF0;background:#fff;color:#0A466E;padding:13px 18px;border-radius:9px;font:600 14px Poppins,sans-serif;cursor:pointer">Tilbake</button>
+<button onClick="{{ onNext }}" style="flex:1;border:0;background:{{ nextBg }};color:#fff;padding:13px;border-radius:9px;font:600 14px Poppins,sans-serif;cursor:pointer">Fortsett</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isStep3 }}" hint-placeholder-val="{{ false }}">
+<div style="border:1px solid #E7ECF0;border-radius:13px;background:#fff;padding:24px">
+<h1 style="margin:0;font:600 14.5px/1.3 Poppins,sans-serif">Når velger elevrådet ny leder?</h1>
+<p style="margin:6px 0 16px;font:400 14px/1.6 Poppins,sans-serif;color:#85A2B7">Valgfritt. Vi bruker det til å minne elevrådet på å oppdatere hvem som har tilgang.</p>
+<label for="valgmnd" style="display:block;font:500 14px Poppins,sans-serif;color:#85A2B7;margin-bottom:6px">Måned</label>
+<select id="valgmnd" value="{{ leaderMonth }}" onChange="{{ onLeaderMonth }}" style="width:100%;border:1px solid #E7ECF0;background:#F9FBFC;color:#0A466E;border-radius:9px;padding:12px 14px;font:500 14px Poppins,sans-serif;outline:none;cursor:pointer;appearance:none">
+<option value="">Vet ikke ennå</option>
+<option value="mai">Mai</option>
+<option value="juni">Juni</option>
+<option value="august">August</option>
+<option value="september">September</option>
+<option value="oktober">Oktober</option>
+<option value="januar">Januar</option>
+</select>
+<div style="margin-top:16px;border:1px solid #FFE0D9;background:#FFEFEC;border-radius:9px;padding:14px 16px">
+<p style="margin:0;font:600 14px Poppins,sans-serif;color:#0A466E">{{ summaryTitle }}</p>
+<p style="margin:4px 0 0;font:400 14px/1.6 Poppins,sans-serif;color:#5b7f96">{{ summaryLine }}</p>
+</div>
+<div style="display:flex;gap:9px;margin-top:20px">
+<button onClick="{{ onBack }}" style="border:1px solid #E7ECF0;background:#fff;color:#0A466E;padding:13px 18px;border-radius:9px;font:600 14px Poppins,sans-serif;cursor:pointer">Tilbake</button>
+<button onClick="{{ onFinish }}" style="flex:1;border:0;background:#FF6340;color:#fff;padding:13px;border-radius:9px;font:600 14px Poppins,sans-serif;cursor:pointer">Fullfør innlogging</button>
+</div>
+<button onClick="{{ onFinish }}" style="width:100%;margin-top:10px;border:0;background:none;color:#85A2B7;padding:8px;font:600 14px Poppins,sans-serif;cursor:pointer" style-hover="color:#0A466E">Hopp over</button>
+</div>
+</sc-if>
+
+</div>
+</sc-if>
+
+</div>
+</main>
+
+<sc-if value="{{ composerOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position:fixed;inset:0;z-index:80;background:rgba(10,70,110,.32);backdrop-filter:blur(4px);display:flex;align-items:flex-start;justify-content:center;padding:40px 20px;overflow:auto;animation:fade .18s ease">
+<div style="width:100%;max-width:580px;background:#fff;border-radius:14px;box-shadow:0 30px 70px rgba(10,70,110,.28);animation:pop .22s ease;overflow:hidden">
+<div style="padding:18px 22px;border-bottom:1px solid #F1F5F7;display:flex;align-items:center;justify-content:space-between">
+<h2 style="margin:0;font:600 14.5px Poppins,sans-serif">Nytt innlegg</h2>
+<button onClick="{{ closeComposer }}" style="border:0;background:#F4F7F9;color:#0A466E;width:34px;height:34px;border-radius:7px;font:500 14px Poppins,sans-serif;cursor:pointer" style-hover="background:#E7ECF0">×</button>
+</div>
+<div style="padding:20px 22px">
+<div style="display:flex;gap:11px;align-items:center;margin-bottom:16px">
+<span style="flex:none;width:44px;height:44px;border-radius:8px;background:#0A466E;color:#fff;font:600 14px/44px Poppins,sans-serif;text-align:center">EV</span>
+<div><p style="margin:0;font:600 14px Poppins,sans-serif">Elvebakken vgs elevråd</p><p style="margin:2px 0 0;font:400 14px Poppins,sans-serif;color:#85A2B7">Publiseres av elevrådet · Ida Halvorsen</p></div>
+</div>
+
+<textarea value="{{ draftText }}" onChange="{{ onDraftText }}" placeholder="Hva har elevrådet jobbet med?" style="width:100%;min-height:120px;resize:vertical;border:1px solid #E7ECF0;border-radius:9px;padding:14px;font:400 14px/1.6 Poppins,sans-serif;color:#0A466E;outline:none"></textarea>
+<div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+<button onClick="{{ setTypePoll }}" style="border:1px dashed {{ pollBorder }};background:{{ pollBg }};color:#0A466E;border-radius:9px;padding:16px;font:500 14px Poppins,sans-serif;cursor:pointer;display:flex;gap:10px;align-items:center;justify-content:center" style-hover="border-color:#FF6340">
+<span style="width:10px;height:10px;border-radius:50%;background:#FF6340"></span>{{ pollLabel }}
+</button>
+<button onClick="{{ onAddImage }}" style="border:1px dashed {{ imgBorder }};background:{{ imgBg }};color:#0A466E;border-radius:9px;padding:16px;font:500 14px Poppins,sans-serif;cursor:pointer;display:flex;gap:10px;align-items:center;justify-content:center" style-hover="border-color:#FF6340">
+<span style="width:10px;height:10px;border-radius:4px;background:#FF6340"></span>{{ imgLabel }}
+</button>
+</div>
+<sc-if value="{{ isPoll }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
+<input value="{{ pollA }}" onChange="{{ onPollA }}" placeholder="Svaralternativ 1" style="border:1px solid #E7ECF0;border-radius:8px;padding:12px 14px;font:400 14px Poppins,sans-serif;color:#0A466E;outline:none">
+<input value="{{ pollB }}" onChange="{{ onPollB }}" placeholder="Svaralternativ 2" style="border:1px solid #E7ECF0;border-radius:8px;padding:12px 14px;font:400 14px Poppins,sans-serif;color:#0A466E;outline:none">
+<input value="{{ pollC }}" onChange="{{ onPollC }}" placeholder="Svaralternativ 3 (valgfritt)" style="border:1px solid #E7ECF0;border-radius:8px;padding:12px 14px;font:400 14px Poppins,sans-serif;color:#0A466E;outline:none">
+</div>
+</sc-if>
+
+
+</div>
+<div style="padding:16px 22px;border-top:1px solid #F1F5F7;display:flex;gap:10px;justify-content:flex-end;align-items:center;flex-wrap:wrap">
+<div style="flex:1;min-width:170px;display:flex;flex-direction:column;gap:5px">
+<label for="vis-for" style="font:500 14px Poppins,sans-serif;letter-spacing:.4px;text-transform:uppercase;color:#85A2B7">Synlig for</label>
+<select id="vis-for" value="{{ audience }}" onChange="{{ onAudience }}" style="border:1px solid #E7ECF0;background:#F9FBFC;color:#0A466E;border-radius:7px;padding:9px 12px;font:500 14px Poppins,sans-serif;outline:none;cursor:pointer;appearance:none">
+<option value="alle">Alle elevråd</option>
+<option value="fylke">Elevråd i fylket</option>
+<option value="venner">Venneråd</option>
+</select>
+</div>
+<button onClick="{{ closeComposer }}" style="border:1px solid #E7ECF0;background:#fff;color:#0A466E;padding:11px 18px;border-radius:8px;font:600 14px Poppins,sans-serif;cursor:pointer">Avbryt</button>
+<button onClick="{{ onPublish }}" style="border:0;background:#FF6340;color:#fff;padding:11px 24px;border-radius:8px;font:600 14px Poppins,sans-serif;cursor:pointer;box-shadow:0 6px 16px rgba(255,99,64,.28)" style-hover="background:#ef5330">Publiser</button>
+</div>
+</div>
+</div>
+</sc-if>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:900},&quot;showPriorityBanner&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Feed&quot;},&quot;showVerifiedBadges&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Feed&quot;},&quot;pollResultsAlwaysVisible&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Feed&quot;}}">
+class Component extends DCLogic {
+  orgs = {
+    eo: {id:'eo', name:'Elevorganisasjonen', initials:'EO', kind:'Nasjonalt', verified:true, avatarBg:'#FF6340',
+      cover:'repeating-linear-gradient(135deg,#FF6340 0 20px,#ef5330 20px 40px)',
+      line:'Nasjonal interesseorganisasjon · post@elev.no',
+      bio:'Vi er elevenes egen organisasjon. 460 elevråd er medlem, og sammen jobber vi for et bedre skolemiljø, reell elevmedvirkning og en skole elevene er med på å styre.',
+      stats:[{value:'460',label:'medlemsråd'},{value:'11',label:'fylkeslag'},{value:'128',label:'innlegg'}],
+      peopleTitle:'Sentralstyret', people:[
+        {name:'Sara Nyborg', role:'Leder'},{name:'Jonas Fjeld', role:'Nestleder'},
+        {name:'Amina Rashid', role:'Politisk nestleder'},{name:'Theo Lindberg', role:'Sentralstyremedlem'},
+        {name:'Live Grøtte', role:'Sentralstyremedlem'},{name:'Kasper Vold', role:'Sentralstyremedlem'}],
+      prioritiesTitle:'Prioriterte saker 2026/2027', priorities:[
+        {title:'Fraværsgrensa må vekk', desc:'Vi krever en tillitsbasert ordning der elever ikke straffes for sykdom.'},
+        {title:'Rett til rådgiver på hver skole', desc:'Alle elever skal ha tilgang til helsesykepleier og rådgiver hver uke.'},
+        {title:'Elevmedvirkning i timeplanen', desc:'Elevrådet skal høres før skolen vedtar timeplan og vurderingsformer.'}],
+      events:[{id:'elevtinget'},{id:'skolemiljo'}], postsTitle:'Innlegg fra EO', contactLabel:'Kontakt EO'},
+    'eo-oslo': {id:'eo-oslo', name:'Elevorganisasjonen i Oslo', initials:'OS', kind:'Fylkeslag', verified:true, avatarBg:'#0A466E',
+      cover:'repeating-linear-gradient(135deg,#0A466E 0 20px,#12405f 20px 40px)',
+      line:'Fylkeslag · Oslo · oslo@elev.no',
+      bio:'Fylkeslaget for elevråd i Oslo. Vi arrangerer kurs, fylkessamlinger og følger opp skolepolitikken i Oslo kommune.',
+      stats:[{value:'38',label:'elevråd'},{value:'7',label:'i fylkesstyret'},{value:'42',label:'innlegg'}],
+      peopleTitle:'Fylkesstyret i Oslo', people:[
+        {name:'Mathilde Rø', role:'Fylkesleder'},{name:'Omar Haddad', role:'Nestleder'},
+        {name:'Vilde Sunde', role:'Kursansvarlig'},{name:'Elias Brekke', role:'Politisk ansvarlig'},
+        {name:'Nora Tangen', role:'Fylkesstyremedlem'},{name:'Adrian Moe', role:'Fylkesstyremedlem'}],
+      prioritiesTitle:'Regionale saker', priorities:[
+        {title:'Gratis kollektivtransport for elever', desc:'Vi følger opp bystyret på skoleskyss og månedskort for elever under 20 år.'},
+        {title:'Bedre skolemat i Oslo-skolen', desc:'Kartlegging av kantinetilbudet på alle 24 videregående skoler i fylket.'}],
+      members:['elvebakken','kuben','hartvig','oslohandel'],
+      events:[{id:'kurs'},{id:'fylkessamling'}], postsTitle:'Innlegg fra fylkeslaget', contactLabel:'Kontakt fylkesstyret'},
+    elvebakken: {id:'elvebakken', name:'Elvebakken vgs elevråd', initials:'EV', kind:'Elevråd', verified:false, avatarBg:'#0A466E',
+      cover:'repeating-linear-gradient(135deg,#CEDAE2 0 18px,#E7ECF0 18px 36px)',
+      line:'elevrad@elvebakken.elevrad.no · Oslo',
+      bio:'Elevrådet ved Elvebakken videregående skole. 1 240 elever, 42 klasser og et elevråd som møtes hver torsdag. Vi jobber med skolemiljø, vurdering og et kantinetilbud folk faktisk vil spise.',
+      stats:[{value:'1 240',label:'elever'},{value:'214',label:'følgere'},{value:'18',label:'innlegg'}],
+      peopleTitle:'Tillitsvalgte', people:[
+        {name:'Ida Halvorsen', role:'Elevrådsleder'},{name:'Sivert Aune', role:'Nestleder'},
+        {name:'Rania Osman', role:'Skolemiljøansvarlig'},{name:'Kristoffer Lie', role:'Økonomiansvarlig'},
+        {name:'Maja Solheim', role:'Elevrådsmedlem'},{name:'Henrik Dahl', role:'Elevrådsmedlem'}],
+      postsTitle:'Innlegg fra elevrådet', contactLabel:'Foreslå samarbeid'},
+    kuben: {id:'kuben', name:'Kuben vgs elevråd', initials:'KU', kind:'Elevråd', verified:false, avatarBg:'#0A466E',
+      cover:'repeating-linear-gradient(135deg,#CEDAE2 0 18px,#E7ECF0 18px 36px)',
+      line:'elevrad@kuben.elevrad.no · Oslo',
+      bio:'Elevrådet på Kuben yrkesarena. Vi er både yrkesfag og studiespesialisering, og jobber for at verkstedene skal ha utstyr som fungerer.',
+      stats:[{value:'1 900',label:'elever'},{value:'168',label:'følgere'},{value:'11',label:'innlegg'}],
+      peopleTitle:'Tillitsvalgte', people:[
+        {name:'Emil Strand', role:'Elevrådsleder'},{name:'Thea Nikolaisen', role:'Nestleder'},
+        {name:'Yusuf Ali', role:'Yrkesfagansvarlig'},{name:'Hedda Lunde', role:'Elevrådsmedlem'}],
+      postsTitle:'Innlegg fra elevrådet', contactLabel:'Foreslå samarbeid'},
+    hartvig: {id:'hartvig', name:'Hartvig Nissen elevråd', initials:'HN', kind:'Elevråd', verified:false, avatarBg:'#0A466E',
+      cover:'repeating-linear-gradient(135deg,#CEDAE2 0 18px,#E7ECF0 18px 36px)',
+      line:'elevrad@nissen.elevrad.no · Oslo',
+      bio:'Elevrådet ved Hartvig Nissens skole. Vi har fast elevrådstime hver 14. dag og en veldig aktiv skolemiljøgruppe.',
+      stats:[{value:'880',label:'elever'},{value:'142',label:'følgere'},{value:'9',label:'innlegg'}],
+      peopleTitle:'Tillitsvalgte', people:[
+        {name:'Ingrid Haaland', role:'Elevrådsleder'},{name:'Nikolai Berge', role:'Nestleder'},
+        {name:'Sofie Kvam', role:'Elevrådsmedlem'},{name:'Marius Ek', role:'Elevrådsmedlem'}],
+      postsTitle:'Innlegg fra elevrådet', contactLabel:'Foreslå samarbeid'},
+    oslohandel: {id:'oslohandel', name:'Oslo handelsgymnasium elevråd', initials:'OH', kind:'Elevråd', verified:false, avatarBg:'#0A466E',
+      cover:'repeating-linear-gradient(135deg,#CEDAE2 0 18px,#E7ECF0 18px 36px)',
+      line:'elevrad@ohg.elevrad.no · Oslo',
+      bio:'Elevrådet ved Oslo handelsgymnasium. Vi har jobbet mest med vurderingspraksis og eksamensfri uke før heldagsprøver.',
+      stats:[{value:'760',label:'elever'},{value:'97',label:'følgere'},{value:'6',label:'innlegg'}],
+      peopleTitle:'Tillitsvalgte', people:[
+        {name:'Frida Aas', role:'Elevrådsleder'},{name:'Aleksander Ruud', role:'Nestleder'},
+        {name:'Selma Bø', role:'Elevrådsmedlem'}],
+      postsTitle:'Innlegg fra elevrådet', contactLabel:'Foreslå samarbeid'},
+    nordahl: {id:'nordahl', name:'Nordahl Grieg vgs elevråd', initials:'NG', kind:'Elevråd', verified:false, avatarBg:'#0A466E',
+      cover:'repeating-linear-gradient(135deg,#CEDAE2 0 18px,#E7ECF0 18px 36px)',
+      line:'elevrad@nordahlgrieg.elevrad.no · Vestland',
+      bio:'Elevrådet ved Nordahl Grieg videregående skole i Bergen. Vi fikk i vår vedtatt fast elevrådstime i timeplanen.',
+      stats:[{value:'1 050',label:'elever'},{value:'131',label:'følgere'},{value:'12',label:'innlegg'}],
+      peopleTitle:'Tillitsvalgte', people:[
+        {name:'Oda Vikane', role:'Elevrådsleder'},{name:'Sander Hope', role:'Nestleder'},
+        {name:'Iben Rasmussen', role:'Skolemiljøansvarlig'},{name:'Jakob Myre', role:'Elevrådsmedlem'}],
+      postsTitle:'Innlegg fra elevrådet', contactLabel:'Foreslå samarbeid'},
+    katta: {id:'katta', name:'Trondheim katedralskole elevråd', initials:'TK', kind:'Elevråd', verified:false, avatarBg:'#0A466E',
+      cover:'repeating-linear-gradient(135deg,#CEDAE2 0 18px,#E7ECF0 18px 36px)',
+      line:'elevrad@katta.elevrad.no · Trøndelag',
+      bio:'Elevrådet ved Trondheim katedralskole. Vi arrangerer skoledebatter, russevalg og en ganske stor vinterfest.',
+      stats:[{value:'1 100',label:'elever'},{value:'186',label:'følgere'},{value:'14',label:'innlegg'}],
+      peopleTitle:'Tillitsvalgte', people:[
+        {name:'Vetle Aunemo', role:'Elevrådsleder'},{name:'Mira Sandnes', role:'Nestleder'},
+        {name:'Elias Storli', role:'Debattansvarlig'},{name:'Tuva Rønning', role:'Elevrådsmedlem'}],
+      postsTitle:'Innlegg fra elevrådet', contactLabel:'Foreslå samarbeid'}
+  };
+
+  events = {
+    elevtinget: {id:'elevtinget', title:'Elevtinget 2027', hostId:'eo', date:'12.–15. mars 2027', day:'12', month:'MAR',
+      place:'Lillestrøm', badge:'Landsmøte', imageLabel:'foto: plenumssal med delegater',
+      desc:'Elevorganisasjonens øverste organ. Hvert medlemselevråd kan sende delegater og stemme på politikken for neste år.',
+      long:'Elevtinget er der elevpolitikken vedtas. Over fire dager behandler rundt 500 delegater politisk plattform, resolusjoner og valg av nytt sentralstyre.\n\nElevrådet melder på delegater innen 1. februar. Reise og opphold dekkes av fylkeslaget.',
+      facts:[{label:'Dato',value:'12.–15. mars'},{label:'Sted',value:'Lillestrøm'},{label:'Påmelding',value:'Innen 1. februar'}], going:412},
+    kurs: {id:'kurs', title:'Elevrådskurs i Oslo', hostId:'eo-oslo', date:'24. september 2026', day:'24', month:'SEP',
+      place:'Kuben yrkesarena', badge:'Kurs', imageLabel:'foto: kursdeltakere rundt bord',
+      desc:'Grunnkurs for nye elevrådsmedlemmer: møteledelse, hvordan man får gjennomslag hos rektor, og hvordan man planlegger et halvår.',
+      long:'Kurset er for deg som er ny i elevrådet, eller som vil ha litt mer trøkk i arbeidet. Vi går gjennom møteledelse, saksforberedelse og hvordan man faktisk får gjennomslag i skolens ledelse.\n\nGratis for medlemselevråd. Pizza etter kurset.',
+      facts:[{label:'Dato',value:'24. sep, 17–20'},{label:'Sted',value:'Kuben yrkesarena'},{label:'Pris',value:'Gratis'}], going:64},
+    fylkessamling: {id:'fylkessamling', title:'Fylkessamling Oslo', hostId:'eo-oslo', date:'11.–12. oktober 2026', day:'11', month:'OKT',
+      place:'Sundvolden', badge:'Samling', imageLabel:'foto: gruppearbeid på samling',
+      desc:'Helgesamling for alle elevråd i Oslo. Vi setter felles saker for året og blir kjent med elevråd på andre skoler.',
+      long:'To dager med workshops, politikkverksted og sosialt program. Alle elevråd i fylket kan sende to representanter.\n\nVi vedtar fylkeslagets prioriterte saker for året, og du får møte elevråd fra 38 skoler.',
+      facts:[{label:'Dato',value:'11.–12. oktober'},{label:'Sted',value:'Sundvolden'},{label:'Plasser',value:'2 per elevråd'}], going:78},
+    skolemiljo: {id:'skolemiljo', title:'Digitalt møte om skolemiljø', hostId:'eo', date:'3. oktober 2026', day:'03', month:'OKT',
+      place:'Digitalt', badge:'Digitalt', imageLabel:'foto: skjermdeling i digitalt møte',
+      desc:'Åpent digitalt møte om kapittel 12 og hva elevrådet kan gjøre når skolemiljøsaker ikke blir tatt tak i.',
+      long:'En time på nett med korte innlegg og god tid til spørsmål. Vi går gjennom elevenes rettigheter etter opplæringslova kapittel 12, og hva elevrådet konkret kan gjøre når saker stopper opp.\n\nLenke sendes til elevrådets e-post dagen før.',
+      facts:[{label:'Dato',value:'3. okt, 18–19'},{label:'Hvor',value:'Digitalt (lenke)'},{label:'Påmelding',value:'Ikke nødvendig'}], going:143}
+  };
+
+  basePosts = [
+    {id:'p1', orgId:'eo', priority:true, priorityLabel:'Prioritert fra Elevorganisasjonen', time:'2 t', by:'Sara Nyborg', date:'5. september 2026',
+      text:'Kunnskapsministeren har invitert oss til møte om fraværsgrensa 18. september.\n\nVi tar med oss det elevrådene har meldt inn. Har skolen deres eksempler på hvordan grensa slår ut? Legg dem i kommentarfeltet.',
+      tags:['#fraværsgrensa','#elevpolitikk'], likes:284,
+      comments:[{who:'Kuben vgs elevråd', time:'1 t', text:'Vi har tre saker fra i vår. Sender dem på melding!'},
+        {who:'Nordahl Grieg vgs elevråd', time:'44 min', text:'Elever med kronisk sykdom taper mest på dagens ordning. Viktig sak.'}]},
+    {id:'p2', orgId:'katta', time:'5 t', by:'Vetle Aunemo', date:'5. september 2026',
+      text:'I går arrangerte vi skoledebatt med seks ungdomspartier i aulaen. 400 elever møtte opp, og spørsmålene fra salen var bedre enn panelet var forberedt på.\n\nTakk til alle som stilte spørsmål om lærlingplasser.',
+      tags:['#skoledebatt','#elevdemokrati'], image:{label:'foto: skoledebatt i aulaen, seks paneldeltakere'}, likes:167,
+      comments:[{who:'Elvebakken vgs elevråd', time:'3 t', text:'Så bra! Vi vurderer det samme til vinteren – kan vi høre hvordan dere planla det?'}]},
+    {id:'p3', orgId:'nordahl', time:'8 t', by:'Oda Vikane', date:'5. september 2026',
+      text:'Gjennomslag: skolen innfører fast elevrådstime hver 14. dag fra oktober.\n\nVi har jobbet med dette i to år. Det betyr at klassene får tid til å diskutere saker før elevrådsmøtene – ikke bare etterpå.',
+      tags:['#gjennomslag','#elevmedvirkning'], likes:341,
+      comments:[{who:'Elevorganisasjonen i Oslo', time:'6 t', text:'Gratulerer! Dette er et godt eksempel til fylkessamlinga.'},
+        {who:'Hartvig Nissen elevråd', time:'5 t', text:'Hvordan argumenterte dere overfor rektor?'}]},
+    {id:'p4', orgId:'elvebakken', time:'1 d', by:'Ida Halvorsen', date:'4. september 2026',
+      text:'Bilder fra elevrådsuka! Vi hadde stand i kantina, quiz på tvers av trinn og åpent møte om vurdering.\n\n62 elever meldte seg på klassekontaktvervet. Ny rekord.',
+      tags:['#elevrådsuka','#skolemiljø'], image:{label:'foto: stand i kantina under elevrådsuka'}, likes:198,
+      comments:[{who:'Oslo handelsgymnasium elevråd', time:'22 t', text:'Quizen ser gøy ut. Deler dere opplegget?'}]},
+    {id:'p5', orgId:'eo-oslo', priority:true, priorityLabel:'Fra fylkeslaget · Oslo', time:'1 d', by:'Mathilde Rø', date:'4. september 2026',
+      text:'Invitasjon: fylkessamling 11.–12. oktober på Sundvolden.\n\nAlle elevråd i Oslo kan sende to representanter. Vi setter felles saker for året, og det blir kurs i møteledelse. Påmelding via elevrådets e-post.',
+      tags:['#fylkessamling','#oslo'], image:{label:'foto: gruppearbeid på fylkessamling'}, likes:112,
+      comments:[{who:'Kuben vgs elevråd', time:'20 t', text:'Vi kommer med to. Blir det buss fra Oslo S?'}]},
+    {id:'p6', orgId:'eo', time:'2 d', by:'Amina Rashid', date:'3. september 2026',
+      text:'Spørsmål til elevrådene: hva bør bli EOs viktigste sak fram mot Elevtinget?\n\nSvarene tar vi med inn i sentralstyrets forberedelser.',
+      tags:['#elevtinget','#spørsmål'],
+      poll:{question:'Hva bør bli viktigste sak fram mot Elevtinget?',
+        options:[{label:'Fraværsgrensa', votes:412},{label:'Psykisk helse i skolen', votes:388},{label:'Gratis skolemat', votes:271},{label:'Vurdering og eksamen', votes:196}]},
+      likes:96,
+      comments:[{who:'Trondheim katedralskole elevråd', time:'1 d', text:'Vanskelig valg – psykisk helse og fravær henger sammen.'}]},
+    {id:'p7', orgId:'kuben', time:'3 d', by:'Emil Strand', date:'2. september 2026',
+      text:'Vi har fått ja til at verkstedene holdes åpne to ettermiddager i uka, med lærer til stede.\n\nDet har vært elevrådets hovedsak i høst. Takk til alle klassene som skrev under.',
+      tags:['#yrkesfag','#gjennomslag'], likes:154, comments:[]}
+  ];
+
+  state = {
+    page:'feed', orgId:'elvebakken', eventId:'elevtinget', convId:'c1',
+    likes:{}, openComments:{}, drafts:{}, extraComments:{}, following:{'eo':true,'eo-oslo':true},
+    votes:{}, rsvp:{}, extraPosts:[], query:'', msgDraft:'', msgQuery:'',
+    loginStep:1, schoolQuery:'', schoolId:'', loginName:'', contactType:'tlf', contactValue:'', leaderMonth:'',
+    composerOpen:false, audience:'alle', cType:'post', cText:'', cTags:'', cImage:false, cA:'', cB:'', cC:'',
+    threads:{
+      c1:{name:'Kuben vgs elevråd', initials:'KU', sub:'Elevråd · Oslo', messages:[
+        {me:false, text:'Hei! Vi så innlegget om elevrådsuka. Hvordan fikk dere så mange til å stille som klassekontakt?', time:'09:12'},
+        {me:true, text:'Hei! Vi hadde stand i kantina hele uka og lot folk skrive seg på der og da. Mye lettere enn å be dem sende e-post.', time:'09:20'},
+        {me:false, text:'Smart. Kan vi ta et digitalt møte før fylkessamlinga?', time:'09:24'},
+        {me:true, text:'Ja, gjerne. Torsdag 16:00?', time:'09:26'}]},
+      c2:{name:'Elevorganisasjonen i Oslo', initials:'OS', sub:'Fylkeslag · verifisert', messages:[
+        {me:false, text:'Hei Elvebakken! Har dere valgt de to representantene til fylkessamlinga?', time:'i går'},
+        {me:true, text:'Vi vedtar det på møtet torsdag, sender navn rett etterpå.', time:'i går'},
+        {me:false, text:'Perfekt. Frist er 1. oktober, så det holder fint.', time:'08:40'}]},
+      c3:{name:'Trondheim katedralskole elevråd', initials:'TK', sub:'Elevråd · Trøndelag', messages:[
+        {me:false, text:'Vi deler gjerne debattopplegget vårt. Skal jeg sende dokumentet?', time:'man'},
+        {me:true, text:'Ja takk!', time:'man'}]}
+    }
+  };
+
+  A='#FF6340'; D='#0A466E';
+
+  go(page, extra) { this.setState(Object.assign({page:page}, extra||{})); window.scrollTo(0,0); }
+  allPosts() { return this.state.extraPosts.concat(this.basePosts); }
+  likeCount(p) { const l=this.state.likes[p.id]; return p.likes + (l?1:0); }
+  commentsOf(p) { return (p.comments||[]).concat(this.state.extraComments[p.id]||[]); }
+  initialsOf(name) { const w=name.trim().split(/\s+/); return ((w[0]||'')[0]||'').toUpperCase() + ((w[1]||'')[0]||'').toUpperCase(); }
+  toggleFollow(id) { this.setState(s=>({following:Object.assign({},s.following,{[id]:!s.following[id]})})); }
+
+  followStyle(id) {
+    const on = !!this.state.following[id];
+    return on
+      ? {followLabel:'Følger', followShort:'Følger', followBg:'#FFEFEC', followBorder:'#FFB19F', followColor:this.A}
+      : {followLabel:'Følg', followShort:'Følg', followBg:this.A, followBorder:this.A, followColor:'#fff'};
+  }
+  rsvpStyle(id, kind) {
+    const on = this.state.rsvp[id] === kind;
+    if (kind==='going') return on ? {goingBg:this.A, goingBorder:this.A, goingColor:'#fff'} : {goingBg:'#fff', goingBorder:'#E7ECF0', goingColor:this.D};
+    return on ? {intBg:'#FFEFEC', intBorder:'#FFB19F', intColor:this.A} : {intBg:'#fff', intBorder:'#E7ECF0', intColor:this.D};
+  }
+
+  mapPost(p) {
+    const org = this.orgs[p.orgId] || {name:p.orgName||'Elevråd', initials:'EV', kind:'Elevråd', verified:false};
+    const liked = !!this.state.likes[p.id];
+    const comments = this.commentsOf(p);
+    const poll = p.poll ? this.mapPoll(p) : null;
+    return {
+      id:p.id, orgName:org.name, initials:org.initials,
+      meta:(p.by||'Elevrådet') + ' · ' + (p.date||''),
+      verified:org.verified && (this.props.showVerifiedBadges ?? true),
+      priority:!!p.priority && (this.props.showPriorityBanner ?? true), priorityLabel:p.priorityLabel||'',
+      text:p.text, image:p.image||null, poll:poll,
+      tags:(p.tags||[]).map(t=>({label:t, onClick:()=>this.go('utforsk',{query:t.replace('#','')})})),
+      likeCount:this.likeCount(p), likeBg: liked?'#FFEFEC':'#fff', likeBorder: liked?'#FFB19F':'#E7ECF0', likeColor: liked?this.A:this.D,
+      commentCount:comments.length, commentsOpen:!!this.state.openComments[p.id],
+      commentColor: this.state.openComments[p.id] ? this.A : this.D,
+      comments:comments.map(c=>({who:c.who, time:c.time, text:c.text, initials:this.initialsOf(c.who)})),
+      draft:this.state.drafts[p.id]||'',
+      onOrg:()=>this.go('org',{orgId:p.orgId}),
+      onGoFeed:()=>this.go('feed',{openComments:Object.assign({},this.state.openComments,{[p.id]:true})}),
+      onLike:()=>this.setState(s=>({likes:Object.assign({},s.likes,{[p.id]:!s.likes[p.id]})})),
+      onComments:()=>this.setState(s=>({openComments:Object.assign({},s.openComments,{[p.id]:!s.openComments[p.id]})})),
+      onDraft:e=>{const v=e.target.value; this.setState(s=>({drafts:Object.assign({},s.drafts,{[p.id]:v})}));},
+      onDraftKey:e=>{ if(e.key==='Enter') this.sendComment(p.id); },
+      onSendComment:()=>this.sendComment(p.id)
+    };
+  }
+
+  mapPoll(p) {
+    const always = !!this.props.pollResultsAlwaysVisible;
+    const voted = this.state.votes[p.id];
+    const opts = p.poll.options.map((o,i)=>({label:o.label, votes:o.votes + (voted===i?1:0)}));
+    const total = opts.reduce((a,o)=>a+o.votes,0) || 1;
+    return {
+      question:p.poll.question,
+      footer: (voted!==undefined ? 'Du har svart · ' : '') + total.toLocaleString('nb-NO') + ' svar fra elevråd',
+      options: opts.map((o,i)=>{
+        const pct = Math.round(o.votes/total*100);
+        const show = always || voted!==undefined;
+        return {label:o.label, width: (show ? pct : 0) + '%',
+          pctLabel: show ? pct + '%' : '',
+          onVote:()=>this.setState(s=>({votes:Object.assign({},s.votes,{[p.id]:i})}))};
+      })
+    };
+  }
+
+  sendComment(id) {
+    const t = (this.state.drafts[id]||'').trim();
+    if (!t) return;
+    this.setState(s=>({
+      drafts:Object.assign({},s.drafts,{[id]:''}),
+      extraComments:Object.assign({},s.extraComments,{[id]:(s.extraComments[id]||[]).concat([{who:'Elvebakken vgs elevråd', time:'nå', text:t}])})
+    }));
+  }
+
+  publish() {
+    const text = this.state.cText.trim();
+    if (!text) { this.setState({composerOpen:false}); return; }
+    const tags = (this.state.cTags||'').split(/\s+/).filter(t=>t.length>1).map(t=> t[0]==='#'?t:'#'+t);
+    const post = {id:'new'+Date.now(), orgId:'elvebakken', time:'nå', by:'Ida Halvorsen', date:'5. september 2026', text:text, tags:tags, likes:0, comments:[],
+      image: this.state.cImage ? {label:'foto: lastet opp av elevrådet'} : null};
+    if (this.state.cType==='poll') {
+      const opts=[this.state.cA,this.state.cB,this.state.cC].map(s=>s.trim()).filter(Boolean);
+      if (opts.length>1) post.poll={question:text, options:opts.map(o=>({label:o, votes:0}))};
+    }
+    this.setState(s=>({extraPosts:[post].concat(s.extraPosts), composerOpen:false, page:'feed',
+      cText:'', cTags:'', cImage:false, cType:'post', cA:'', cB:'', cC:''}));
+    window.scrollTo(0,0);
+  }
+
+  mapEvent(id) {
+    const e = this.events[id]; const host = this.orgs[e.hostId];
+    return Object.assign({}, e, this.rsvpStyle(id,'going'), this.rsvpStyle(id,'interested'), {
+      meta: host.name + ' · ' + e.place,
+      host:host.name, hostInitials:host.initials, hostSub:host.kind + (host.verified?' · verifisert':''),
+      attending: (e.going + (this.state.rsvp[id]==='going'?1:0)) + ' elevråd har meldt at de skal',
+      onOpen:()=>this.go('event',{eventId:id}),
+      onHost:()=>this.go('org',{orgId:e.hostId}),
+      onGoing:()=>this.setState(s=>({rsvp:Object.assign({},s.rsvp,{[id]: s.rsvp[id]==='going'?null:'going'})})),
+      onInterested:()=>this.setState(s=>({rsvp:Object.assign({},s.rsvp,{[id]: s.rsvp[id]==='interested'?null:'interested'})}))
+    });
+  }
+
+  orgCard(id) {
+    const o = this.orgs[id];
+    return Object.assign({id:id, name:o.name, initials:o.initials, sub:o.line.split(' · ').slice(-1)[0] + ' · ' + o.kind,
+      onOpen:()=>this.go('org',{orgId:id}), onFollow:()=>this.toggleFollow(id)}, this.followStyle(id));
+  }
+
+  renderVals() {
+    const s = this.state, page = s.page;
+    const org = this.orgs[s.orgId];
+    const q = s.query.trim().toLowerCase();
+    const osloIds = ['elvebakken','kuben','hartvig','oslohandel'];
+    const exploreIds = osloIds.concat(['nordahl','katta']);
+    const filtered = q ? exploreIds.filter(id=>this.orgs[id].name.toLowerCase().indexOf(q)>=0 || this.orgs[id].bio.toLowerCase().indexOf(q)>=0) : osloIds;
+
+    const orgObj = Object.assign({}, org, this.followStyle(s.orgId), {
+      hasPeople:!!org.people, hasPriorities:!!org.priorities, hasMembers:!!org.members, hasEvents:!!org.events,
+      people:(org.people||[]).map(p=>({name:p.name, role:p.role, initials:this.initialsOf(p.name)})),
+      priorities:(org.priorities||[]).map((p,i)=>({num:String(i+1), title:p.title, desc:p.desc})),
+      members:(org.members||[]).map(id=>this.orgCard(id)),
+      events:(org.events||[]).map(e=>{const ev=this.events[e.id]; return {title:ev.title, day:ev.day, month:ev.month, meta:ev.date+' · '+ev.place, onOpen:()=>this.go('event',{eventId:e.id})};}),
+      onFollow:()=>this.toggleFollow(s.orgId),
+      onContact:()=>this.go('meldinger', {convId: s.orgId==='eo-oslo'?'c2':'c1'})
+    });
+
+    return {
+      isFeed:page==='feed', isUtforsk:page==='utforsk', isArr:page==='arrangementer', isEvent:page==='event',
+      isOrg:page==='org', isMsg:page==='meldinger', isProfil:page==='profil',
+      goFeed:()=>this.go('feed'), goUtforsk:()=>this.go('utforsk'), goArr:()=>this.go('arrangementer'),
+      goMsg:()=>this.go('meldinger'), goProfil:()=>this.go('profil'),
+      goElvebakken:()=>this.go('org',{orgId:'elvebakken'}), goElevtinget:()=>this.go('event',{eventId:'elevtinget'}),
+      setAlle:()=>{},
+
+      posts:this.allPosts().map(p=>this.mapPost(p)),
+      orgPosts:this.allPosts().filter(p=>p.orgId===s.orgId).map(p=>this.mapPost(p)),
+      org:orgObj,
+
+      query:s.query, onQuery:e=>this.setState({query:e.target.value}),
+      goSearch:()=>this.go('utforsk'),
+      onQueryKey:e=>{ if(e.key==='Enter') this.go('utforsk'); },
+      feedOrgs:['kuben','hartvig','oslohandel','elvebakken'].map(id=>this.orgCard(id)),
+      feedEvents:['kurs','skolemiljo','fylkessamling'].map(id=>this.mapEvent(id)),
+      topics:['#skolemiljø','#fraværsgrensa','#elevdemokrati','#gjennomslag','#yrkesfag','#psykiskhelse'].map(t=>({label:t, onClick:()=>this.setState({query:t.replace('#','')})})),
+      osloOrgs:filtered.map(id=>this.orgCard(id)),
+      osloCount:String(osloIds.length * 9 + 2),
+      orgLevels:[this.orgCard('eo'), this.orgCard('eo-oslo')],
+      newPosts:this.allPosts().slice(0,4).map(p=>({orgName:(this.orgs[p.orgId]||{}).name, excerpt:p.text.split('\n')[0].slice(0,96)+'…', onOpen:()=>this.go('org',{orgId:p.orgId})})),
+      railOrgs:['kuben','hartvig','katta'].map(id=>this.orgCard(id)),
+
+      events:Object.keys(this.events).map(id=>this.mapEvent(id)),
+      event:this.mapEvent(s.eventId),
+
+      isLogin:page==='login',
+      navHjem: page==='feed'?this.A:this.D,
+      navArr: (page==='arrangementer'||page==='event')?this.A:this.D,
+      navMsg: page==='meldinger'?this.A:this.D,
+      navProfil: page==='profil'?this.A:this.D,
+      navLogin: page==='login'?this.A:this.D,
+      goLogin:()=>this.go('login'),
+      isStep1:(s.loginStep||1)===1, isStep2:(s.loginStep||1)===2, isStep3:(s.loginStep||1)===3,
+      loginSteps:[1,2,3].map(n=>({bg: n <= (s.loginStep||1) ? this.A : '#E7ECF0'})),
+      loginStepLabel:'Steg ' + (s.loginStep||1) + ' av 3 · ' + ['Skole','Om deg','Elevrådsvalg'][(s.loginStep||1)-1],
+      schoolQuery:s.schoolQuery||'',
+      onSchoolQuery:e=>this.setState({schoolQuery:e.target.value}),
+      schoolHits:this.schoolHits().map(sc=>({
+        name:sc.name, place:sc.place, initials:this.initialsOf(sc.name),
+        border: s.schoolId===sc.id ? '#FF6340' : '#E7ECF0',
+        bg: s.schoolId===sc.id ? '#FFEFEC' : '#fff',
+        tick: s.schoolId===sc.id ? 'Valgt' : '',
+        tickColor:this.A,
+        onPick:()=>this.setState({schoolId:sc.id})})),
+      noSchoolHits:this.schoolHits().length===0,
+      chosenSchoolLine: s.schoolId ? (this.schools.find(x=>x.id===s.schoolId).name + ' · ' + this.schools.find(x=>x.id===s.schoolId).place) : 'Ingen skole valgt',
+      loginName:s.loginName||'', onLoginName:e=>this.setState({loginName:e.target.value}),
+      contactValue:s.contactValue||'', onContact:e=>this.setState({contactValue:e.target.value}),
+      contactPlaceholder: (s.contactType||'tlf')==='tlf' ? '+47 400 00 000' : 'navn@skole.no',
+      tlfBg:(s.contactType||'tlf')==='tlf'?'#fff':'transparent', tlfColor:(s.contactType||'tlf')==='tlf'?this.D:'#85A2B7',
+      epostBg:(s.contactType||'tlf')==='epost'?'#fff':'transparent', epostColor:(s.contactType||'tlf')==='epost'?this.D:'#85A2B7',
+      setTlf:()=>this.setState({contactType:'tlf'}), setEpost:()=>this.setState({contactType:'epost'}),
+      leaderMonth:s.leaderMonth||'', onLeaderMonth:e=>this.setState({leaderMonth:e.target.value}),
+      summaryTitle:(s.loginName||'Du') + ' · ' + (s.schoolId ? this.schools.find(x=>x.id===s.schoolId).name : 'ingen skole'),
+      summaryLine:((s.contactType||'tlf')==='tlf'?'Telefon: ':'E-post: ') + (s.contactValue||'ikke fylt ut') + (s.leaderMonth ? ' · Nytt lederval i ' + s.leaderMonth : ''),
+      nextBg:this.A,
+      onNext:()=>this.loginNext(),
+      onBack:()=>this.setState(st=>({loginStep:Math.max(1,(st.loginStep||1)-1)})),
+      onFinish:()=>this.go('feed',{loginStep:1}),
+      msgQuery:s.msgQuery||'',
+      onMsgQuery:e=>this.setState({msgQuery:e.target.value}),
+      noMsgHits:this.msgHits().length===0,
+      convos:this.msgHits().map(id=>{const t=s.threads[id]; const active=id===s.convId;
+        return {name:t.name, initials:t.initials, preview:t.messages[t.messages.length-1].text,
+          bg:active?'#FFEFEC':'#fff', border:active?'#FFB19F':'#E7ECF0', onOpen:()=>this.setState({convId:id})};}),
+      convo:Object.assign({}, s.threads[s.convId], {
+        messages:s.threads[s.convId].messages.map(m=>({text:m.text, time:m.time,
+          align:m.me?'flex-end':'flex-start', bg:m.me?this.A:'#fff', color:m.me?'#fff':'#12405f', border:m.me?this.A:'#E7ECF0'}))}),
+      msgDraft:s.msgDraft,
+      onMsgDraft:e=>this.setState({msgDraft:e.target.value}),
+      onMsgKey:e=>{ if(e.key==='Enter') this.sendMsg(); },
+      onSendMsg:()=>this.sendMsg(),
+
+      audience:s.audience||'alle',
+      onAudience:e=>this.setState({audience:e.target.value}),
+      composerOpen:s.composerOpen,
+      openComposer:()=>this.setState({composerOpen:true}),
+      closeComposer:()=>this.setState({composerOpen:false}),
+      isPoll:s.cType==='poll',
+      pollLabel:s.cType==='poll'?'Poll lagt til · trykk for å fjerne':'Legg til poll',
+      pollBg:s.cType==='poll'?'#FFEFEC':'#F9FBFC', pollBorder:s.cType==='poll'?'#FFB19F':'#CEDAE2',
+      setTypePoll:()=>this.setState(st=>({cType: st.cType==='poll'?'post':'poll'})),
+      draftText:s.cText, onDraftText:e=>this.setState({cText:e.target.value}),
+      draftTags:s.cTags, onDraftTags:e=>this.setState({cTags:e.target.value}),
+      pollA:s.cA, onPollA:e=>this.setState({cA:e.target.value}),
+      pollB:s.cB, onPollB:e=>this.setState({cB:e.target.value}),
+      pollC:s.cC, onPollC:e=>this.setState({cC:e.target.value}),
+      imgLabel:s.cImage?'Bilde lagt til · trykk for å fjerne':'Legg til bilde',
+      imgBg:s.cImage?'#FFEFEC':'#F9FBFC', imgBorder:s.cImage?'#FFB19F':'#CEDAE2',
+      onAddImage:()=>this.setState({cImage:!s.cImage}),
+      onPublish:()=>this.publish()
+    };
+  }
+
+  schools = [
+    {id:'elvebakken', name:'Elvebakken videregående skole', place:'Oslo'},
+    {id:'kuben', name:'Kuben videregående skole', place:'Oslo'},
+    {id:'hartvig', name:'Hartvig Nissens skole', place:'Oslo'},
+    {id:'oslohandel', name:'Oslo handelsgymnasium', place:'Oslo'},
+    {id:'nordahl', name:'Nordahl Grieg videregående skole', place:'Bergen · Vestland'},
+    {id:'katta', name:'Trondheim katedralskole', place:'Trondheim · Trøndelag'},
+    {id:'stavanger', name:'Stavanger katedralskole', place:'Stavanger · Rogaland'},
+    {id:'tromsdalen', name:'Tromsdalen videregående skole', place:'Tromsø · Troms'},
+    {id:'sandvika', name:'Sandvika videregående skole', place:'Bærum · Akershus'},
+    {id:'skien', name:'Skien videregående skole', place:'Skien · Telemark'}
+  ];
+
+  schoolHits() {
+    const q = (this.state.schoolQuery||'').trim().toLowerCase();
+    if (!q) return this.schools.slice(0,5);
+    return this.schools.filter(s=>(s.name + ' ' + s.place).toLowerCase().indexOf(q) >= 0);
+  }
+
+  loginNext() {
+    const st = this.state.loginStep || 1;
+    if (st === 1 && !this.state.schoolId) return;
+    if (st === 2 && !(this.state.loginName||'').trim()) return;
+    this.setState({loginStep: Math.min(3, st + 1)});
+    window.scrollTo(0,0);
+  }
+
+  msgHits() {
+    const q = (this.state.msgQuery||'').trim().toLowerCase();
+    const ids = Object.keys(this.state.threads);
+    if (!q) return ids;
+    return ids.filter(id=>{const t=this.state.threads[id];
+      return (t.name + ' ' + (t.sub||'')).toLowerCase().indexOf(q) >= 0;});
+  }
+
+  sendMsg() {
+    const t = this.state.msgDraft.trim(); if (!t) return;
+    const id = this.state.convId;
+    this.setState(s=>{
+      const th = s.threads[id];
+      return {msgDraft:'', threads:Object.assign({},s.threads,{[id]:Object.assign({},th,{messages:th.messages.concat([{me:true,text:t,time:'nå'}])})})};
+    });
+  }
+}
+</script>
+</body>
+</html>
