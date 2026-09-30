@@ -8,8 +8,10 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
+    "build:pages": "vite build --config vite.pages.config.ts",
+    "preview:pages": "vite preview --config vite.pages.config.ts",
     "start": "wrangler dev --config dist/server/wrangler.json",
-    "lint": "oxlint app components/elevradsnett-app.tsx lib tests --allow react/react-compiler --allow jsx-a11y/no-autofocus --allow jsx-a11y/prefer-tag-over-role",
+    "lint": "oxlint app components/elevradsnett-app.tsx components/elevradsnett-admin.tsx components/elevradsnett-ui.tsx lib tests --allow react/react-compiler --allow jsx-a11y/no-autofocus --allow jsx-a11y/prefer-tag-over-role",
     "test": "vitest run",
     "format": "oxfmt"
   },

@@ -12,7 +12,9 @@ Elevrådsnett er en sosial plattform for skoler, fylkesstyrer, lokallagsstyrer o
 - `supabase/functions/`: serverfunksjoner for filvalidering og videre mediebehandling.
 - `supabase/tests/`: sikkerhets- og invariantsjekker.
 
-Demoen i grensesnittet bruker minnedata slik at alle flyter kan prøves uten en tilkoblet Supabase-instans. Produksjonsadapteren ligger bak samme tjenestekontrakt.
+Designet grensesnittet følger ligger i `docs/design/elevradsnett.dc.html`.
+
+Demoen i grensesnittet bruker minnedata (`lib/demo-data.ts`, typet mot `lib/domain/types.ts`) slik at alle flyter kan prøves uten en tilkoblet Supabase-instans. Produksjonsadapteren ligger bak samme tjenestekontrakt.
 
 ## Lokalt oppsett
 
@@ -21,6 +23,12 @@ Demoen i grensesnittet bruker minnedata slik at alle flyter kan prøves uten en 
 3. Knytt Supabase CLI til et eget prosjekt og kjør `supabase db push`.
 4. Last demodata med `supabase db reset` bare i lokalt miljø.
 5. Start med `npm run dev`.
+
+## Prototype på GitHub Pages
+
+`npm run build:pages` bygger appen som en statisk side til `dist-pages/` (se `vite.pages.config.ts` og `github-pages/`). Navigasjon bruker `#/`-lenker, så siden trenger ingen serveroppsett. Workflowen `.github/workflows/static.yml` bygger og publiserer ved push til `main`. I repoets innstillinger må *Settings → Pages → Source* være satt til *GitHub Actions*.
+
+Prøv lokalt med `npm run build:pages && npm run preview:pages`.
 
 ## Produksjonsoppsett
 
