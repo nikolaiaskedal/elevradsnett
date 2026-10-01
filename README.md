@@ -12,7 +12,7 @@ Elevrådsnett er en sosial plattform for skoler, fylkesstyrer, lokallagsstyrer o
 - `supabase/functions/`: serverfunksjoner for filvalidering og videre mediebehandling.
 - `supabase/tests/`: sikkerhets- og invariantsjekker.
 
-Designet grensesnittet følger ligger i `docs/design/elevradsnett.dc.html`.
+Designet grensesnittet følger ligger i `docs/design/elevradsnett.dc.html`. Kravspesifikasjonen ligger i `docs/KRAVSPEC.md`, og rekkefølgen arbeidet gjøres i står i `docs/PROMPTPLAN.md`.
 
 Demoen i grensesnittet bruker minnedata (`lib/demo-data.ts`, typet mot `lib/domain/types.ts`) slik at alle flyter kan prøves uten en tilkoblet Supabase-instans. Produksjonsadapteren ligger bak samme tjenestekontrakt.
 
