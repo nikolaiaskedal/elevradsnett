@@ -5,6 +5,7 @@ import { useService } from '@/components/service-provider';
 import { Composer } from '@/components/shared/composer';
 import { LoginDialog, LoginGate } from '@/components/shared/login-dialog';
 import { OnboardingFlow } from '@/components/shared/login-flow';
+import { RepresentationSwitcher } from '@/components/shared/representation-switcher';
 import { Logo } from '@/components/shared/ui';
 import { AdminView } from '@/components/views/admin-view';
 import { EventDetailView } from '@/components/views/event-detail-view';
@@ -191,8 +192,17 @@ export default function ElevradsnettApp() {
         else { await navigator.clipboard.writeText(url); notify('Lenken er kopiert'); }
       } catch { /* Brukeren avbrøt delingen */ }
     };
+    /** Feeden hentes for den nye representasjonen før byttet vises, så alt skifter samtidig. */
+    const switchTo = (rep:Representation)=>{
+      service.switchRepresentation(rep.id)
+        .then(()=>service.listFeed({ representationId:rep.id, mode:'chronological' }))
+        .then(feed=>{
+          setActiveRepId(rep.id); setPosts(feed); setLiked(feed.filter(p=>p.supported).map(p=>p.id)); setResponses({}); setVotes({});
+          notify(`Du representerer nå ${rep.name}`);
+        }).catch(fail);
+    };
     app = {
-      session, signedIn, currentUser, representations, events:loaded.events,
+      session, signedIn, switchRepresentation:switchTo, currentUser, representations, events:loaded.events,
       organizations, posts, activeRep, responses, liked, openComments, drafts, votes, org, go, notify, reload,
       requireLogin:(reason,then)=>{ if (!needLogin(reason ?? 'Logg inn for å fortsette.',then ?? (()=>{}))) then?.(app!); },
       signOut:()=>{ service.signOut().then(()=>{ go({ view:'feed' }); notify('Du er logget ut'); reload(); }).catch(fail); },
@@ -245,11 +255,6 @@ export default function ElevradsnettApp() {
         go({ view:'messages' });
       }).catch(fail);
     };
-    const switchTo = (rep:Representation)=>{
-      service.switchRepresentation(rep.id)
-        .then(()=>service.listFeed({ representationId:rep.id, mode:'chronological' }))
-        .then(feed=>{ setActiveRepId(rep.id); setPosts(feed); notify(`Du representerer nå ${rep.name}`); }).catch(fail);
-    };
     const gate = gated[route.view];
     if (session.status==='onboarding' && route.view!=='legal') {
       page=<div className="page narrow"><OnboardingFlow schools={schools} email={session.email} onDone={signedInDone} onSignOut={app.signOut}/></div>;
@@ -263,9 +268,9 @@ export default function ElevradsnettApp() {
       case 'event': page=<EventDetailView id={route.id}/>; break;
       case 'organization': page=<OrganizationView id={route.id} onContact={openConversationWith}/>; break;
       case 'messages': page=<MessagesView conversations={conversations} setConversations={setConversations} selectedId={conversationId} onSelect={setConversationId} error={conversationsError}/>; break;
-      case 'profile': page=<ProfileView onSwitch={switchTo}/>; break;
+      case 'profile': page=<ProfileView/>; break;
       case 'login': page=<LoginView onDone={next=>{ signedInDone(next); go(returnTo.current.view==='login'?{ view:'feed' }:returnTo.current); }}/>; break;
-      case 'admin': page=activeRep?<AdminView activeRep={activeRep} onNotify={notify}/>:<div className="page narrow"><h1>Administrasjon</h1><p className="muted">Du har ingen verv som gir tilgang til administrasjon. En administrator i elevrådet eller styret kan gi deg det.</p></div>; break;
+      case 'admin': page=<AdminView/>; break;
       case 'legal': page=<LegalView page={route.page} onPage={p=>go({ view:'legal', page:p })}/>; break;
       default: page=<FeedView query={query} setQuery={setQuery}/>;
     }
@@ -293,6 +298,7 @@ export default function ElevradsnettApp() {
               {item.label}{item.count?<span className="nav-count" aria-label={`${item.count} uleste`}>{item.count}</span>:null}
             </button>)}
           </nav>
+          {app&&<RepresentationSwitcher/>}
           <button className="btn primary lifted" onClick={()=>app?.openComposer()}>Nytt innlegg</button>
         </div>
       </header>

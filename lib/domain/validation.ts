@@ -78,6 +78,21 @@ export type UpdateProfileInput = z.input<typeof updateProfileSchema>;
 export const changeSchoolSchema = z.object({ schoolId:idSchema });
 export type ChangeSchoolInput = z.input<typeof changeSchoolSchema>;
 
+export const internalRoleSchema = z.enum(['super_admin','board_admin','school_admin','content_manager'], 'Ukjent rettighet.');
+export const OFFICE_TITLE_MAX_LENGTH = 80;
+export const officeTitleSchema = z.string().trim().min(2, 'Vervet må ha minst to tegn.').max(OFFICE_TITLE_MAX_LENGTH, `Vervet kan ha maks ${OFFICE_TITLE_MAX_LENGTH} tegn.`);
+
+export const assignPublicOfficeSchema = z.object({ organizationId:idSchema, userId:z.string().trim().min(1, 'Velg en person.'), title:officeTitleSchema });
+export type AssignPublicOfficeInput = z.input<typeof assignPublicOfficeSchema>;
+export const assignRoleSchema = z.object({ organizationId:idSchema, userId:z.string().trim().min(1, 'Velg en person.'), role:internalRoleSchema });
+export type AssignRoleInput = z.input<typeof assignRoleSchema>;
+
+export const REQUEST_TEXT_MAX_LENGTH = 1000;
+export const schoolAdminRequestSchema = z.object({ schoolId:idSchema, message:z.string().trim().max(REQUEST_TEXT_MAX_LENGTH, `Meldingen kan ha maks ${REQUEST_TEXT_MAX_LENGTH} tegn.`).optional() });
+export type SchoolAdminRequestInput = z.input<typeof schoolAdminRequestSchema>;
+export const decideSchoolAdminRequestSchema = z.object({ requestId:idSchema, approve:z.boolean(), reason:z.string().trim().max(REQUEST_TEXT_MAX_LENGTH, `Begrunnelsen kan ha maks ${REQUEST_TEXT_MAX_LENGTH} tegn.`).optional() });
+export type DecideSchoolAdminRequestInput = z.input<typeof decideSchoolAdminRequestSchema>;
+
 /** Profilbildet kodes om i nettleseren før opplasting (fjerner EXIF og GPS). Bøtta tar maks 5 MB. */
 export const AVATAR_MAX_BYTES = 5*1024*1024;
 export const AVATAR_TYPES = ['image/webp','image/jpeg','image/png'] as const;

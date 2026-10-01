@@ -24,6 +24,7 @@ Fra prompt 3 laster appen mot Supabase: økt, organisasjoner, innlegg, arrangeme
 | Meny: Hjem, Arrangementer, Profil | Navigasjon | Fungerer | – | – | ja | §19 |
 | Meny: Logg inn | Vises bare uten innlogging | Fungerer | `getSession` | ja | ja | §1, §3 |
 | Meny: Meldinger med antall uleste | Navigasjon; tallet summerer uleste samtaler | Demo | `listConversations` | nei | ja | §9 |
+| Velger for aktiv representasjon (toppmeny) | Viser hvem brukeren representerer og alle tilknytninger med verv og om de kan publisere. Bytter aktiv representasjon; feeden hentes på nytt for den. Verv i deaktiverte organisasjoner vises merket og kan ikke velges. På mobil vises bare initialene | Fungerer | `switchRepresentation`, `listFeed` | ja (`set_active_representation`) | app | §3, §22 |
 | Nytt innlegg (toppmeny) | Åpner innleggsdialogen. Uten innlogging: innloggingsdialogen først. Uten verv: melding om at verv trengs | Fungerer | – | – | ja | §7 |
 | Innloggingsdialog | Åpnes av handlinger som krever innlogging, og fullfører handlingen etterpå. Lukk (×) avbryter | Fungerer | `requestLoginCode`, `verifyLoginCode` | ja | app | §1, §7 |
 | Varsel om deaktivert profil | Vises øverst når profilen er deaktivert | Fungerer | `getSession` | ja | app | §10 |
@@ -49,6 +50,7 @@ Fra prompt 3 laster appen mot Supabase: økt, organisasjoner, innlegg, arrangeme
 | Kontroll | Hva den gjør | Status | Tjenestemetode | Supabase | I designet | Kravpunkt |
 |---|---|---|---|---|---|---|
 | Avatar og organisasjonsnavn | Åpner organisasjonssiden | Fungerer | – | – | ja | §7 |
+| Navn under avsender | Personen som publiserte. Er profilen deaktivert, står det «Tidligere tillitsvalgt» | Fungerer | `listFeed` | ja | ja | §1, §10 |
 | ··· (flere valg) | Åpner menyen | Fungerer | – | – | ja | §7 |
 | Meny: Del innlegget | Deler via systemdeling, ellers kopieres lenken | Fungerer | – | – | app | §7 (Deling) |
 | Meny: Rapporter innlegg | Rapporterer til moderatorene | Demo | `reportPost` | nei | app | §15 |
@@ -104,7 +106,8 @@ Fra prompt 3 laster appen mot Supabase: økt, organisasjoner, innlegg, arrangeme
 
 | Kontroll | Hva den gjør | Status | Tjenestemetode | Supabase | I designet | Kravpunkt |
 |---|---|---|---|---|---|---|
-| Nytt innlegg som … | Åpner innleggsdialogen (egen organisasjon med publiseringsrett) | Fungerer | – | – | ja | §2, §6 |
+| Nytt innlegg som … | Åpner innleggsdialogen (egen organisasjon med publiseringsrett). Skjules for deaktiverte organisasjoner | Fungerer | – | – | ja | §2, §6 |
+| Deaktivert-merke og forklaring | Deaktiverte organisasjoner kan åpnes fra gamle innlegg og lenker. Historikken vises, men ikke kontakt- eller publiseringsknapper | Fungerer | `getOrganization` | ja (`get_public_organization`) | app | §1, §2 |
 | Kontakt EO / fylkesstyret / lokallaget, Foreslå samarbeid | Åpner eller oppretter samtale og går til Meldinger | Demo | `openConversation` | nei | ja | §9 |
 | Prioriterte saker, tillitsvalgte, statistikk | Visning, også uten innlogging | Fungerer | `listOrganizations`, `listPublicOfficers` | ja (`list_public_organizations`, `get_public_officers`) | ja | §1, §2, §4 |
 | Kommende arrangementer | Åpner arrangementet | Fungerer | – | – | ja | §8 |
@@ -133,8 +136,12 @@ Uten innlogging vises innloggingen i stedet for profilen.
 | Bytt skole, søk, Bytt til … / Avbryt | Bytter skole selv. Verv ved gammel skole avsluttes med sluttdato, ingen rettigheter følger med. Siste skoleadministrator stoppes | Fungerer | `changeSchool` | ja (`change_school`) | app | §1, §3 |
 | Skolehistorikk | Viser nåværende og tidligere skoler | Fungerer | `listSchoolHistory` | ja (`get_my_school_history`) | app | §1, §3 |
 | Representasjon (navn) | Åpner organisasjonssiden | Fungerer | – | – | app | §3, §10 |
-| Bruk | Bytter aktiv representasjon og henter feeden for den | Fungerer | `switchRepresentation`, `listFeed` | ja | app | §3 |
-| Roller i systemet (brikker) | Visning | Fungerer | `getSession` | ja | ja | §4 |
+| Bruk | Bytter aktiv representasjon og henter feeden for den. Verv i deaktiverte organisasjoner er merket «Deaktivert» og kan ikke brukes | Fungerer | `switchRepresentation`, `listFeed` | ja | app | §3 |
+| Verv og rettigheter: offentlige verv, interne rettigheter, tidligere verv | Egne verv og rettigheter med datoer, også avsluttede. Innholdsansvarlig vises for personen selv. Erstatter de statiske brikkene «Roller i systemet» | Fungerer | `listMyRoles` | ja (`get_my_roles`) | ja | §3, §4 |
+| Gå av (verv) | Avslutter eget verv med sluttdato etter bekreftelse | Fungerer | `endPublicOffice` | ja (`end_public_office`) | app | §4, §19 |
+| Gi fra deg (rettighet) | Gir fra seg egen rettighet etter bekreftelse. Siste administrator stoppes | Fungerer | `revokeRole` | ja (`revoke_role`) | app | §4, §17 |
+| Be om å bli skoleadministrator, melding, Send / Avbryt | Sender forespørsel for egen skole til styret. Vises ikke for skoleadministratorer | Fungerer | `requestSchoolAdmin` | ja (`request_school_admin`) | app | §4 |
+| Forespørsel: status og Trekk | Viser egne forespørsler og lar en ventende trekkes | Fungerer | `listSchoolAdminRequests`, `cancelSchoolAdminRequest` | ja | app | §4 |
 | Innlogging: e-post, Telefonnummer og Feide («Kommer senere») | Visning. Telefonnummer kan ikke lagres i piloten | Fungerer | `getSession` | ja | app | §1, §3 |
 | Logg ut | Logger ut og går til Hjem | Fungerer | `signOut` | ja | app | §3 |
 
@@ -159,18 +166,27 @@ Samme flyt alle steder. Fra `#/logg-inn` sendes brukeren tilbake til siden de ko
 
 ## Administrasjon (`#/admin`)
 
-Uten innlogging vises innloggingen. Innlogget uten verv vises en forklaring i stedet for panelet.
-
-Hele administrasjonen er statiske demodata i komponenten, og ingen av handlingene går gjennom tjenestelaget ennå. Finnes ikke i designet.
+Uten innlogging vises innloggingen. Innlogget uten administratorrettigheter vises en forklaring med lenke til profilen. Hvilke organisasjoner og rettigheter som vises, kommer fra serveren (`list_my_admin_organizations`); klienten avgjør ingenting selv. Finnes ikke i designet.
 
 | Kontroll | Hva den gjør | Status | Tjenestemetode | Supabase | I designet | Kravpunkt |
 |---|---|---|---|---|---|---|
-| Faner: Oversikt, Styreoverføring, Roller og verv, Skoler, Moderering, CSV | Bytter fane | Fungerer | – | – | app | §5 |
-| Oversikt: nøkkeltall, oppgaver, nylige handlinger | Statisk visning | Mangler | – | – | app | §12 |
+| Organisasjon (velger og søk) | Velger blant organisasjonene brukeren administrerer: egne, eget lokallag (fylkesstyreregelen), skolene i området, eller alle for superadministrator. Søkefeltet vises ved mer enn åtte | Fungerer | `listAdminOrganizations` | ja | app | §4, §12 |
+| Merke for egen rolle | Skoleadministrator, styreadministrator (i området) eller superadministrator | Fungerer | `listAdminOrganizations` | ja | app | §4 |
+| Faner: Oversikt, Roller og verv, Forespørsler (med antall), Styreoverføring, Skoler, Moderering, CSV | Bytter fane | Fungerer | – | – | app | §4, §5, §12 |
+| Oversikt: nøkkeltall | Aktive verv, interne rettigheter og forespørsler som venter | Fungerer | `listOrganizationRoles`, `listSchoolAdminRequests` | ja | app | §12 |
+| Oversikt: Behandle (forespørsler) | Går til Forespørsler | Fungerer | – | – | app | §4 |
+| Oversikt: Revisjonslogg | Siste endringer i organisasjonen med navn på den som endret og den det gjaldt | Fungerer | `listAuditLog` | ja (`list_audit_log`) | app | §4, §17, §22 |
+| Roller og verv: offentlige verv | Aktive verv med dato og hvem som ga dem. Deaktiverte brukere er merket | Fungerer | `listOrganizationRoles` | ja (`list_organization_roles`) | app | §4 |
+| Roller og verv: + Gi verv, personsøk, Verv (med forslag), Gi verv / Avbryt | Gir et offentlig verv. Personsøket viser bare dem serveren tillater | Fungerer | `searchAssignablePeople`, `assignPublicOffice` | ja (`list_assignable_people`, `assign_public_office`) | app | §4 |
+| Roller og verv: Avslutt (verv) | Avslutter vervet med sluttdato etter bekreftelse | Fungerer | `endPublicOffice` | ja (`end_public_office`) | app | §4, §19 |
+| Roller og verv: interne rettigheter | Aktive rettigheter. Innholdsansvarlig vises bare her og for personen selv | Fungerer | `listOrganizationRoles` | ja | app | §4 |
+| Roller og verv: + Gi rettighet, personsøk, Rettighet, Gi rettighet / Avbryt | Tildeler en rettighet. Listen over rettigheter kommer fra serveren. Ingen kan gi seg selv rettigheter | Fungerer | `assignRole` | ja (`assign_role`) | app | §4, §17 |
+| Roller og verv: Fjern (rettighet) | Tilbakekaller etter bekreftelse. Vises bare når serveren sier at brukeren kan endre rollen. Siste administrator stoppes | Fungerer | `revokeRole` | ja (`revoke_role`) | app | §4, §17 |
+| Roller og verv: Historikk, Vis / Skjul | Avsluttede verv og rettigheter med sluttdato | Fungerer | `listOrganizationRoles` | ja | app | §3, §4 |
+| Forespørsler: Begrunnelse, Godkjenn, Avslå | Styreadministrator i området avgjør forespørsler om å bli skoleadministrator | Fungerer | `listSchoolAdminRequests`, `decideSchoolAdminRequest` | ja (`list_school_admin_requests`, `decide_school_admin_request`) | app | §4 |
 | Styreoverføring: datoer, avkrysninger, valg av administrator | Statiske skjemafelt | Mangler | – | – (`complete_handover` finnes) | app | §5 |
 | Styreoverføring: Tilbake / Neste | Går mellom fire steg | Fungerer | – | – | app | §5 |
 | Styreoverføring: + Inviter ny bruker, Send invitasjoner | Viser bare en melding | Mangler | – | – | app | §5 |
-| Roller og verv: + Tildel rolle | Viser bare en melding | Mangler | – | – (`assign_role` finnes) | app | §4, §12 |
 | Skoler: skolenavn | Viser bare en melding | Mangler | – | – (`deactivate_school` finnes) | app | §1, §12 |
 | Moderering: Behandle | Viser bare en melding | Mangler | – | – (`apply_moderation_action` finnes) | app | §15 |
 | CSV: Last ned mal | Viser bare en melding | Mangler | – | – | app | §13 |
@@ -200,6 +216,5 @@ Finnes i databasen (prompt 2), men er ikke koblet til en knapp. Kolonnen *Prompt
 | `edit_post`, `post_revisions` | Redigerer innlegg, merker det redigert og lagrer historikk for administratorer | Mangler kontroll | 5 | §7 |
 | `publish_post(…, p_school_level_target)` | Målgruppe etter skoleform (vgs, ungdomsskole eller begge) | Mangler kontroll | 5 | §7 |
 | `user_blocks` | Blokkering i meldinger | Mangler kontroll | 10 | §9 |
-| `request_school_admin`, `decide_school_admin_request`, `cancel_school_admin_request` | Forespørsel om å bli skoleadministrator, godkjent av styreadministrator i området | Mangler kontroll | 4 | §4 |
 | `request_personal_data` | Forespørsel om eksport eller sletting av egne data | Mangler kontroll | 14 | §10, §16 |
 | `resolve_organization_images` | Bildehierarkiet eget → lokallag → fylke → global, med lås og kilde | Mangler kontroll | 6, 12 | §14 |

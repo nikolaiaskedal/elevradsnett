@@ -14,6 +14,8 @@ export type App = {
   /** Åpner innloggingen. Etter innlogging kjøres `then` med oppdatert tilstand, så brukeren kommer tilbake til handlingen. */
   requireLogin:(reason?:string, then?:(app:App)=>void)=>void;
   reload:()=>void; signOut:()=>void;
+  /** Bytter aktiv representasjon. Serveren sjekker at vervet er aktivt; feed og navigasjon oppdateres etterpå. */
+  switchRepresentation:(rep:Representation)=>void;
   loadOrganizationPosts:(organizationId:string)=>void;
   toggleFollow:(id:string)=>void; toggleLike:(id:string)=>void; toggleComments:(id:string)=>void;
   setDraft:(id:string,text:string)=>void; sendComment:(id:string)=>void; vote:(postId:string,optionId:string)=>void;

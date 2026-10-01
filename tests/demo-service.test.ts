@@ -8,6 +8,13 @@ import { SupabaseElevradsnettService } from '@/lib/services/supabase-service';
 let service:DemoElevradsnettService;
 beforeEach(()=>{ service = new DemoElevradsnettService(); });
 
+/** Id-en til en person ved Elvebakken, slik administratoren finner den. */
+async function personId(name:string, organizationId = 'elvebakken') {
+  const [person] = await service.searchAssignablePeople({ organizationId, query:name });
+  if (!person) throw new Error(`Fant ikke ${name}`);
+  return person.id;
+}
+
 function signedIn(session:Session):SignedInSession {
   if (session.status!=='active' && session.status!=='deactivated') throw new Error(`Ikke innlogget: ${session.status}`);
   return session;
@@ -71,6 +78,10 @@ describe('DemoElevradsnettService: innlegg',()=>{
     await expect(service.publishPost({ representationId:'rep-school', body:'Poll', audience:'public', status:'published', poll:{ options:['Bare én'] } })).rejects.toThrow('minst to svaralternativer');
   });
   it('avviser publisering fra representasjon uten publiseringsrett',async()=>{
+    // Lokallaget gir bare rett via fylkesstyreregelen, som faller bort når Ida bytter til en skole i et annet lokallag.
+    await service.assignRole({ organizationId:'elvebakken', userId:await personId('Sivert'), role:'school_admin' });
+    await service.changeSchool({ schoolId:'kuben' });
+    expect(signedIn(await service.getSession()).representations.find(r=>r.id==='rep-local')?.canPublish).toBe(false);
     await expect(service.publishPost({ representationId:'rep-local', body:'Hei', audience:'public', status:'published' })).rejects.toThrow('publiseringsrett');
   });
   it('legger til kommentar og øker telleren',async()=>{
@@ -196,6 +207,8 @@ describe('DemoElevradsnettService: profil',()=>{
   it('bytter skole: verv ved gammel skole avsluttes, historikken beholdes',async()=>{
     await expect(service.changeSchool({ schoolId:'elvebakken' })).rejects.toThrow('allerede');
     await expect(service.changeSchool({ schoolId:'oslo-fylke' })).rejects.toThrow('Velg en skole');
+    await expect(service.changeSchool({ schoolId:'kuben' })).rejects.toThrow('siste skoleadministrator');
+    await service.assignRole({ organizationId:'elvebakken', userId:await personId('Sivert'), role:'school_admin' });
     await service.changeSchool({ schoolId:'kuben' });
     const session = signedIn(await service.getSession());
     expect(session.user.schoolId).toBe('kuben');
@@ -206,6 +219,96 @@ describe('DemoElevradsnettService: profil',()=>{
     expect(history.map(h=>h.schoolId)).toEqual(['kuben','elvebakken']);
     expect(history[0].endedAt).toBeNull();
     expect(history[1].endedAt).not.toBeNull();
+  });
+});
+
+describe('DemoElevradsnettService: verv og rettigheter',()=>{
+  it('viser alle tilknytninger, og publiseringsretten kommer fra rettighetene',async()=>{
+    const session = signedIn(await service.getSession());
+    expect(session.representations.map(r=>[r.id,r.canPublish])).toEqual([['rep-school',true],['rep-local',true],['rep-county',true]]);
+    expect(session.representations.every(r=>r.organizationStatus==='active')).toBe(true);
+  });
+  it('viser egne verv og rettigheter, også avsluttede',async()=>{
+    const roles = await service.listMyRoles();
+    expect(roles.filter(r=>r.kind==='role' && r.status==='active').map(r=>r.role)).toEqual(expect.arrayContaining(['school_admin','board_admin']));
+    expect(roles.some(r=>r.kind==='office' && r.status==='ended' && r.title==='Elevrådsmedlem')).toBe(true);
+  });
+  it('lar administratoren gi og avslutte verv, og vervet vises offentlig',async()=>{
+    const sivert = await personId('Sivert');
+    await service.assignPublicOffice({ organizationId:'elvebakken', userId:sivert, title:'Kantineansvarlig' });
+    expect((await service.listPublicOfficers('elvebakken')).some(o=>o.name==='Sivert Aune' && o.publicTitle==='Kantineansvarlig')).toBe(true);
+    await expect(service.assignPublicOffice({ organizationId:'elvebakken', userId:sivert, title:'kantineansvarlig' })).rejects.toThrow('allerede dette vervet');
+    await expect(service.assignPublicOffice({ organizationId:'elvebakken', userId:sivert, title:'K' })).rejects.toThrow('minst to tegn');
+    const office = (await service.listOrganizationRoles('elvebakken')).find(r=>r.kind==='office' && r.title==='Kantineansvarlig')!;
+    expect(office).toMatchObject({ userName:'Sivert Aune', status:'active', grantedByName:'Ida Halvorsen' });
+    await service.endPublicOffice(office.id);
+    expect((await service.listPublicOfficers('elvebakken')).some(o=>o.publicTitle==='Kantineansvarlig')).toBe(false);
+    expect((await service.listOrganizationRoles('elvebakken')).find(r=>r.id===office.id)?.status).toBe('ended');
+  });
+  it('stopper verv til elever ved andre skoler',async()=>{
+    await expect(service.assignPublicOffice({ organizationId:'elvebakken', userId:await personId('Emil','kuben'), title:'Medlem' })).rejects.toThrow('går ikke på denne skolen');
+  });
+  it('gir og fjerner rettigheter, men aldri til seg selv og aldri den siste administratoren',async()=>{
+    const ida = signedIn(await service.getSession()).user.id;
+    await expect(service.assignRole({ organizationId:'elvebakken', userId:ida, role:'content_manager' })).rejects.toThrow('deg selv');
+    await expect(service.assignRole({ organizationId:'elvebakken', userId:await personId('Rania'), role:'board_admin' })).rejects.toThrow('denne typen organisasjon');
+    const own = (await service.listOrganizationRoles('elvebakken')).find(r=>r.kind==='role' && r.role==='school_admin')!;
+    await expect(service.revokeRole(own.id)).rejects.toThrow('minst én administrator');
+    await service.assignRole({ organizationId:'elvebakken', userId:await personId('Rania'), role:'school_admin' });
+    await service.revokeRole(own.id);
+    expect((await service.listMyRoles()).find(r=>r.id===own.id)?.status).toBe('revoked');
+    // Uten skoleadministrator er Elvebakken bare med via områderetten som styreadministrator.
+    expect((await service.listAdminOrganizations()).find(o=>o.id==='elvebakken')?.myRole).toBe('board_admin');
+  });
+  it('viser hvilke organisasjoner og rettigheter administratoren har, slik serveren regner dem ut',async()=>{
+    const orgs = await service.listAdminOrganizations();
+    expect(orgs.find(o=>o.id==='elvebakken')).toMatchObject({ myRole:'school_admin', grantableRoles:['school_admin','content_manager'] });
+    expect(orgs.find(o=>o.id==='oslo-fylke')).toMatchObject({ myRole:'board_admin', grantableRoles:['content_manager'] });
+    expect(orgs.some(o=>o.id==='oslo-sentrum')).toBe(true);
+    expect(orgs.some(o=>o.id==='kuben')).toBe(true);
+    expect(orgs.some(o=>o.id==='nordahl' || o.id==='eo')).toBe(false);
+  });
+  it('skjuler roller og revisjonslogg for andre enn administratorer',async()=>{
+    await service.signOut();
+    await service.requestLoginCode({ email:'ny@example.invalid' });
+    await service.verifyLoginCode({ email:'ny@example.invalid', code:DEMO_LOGIN_CODE });
+    await service.completeOnboarding({ schoolId:'elvebakken', displayName:'Nils Ny' });
+    expect(await service.listAdminOrganizations()).toEqual([]);
+    await expect(service.listOrganizationRoles('elvebakken')).rejects.toThrow('ikke tilgang');
+    await expect(service.listAuditLog('elvebakken')).rejects.toThrow('ikke tilgang');
+  });
+  it('lar styreadministrator avgjøre forespørsler om å bli skoleadministrator',async()=>{
+    const [request] = (await service.listSchoolAdminRequests()).filter(r=>r.canDecide);
+    expect(request).toMatchObject({ userName:'Frida Aas', schoolId:'ohg', status:'pending', mine:false });
+    await service.decideSchoolAdminRequest({ requestId:request.id, approve:true, reason:'Bekreftet.' });
+    expect(await service.listSchoolAdminRequests()).toEqual([]);
+    expect((await service.listOrganizationRoles('ohg')).some(r=>r.kind==='role' && r.role==='school_admin' && r.userName==='Frida Aas')).toBe(true);
+    await expect(service.decideSchoolAdminRequest({ requestId:request.id, approve:true })).rejects.toThrow('allerede behandlet');
+  });
+  it('lar en elev be om å bli skoleadministrator for egen skole, og trekke forespørselen',async()=>{
+    await expect(service.requestSchoolAdmin({ schoolId:'elvebakken' })).rejects.toThrow('allerede skoleadministrator');
+    await service.signOut();
+    await service.requestLoginCode({ email:'ny@example.invalid' });
+    await service.verifyLoginCode({ email:'ny@example.invalid', code:DEMO_LOGIN_CODE });
+    await service.completeOnboarding({ schoolId:'kuben', displayName:'Nils Ny' });
+    await expect(service.requestSchoolAdmin({ schoolId:'elvebakken' })).rejects.toThrow('egen skole');
+    await service.requestSchoolAdmin({ schoolId:'kuben', message:'Jeg er leder.' });
+    await expect(service.requestSchoolAdmin({ schoolId:'kuben' })).rejects.toThrow('allerede registrert');
+    const [mine] = await service.listSchoolAdminRequests();
+    expect(mine).toMatchObject({ mine:true, canDecide:false, status:'pending', schoolName:'Kuben videregående skole' });
+    await expect(service.decideSchoolAdminRequest({ requestId:mine.id, approve:true })).rejects.toThrow('deg selv');
+    await service.cancelSchoolAdminRequest(mine.id);
+    expect((await service.listSchoolAdminRequests())[0].status).toBe('cancelled');
+  });
+  it('logger alle endringer i revisjonsloggen med navn',async()=>{
+    await service.assignPublicOffice({ organizationId:'elvebakken', userId:await personId('Maja'), title:'Nestleder' });
+    const [entry] = await service.listAuditLog('elvebakken');
+    expect(entry).toMatchObject({ action:'office.assigned', actorName:'Ida Halvorsen', subjectName:'Maja Solheim' });
+  });
+  it('viser deaktiverte organisasjoner, men ikke i listen',async()=>{
+    expect((await service.listOrganizations()).some(o=>o.id==='fagerborg')).toBe(false);
+    expect(await service.getOrganization('fagerborg')).toMatchObject({ status:'deactivated', officers:[] });
+    expect(await service.getOrganization('finnes-ikke')).toBeNull();
   });
 });
 

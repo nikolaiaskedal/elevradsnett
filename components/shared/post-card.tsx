@@ -20,7 +20,7 @@ export function PostCard({post,plain}:{post:Post;plain?:boolean}) {
       <button className="post-avatar" onClick={openOrg} aria-label={`Åpne ${post.organizationName}`}><Avatar initials={post.initials} size="lg" tone={author?.type==='national'?'coral':'navy'}/></button>
       <div className="who">
         <button className="name-link" onClick={openOrg}>{post.organizationName}</button>
-        <p className="sub">{post.actorName} · {post.createdAt}{post.edited?' · redigert':''}</p>
+        <p className="sub">{post.actorName || 'Tidligere tillitsvalgt'} · {post.createdAt}{post.edited?' · redigert':''}</p>
       </div>
       {!plain&&<div className="post-more-wrap" ref={menuWrap}>
         <button className="post-more" aria-label="Flere valg" aria-haspopup="menu" aria-expanded={menuOpen} onClick={()=>setMenuOpen(v=>!v)} onBlur={closeMenuOutside} onKeyDown={e=>{ if (e.key==='Escape') setMenuOpen(false); }}>···</button>
