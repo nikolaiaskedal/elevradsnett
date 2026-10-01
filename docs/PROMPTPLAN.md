@@ -22,7 +22,7 @@ Planen deler `docs/KRAVSPEC.md` inn i prompter som sendes én om gangen, hver i 
 
 | Hva | Valg | Kostnad | Merknad |
 |---|---|---|---|
-| Frontend | Cloudflare Pages | Gratis | Ubegrenset trafikk, testversjon per PR, sikkerhetsheadere via `_headers`. Gir `*.pages.dev` til eget domene er på plass. |
+| Frontend | GitHub Pages | Gratis | Allerede satt opp med `.github/workflows/static.yml`. Publiseres ved hver merge til `main`. Krever offentlig repo, og har ingen egne HTTP-headere eller testversjon per PR. Når domenet er på plass, legges Cloudflare sin gratis proxy foran for sikkerhetsheadere. Før full lansering byttes det til Cloudflare Pages, siden GitHub sine vilkår ikke er ment for å drive en tjeneste. |
 | Backend | Supabase Free, region eu-north-1 | Gratis | 500 MB database, 1 GB lagring, ingen automatisk backup og pause etter en uke uten bruk. Utvikling kjøres lokalt med Supabase CLI. Pro (25 USD/mnd) før full lansering. |
 | E-post | Resend | Gratis | 100 e-poster per dag og 3000 per måned. Krever eget domene. Supabase sin innebygde e-post er bare til testing. |
 | Domene | F.eks. elevradsnett.no via Domeneshop | Ca. 150 kr/år | `.no` registreres på Elevorganisasjonens organisasjonsnummer. Bør være på plass før prompt 3. |
@@ -123,10 +123,10 @@ Alle tjenestene over er databehandlere og skal stå i personvernerklæringen (§
     - Manifest, ikoner og et offline-skall, så appen kan installeres.
 16. **Sikkerhet, tester og klargjøring for piloten** (§17, §19, §22)
     - Begrensning av antall forespørsler, Turnstile og beskyttelse mot opplisting av kontoer.
-    - CSP-headere.
+    - CSP som `<meta>`-tagg i `index.html`. Når domenet er på plass: Cloudflare-proxy foran GitHub Pages med HSTS, `frame-ancestors`/`X-Frame-Options` og `Permissions-Policy` som headere.
     - Tilgjengelighetstester med axe og Playwright, og ende-til-ende-tester av akseptansekriteriene i §22.
     - Nattlig backup og en dokumentert gjenopprettingstest.
-    - Sentry, produksjonsoppsett på Cloudflare Pages og import av pilotskolene.
+    - Sentry, produksjonsoppsett på GitHub Pages med eget domene og import av pilotskolene.
 
 ### Under piloten
 
@@ -160,8 +160,8 @@ Feide-innlogging planlegges senere og er ikke med her.
 > 3. **Én byggekjede:**
 >    - Fjern vinext, `@openai/sites-vite-plugin`, Cloudflare Workers/wrangler, `next.config.ts`, `.openai/` og Next-oppsettet i `app/`.
 >    - Appen skal være en ren Vite + React SPA med hash-routing, basert på `vite.pages.config.ts`, med `npm run dev`, `build` og `preview`.
->    - Legg til `public/_headers` og SPA-oppsett for Cloudflare Pages, og dokumenter i README hvordan repoet kobles til Cloudflare Pages.
->    - Bytt miljøvariablene fra `NEXT_PUBLIC_` til `VITE_`.
+>    - Behold publiseringen til GitHub Pages via `.github/workflows/static.yml`, oppdatert til den nye byggekommandoen.
+>    - Bytt miljøvariablene fra `NEXT_PUBLIC_` til `VITE_`, og legg de offentlige Supabase-verdiene inn som GitHub Actions-variabler når prosjektet finnes.
 > 4. **Del opp** `components/elevradsnett-app.tsx` i én fil per visning under `components/views/`, og legg felles komponenter for seg.
 > 5. **Tjenestelag:**
 >    - Ingen komponent skal importere `lib/demo-data` direkte.
