@@ -13,7 +13,7 @@ function fakeClient(rpcs:Record<string,unknown>, userId:string|null = 'u1') {
   };
   const client = {
     auth,
-    rpc:async(name:string,args?:unknown)=>{ calls.push({ name,args }); const value = rpcs[name]; return value instanceof Error ? { data:null, error:{ message:value.message } } : { data:value ?? null, error:null }; },
+    rpc:async(name:string,args?:unknown)=>{ calls.push({ name,args }); const value = rpcs[name]; return value instanceof Error ? { data:null, error:{ message:value.message, code:(value as Error & { code?:string }).code } } : { data:value ?? null, error:null }; },
     storage:{ from:()=>({ getPublicUrl:(path:string)=>({ data:{ publicUrl:`https://cdn.test/${path}` } }) }) },
     // Representasjonen s1-m1 gjelder organisasjonen s1 (memberships leses med RLS).
     from:()=>({ select:()=>({ eq:()=>({ single:async()=>({ data:{ organization_id:'s1' }, error:null }) }) }) }),
@@ -170,6 +170,53 @@ describe('SupabaseElevradsnettService: verv og rettigheter',()=>{
     expect(calls.at(-3)?.args).toEqual({ p_user:'u2', p_org:'s1', p_title:'Nestleder' });
     expect(calls.at(-2)?.args).toMatchObject({ p_user:'u2', p_org:'s1', p_role:'content_manager', p_starts:expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
     await expect(service.assignRole({ organizationId:'s1', userId:'u2', role:'eier' as never })).rejects.toThrow('Ukjent rettighet');
+  });
+});
+
+describe('SupabaseElevradsnettService: arrangementer og CV',()=>{
+  const row = { id:'e1', organizer_id:'c1', organizer_name:'Elevorganisasjonen i Oslo', title:'Fylkessamling', summary:null, description:'To dager.', category:'samling',
+    starts_at:'2026-10-11T10:00:00Z', ends_at:'2026-10-12T14:00:00Z', place:null, digital:true, digital_url:null, registration_deadline:'2026-10-01T21:59:00Z',
+    capacity:80, price_label:null, seats_per_organization:2, status:'published', audience:'county', image_path:'c1/events/e1/a.webp',
+    registered:3, interested:5, interested_by_me:true, can_edit:false };
+  it('viser arrangementer med bilde, målgruppe og egen interesse fra serveren',async()=>{
+    const { client,calls } = fakeClient({ list_events:[row] });
+    const [event] = await new SupabaseElevradsnettService(client).listEvents();
+    expect(calls[0].name).toBe('list_events');
+    expect(event).toMatchObject({ id:'e1', hostId:'c1', start:'11.–12. oktober 2026', place:'Digitalt (lenke)', digitalUrl:undefined, deadline:'1. oktober',
+      deadlineAt:'2026-10-01T21:59:00Z', audience:'Elevråd i fylket', audienceCode:'county', interestedByMe:true, canEdit:false, imageUrl:'https://cdn.test/c1/events/e1/a.webp' });
+  });
+  it('faller tilbake til list_public_events før migrasjonen er kjørt',async()=>{
+    const missing = Object.assign(new Error('Could not find the function public.list_events'),{ code:'PGRST202' });
+    const { client,calls } = fakeClient({ list_events:missing, list_public_events:[{ ...row, image_path:undefined }] });
+    const [event] = await new SupabaseElevradsnettService(client).listEvents();
+    expect(calls.map(c=>c.name)).toEqual(['list_events','list_public_events']);
+    expect(event).toMatchObject({ id:'e1', canEdit:false, interestedByMe:false, imageUrl:undefined });
+  });
+  it('sender tomme felt som null til save_event',async()=>{
+    const { client,calls } = fakeClient({ save_event:'e2' });
+    const id = await new SupabaseElevradsnettService(client).saveEvent({ organizerId:'c1', title:'Kurs', description:'Om møteledelse.', category:'kurs',
+      startsAt:'2030-01-01T16:00:00.000Z', endsAt:'2030-01-01T19:00:00.000Z', location:'Oslo', digitalUrl:'', summary:' ', audience:'public', status:'draft' });
+    expect(id).toBe('e2');
+    expect(calls[0].args).toMatchObject({ p_event:null, p_organizer:'c1', p_summary:null, p_place:'Oslo', p_digital_url:null, p_capacity:null, p_registration_deadline:null, p_status:'draft' });
+  });
+  it('gjør om påmelding og CV fra serveren',async()=>{
+    const { client } = fakeClient({
+      get_event_participation:{ interested:false, can_edit:true,
+        invitations:[{ delegate_id:'d1', registration_id:'r1', organization_id:'s1', organization_name:'Elvebakken vgs', status:'invited', office_title:null }],
+        organizations:[{ organization_id:'s1', organization_name:'Elvebakken vgs', type:'school', allowed:true, registration_id:'r1', status:'registered',
+          delegates:[{ id:'d1', user_id:'u1', display_name:'Ida Halvorsen', status:'invited', office_title:'Leder' }] }], attendance:[] },
+      get_person_cv:{ id:'u1', display_name:'Ida Halvorsen', avatar_path:null, school_name:'Elvebakken vgs', active:true, offices:[], invitations:[],
+        events:[{ event_id:'e0', title:'Elevtinget', starts_at:'2026-03-12T11:00:00Z', category:'landsmote', organizer_name:'EO', organization_id:'s1', organization_name:'Elvebakken vgs', office_title:null, elevtinget:true }] },
+    });
+    const service = new SupabaseElevradsnettService(client);
+    const p = await service.getEventParticipation('e1');
+    expect(p).toMatchObject({ canEdit:true, invitations:[{ delegateId:'d1', officeTitle:undefined }], attendance:[] });
+    expect(p.organizations[0].delegates[0]).toEqual({ id:'d1', userId:'u1', name:'Ida Halvorsen', status:'invited', officeTitle:'Leder' });
+    expect(await service.getPersonCv('u1')).toMatchObject({ initials:'IH', stars:1, events:[{ eventId:'e0', category:'landsmote', officeTitle:undefined }] });
+  });
+  it('oversetter feil fra påmeldingen',()=>{
+    expect(toNorwegianError({ message:'no seats left' }).message).toBe('Organisasjonen har ingen ledige plasser.');
+    expect(toNorwegianError({ message:'outside audience' }).message).toContain('målgruppen');
   });
 });
 

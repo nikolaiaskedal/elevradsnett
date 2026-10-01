@@ -1,17 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { audienceLabel, initialsOf } from '@/lib/domain/labels';
-import { formatDayMonth, formatEventSpan, formatRelative } from '@/lib/domain/time';
-import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, CurrentUser, Event, EventCategory, FriendConnection, GrantStatus, Message, MyRole, Organization, OrganizationRoleEntry, OrganizationStatus, OrganizationType, Post, PostDraft, PostRevision, PublicOfficer, Representation, SchoolAdminRequest, SchoolHistoryEntry, SchoolLevelTarget, Session } from '@/lib/domain/types';
-import { assignPublicOfficeSchema, assignRoleSchema, avatarSchema, changeSchoolSchema, commentSchema, decideFriendRequestSchema, decideSchoolAdminRequestSchema, editPostSchema, eventResponseInputSchema, friendRequestSchema, idSchema, isoDate, messageSchema, onboardingSchema, publishPostSchema, requestLoginCodeSchema, saveDraftSchema, schoolAdminRequestSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema } from '@/lib/domain/validation';
+import { presentEvent, toEventCategory } from '@/lib/domain/events';
+import { initialsOf } from '@/lib/domain/labels';
+import { formatDayMonth, formatRelative } from '@/lib/domain/time';
+import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, CurrentUser, DelegateCandidate, DelegateStatus, Event, EventOrganizer, EventParticipation, GrantStatus, Message, MyRole, Organization, OrganizationCvEntry, OrganizationRoleEntry, OrganizationStatus, OrganizationType, PersonCv, Post, RegistrationStatus, PublicOfficer, Representation, SchoolAdminRequest, SchoolHistoryEntry, Session, FriendConnection, PostDraft, PostRevision, SchoolLevelTarget } from '@/lib/domain/types';
+import { assignPublicOfficeSchema, assignRoleSchema, avatarSchema, addDelegateSchema, attendanceSchema, changeSchoolSchema, commentSchema, decideSchoolAdminRequestSchema, delegationResponseSchema, eventImageSchema, eventInputSchema, eventInterestSchema, eventRegistrationSchema, eventStatusChangeSchema, idSchema, isoDate, messageSchema, onboardingSchema, publishPostSchema, requestLoginCodeSchema, schoolAdminRequestSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema, decideFriendRequestSchema, editPostSchema, friendRequestSchema, saveDraftSchema } from '@/lib/domain/validation';
 import type { Database } from '@/lib/supabase/database.types';
-import { NotImplementedError, type AddCommentInput, type AssignPublicOfficeInput, type AssignRoleInput, type ChangeSchoolInput, type DecideFriendRequestInput, type DecideSchoolAdminRequestInput, type EditPostInput, type ElevradsnettService, type FriendRequestInput, type SaveDraftInput, type OnboardingInput, type SchoolAdminRequestInput, type PublishPostInput, type RequestLoginCodeInput, type SendMessageInput, type SetEventResponseInput, type UpdateProfileInput, type VerifyLoginCodeInput, type VoteInput } from './contracts';
+import { NotImplementedError, type AddCommentInput, type AddDelegateInput, type AttendanceInput, type DelegationResponseInput, type EventInput, type EventInterestInput, type EventRegistrationInput, type EventStatusChangeInput, type AssignPublicOfficeInput, type AssignRoleInput, type ChangeSchoolInput, type DecideSchoolAdminRequestInput, type ElevradsnettService, type OnboardingInput, type SchoolAdminRequestInput, type PublishPostInput, type RequestLoginCodeInput, type SendMessageInput, type UpdateProfileInput, type VerifyLoginCodeInput, type VoteInput, type DecideFriendRequestInput, type EditPostInput, type FriendRequestInput, type SaveDraftInput } from './contracts';
 
 type Client = SupabaseClient<Database>;
 type Rpc<Name extends keyof Database['public']['Functions']> = Database['public']['Functions'][Name]['Returns'];
 type PostCardRow = Rpc<'list_post_cards'>[number];
 type DraftRow = Rpc<'list_post_drafts'>[number];
 type OrganizationRow = Rpc<'list_public_organizations'>[number];
-type EventRow = Rpc<'list_public_events'>[number];
+type EventRow = Rpc<'list_events'>[number];
 type SessionRow =
   | { status:'anonymous' }
   | { status:'onboarding'; email:string }
@@ -20,6 +21,24 @@ type SessionRow =
       representations:{ id:string; organization_id:string; name:string; type:OrganizationType; organization_status?:OrganizationStatus; public_title:string; can_publish:boolean }[] };
 
 const AVATAR_BUCKET = 'public-avatars';
+const CONTENT_BUCKET = 'public-content';
+/** Valgfrie argumenter sendes som null. De genererte typene kjenner ikke til at parameterne kan være null. */
+const orNull = <T,>(value:T|undefined)=>(value ?? null) as T;
+
+type DelegateJson = { id:string; user_id:string; display_name:string; status:DelegateStatus; office_title:string|null };
+type ParticipationJson = {
+  interested:boolean; can_edit:boolean;
+  invitations:{ delegate_id:string; registration_id:string; organization_id:string; organization_name:string; status:DelegateStatus; office_title:string|null }[];
+  organizations:{ organization_id:string; organization_name:string; type:OrganizationType; allowed:boolean; registration_id:string|null; status:string|null; delegates:DelegateJson[]|null }[];
+  attendance:{ registration_id:string; organization_id:string; organization_name:string; status:string; delegates:DelegateJson[]|null }[]|null;
+};
+type PersonCvJson = {
+  id:string; display_name:string; avatar_path:string|null; school_name:string|null; active:boolean;
+  offices:{ id:string; organization_id:string; organization_name:string; title:string; start_date:string; end_date:string|null; active:boolean }[];
+  events:{ event_id:string; title:string; starts_at:string; category:string; organizer_name:string; organization_id:string; organization_name:string; office_title:string|null; elevtinget:boolean }[];
+  invitations:{ delegate_id:string; event_id:string; title:string; starts_at:string; organization_name:string; status:DelegateStatus }[];
+};
+const toDelegate = (d:DelegateJson)=>({ id:d.id, userId:d.user_id, name:d.display_name, status:d.status, officeTitle:d.office_title ?? undefined });
 
 /** Feilmeldinger fra databasen og Supabase Auth, oversatt til norsk. Ukjente feil får en generell tekst. */
 const serverMessages:Record<string,string> = {
@@ -61,6 +80,21 @@ const serverMessages:Record<string,string> = {
   'already connected':'Skolene er allerede venneråd.',
   'request already sent':'Dere har allerede sendt en forespørsel til denne skolen.',
   'connection not active':'Vennerådet er allerede avsluttet.',
+  'invalid event':'Arrangementet mangler noe eller har ugyldige verdier. Sjekk feltene.',
+  'invalid event date':'Sjekk tidspunktene: starten kan ikke være passert, slutten må være etter starten, og fristen før starten.',
+  'invalid organizer':'Arrangøren kan ikke endres.',
+  'event locked':'Avlyste og avsluttede arrangementer kan ikke endres.',
+  'invalid status':'Arrangementet kan ikke få denne statusen nå.',
+  'capacity below registrations':'Kapasiteten kan ikke være lavere enn antall påmeldte.',
+  'invalid image':'Bildet kunne ikke lagres. Prøv et annet bilde.',
+  'outside audience':'Organisasjonen er utenfor målgruppen for arrangementet.',
+  'registration not active':'Organisasjonen er ikke påmeldt.',
+  'person not eligible':'Personen kan ikke være delegat for denne organisasjonen.',
+  'delegate already added':'Personen er allerede delegat.',
+  'no seats left':'Organisasjonen har ingen ledige plasser.',
+  'delegate not found':'Fant ikke delegaten.',
+  'delegate not confirmed':'Delegaten har ikke bekreftet at hen kommer.',
+  'event not started':'Oppmøte kan bekreftes når arrangementet har startet.',
 };
 export function toNorwegianError(error:unknown, fallback = 'Noe gikk galt. Prøv igjen.'):Error {
   if (error instanceof NotImplementedError) return error;
@@ -162,8 +196,15 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
     return rows.map(toPost);
   }
   async listEvents():Promise<Event[]> {
-    const rows = await run((await this.client).rpc('list_public_events'),'Kunne ikke hente arrangementene.');
-    return rows.map(toEvent);
+    const client = await this.client;
+    const { data,error } = await client.rpc('list_events');
+    // Til migrasjonen fra prompt 9 er kjørt i prosjektet, finnes bare list_public_events (uten bilde, interesse og utkast).
+    if (error && (error.code==='PGRST202' || /could not find the function/i.test(error.message))) {
+      const old = await run(client.rpc('list_public_events'),'Kunne ikke hente arrangementene.');
+      return old.map(r=>toEvent({ ...r, digital_url:null, image_path:null, interested_by_me:false, can_edit:false } as unknown as EventRow));
+    }
+    if (error) throw toNorwegianError(error,'Kunne ikke hente arrangementene.');
+    return (data ?? []).map(r=>toEvent(r,r.image_path?client.storage.from(CONTENT_BUCKET).getPublicUrl(r.image_path).data.publicUrl:undefined));
   }
   async listConversations():Promise<Conversation[]> {
     if (!await this.userId()) return [];
@@ -361,11 +402,106 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
     await run((await this.client).rpc('end_friend_connection',{ p_connection:idSchema.parse(connectionId) }),'Kunne ikke avslutte vennerådet.');
   }
 
-  // Organisasjoner og arrangementer
+  // Organisasjoner
   async setFollow():Promise<void> { throw new NotImplementedError('setFollow'); }
-  async setEventResponse(input:SetEventResponseInput) {
-    const parsed = eventResponseInputSchema.parse(input);
-    await run((await this.client).rpc('set_event_response',{ p_event:parsed.eventId, p_organization:parsed.organizationId, p_response:parsed.response ?? 'none' }));
+
+  // Arrangementer
+  async listEventOrganizers():Promise<EventOrganizer[]> {
+    if (!await this.userId()) return [];
+    const rows = await run((await this.client).rpc('list_my_event_organizers'),'Kunne ikke hente arrangørene.');
+    return rows.map(r=>({ id:r.id, name:r.name, type:r.type, county:r.county }));
+  }
+  async saveEvent(input:EventInput) {
+    const e = eventInputSchema.parse(input);
+    return run((await this.client).rpc('save_event',{ p_event:orNull(e.id), p_organizer:e.organizerId, p_title:e.title, p_summary:orNull(e.summary), p_description:e.description,
+      p_category:e.category, p_starts_at:e.startsAt, p_ends_at:e.endsAt, p_place:orNull(e.location), p_digital_url:orNull(e.digitalUrl),
+      p_registration_deadline:orNull(e.registrationDeadline), p_capacity:orNull(e.capacity), p_seats_per_organization:orNull(e.seatsPerOrganization),
+      p_price_label:orNull(e.price), p_audience:e.audience, p_status:e.status }),'Kunne ikke lagre arrangementet.');
+  }
+  async setEventStatus(input:EventStatusChangeInput) {
+    const parsed = eventStatusChangeSchema.parse(input);
+    await run((await this.client).rpc('set_event_status',{ p_event:parsed.eventId, p_status:parsed.status }));
+  }
+  async setEventImage(eventId:string,image:Blob|null) {
+    const client = await this.client;
+    const bucket = client.storage.from(CONTENT_BUCKET);
+    const event = (await this.listEvents()).find(e=>e.id===idSchema.parse(eventId));
+    if (!event) throw new Error('Fant ikke arrangementet.');
+    let path:string|undefined;
+    if (image) {
+      const { type } = eventImageSchema.parse({ type:image.type, size:image.size });
+      // Stien må ligge under arrangøren, så storage-regelen og set_event_image godtar den.
+      path = `${event.hostId}/events/${event.id}/${crypto.randomUUID()}.${type==='image/jpeg'?'jpg':type.split('/')[1]}`;
+      const upload = await bucket.upload(path,image,{ contentType:type, upsert:false, cacheControl:'31536000' });
+      if (upload.error) throw toNorwegianError(upload.error,'Kunne ikke laste opp bildet. Prøv igjen.');
+    }
+    const { data:previous,error } = await client.rpc('set_event_image',{ p_event:event.id, p_path:orNull(path) });
+    if (error) { if (path) await bucket.remove([path]); throw toNorwegianError(error); }
+    // Forrige bilde slettes. Feiler det, blir bare en ubrukt fil liggende.
+    if (previous?.startsWith(`${event.hostId}/events/${event.id}/`)) await bucket.remove([previous]);
+    return path?bucket.getPublicUrl(path).data.publicUrl:undefined;
+  }
+  async setEventInterest(input:EventInterestInput) {
+    const parsed = eventInterestSchema.parse(input);
+    await run((await this.client).rpc('set_event_interest',{ p_event:parsed.eventId, p_interested:parsed.interested }));
+  }
+  async registerForEvent(input:EventRegistrationInput) {
+    const parsed = eventRegistrationSchema.parse(input);
+    const status = await run((await this.client).rpc('register_for_event',{ p_event:parsed.eventId, p_org:parsed.organizationId, p_register:parsed.registered }),'Kunne ikke endre påmeldingen.');
+    return status as 'registered'|'waitlisted'|'cancelled';
+  }
+  async getEventParticipation(eventId:string):Promise<EventParticipation> {
+    const row = await run((await this.client).rpc('get_event_participation',{ p_event:idSchema.parse(eventId) }),'Kunne ikke hente påmeldingene.') as unknown as ParticipationJson;
+    return {
+      interested:row.interested, canEdit:row.can_edit,
+      invitations:row.invitations.map(i=>({ delegateId:i.delegate_id, registrationId:i.registration_id, organizationId:i.organization_id, organizationName:i.organization_name,
+        status:i.status, officeTitle:i.office_title ?? undefined })),
+      organizations:row.organizations.map(o=>({ organizationId:o.organization_id, organizationName:o.organization_name, type:o.type, allowed:o.allowed,
+        registrationId:o.registration_id ?? undefined, status:(o.status ?? undefined) as RegistrationStatus|undefined, delegates:(o.delegates ?? []).map(toDelegate) })),
+      attendance:row.attendance?row.attendance.map(a=>({ registrationId:a.registration_id, organizationId:a.organization_id, organizationName:a.organization_name,
+        status:a.status as RegistrationStatus, delegates:(a.delegates ?? []).map(toDelegate) })):null,
+    };
+  }
+  async searchDelegateCandidates(input:{ registrationId:string; query:string }):Promise<DelegateCandidate[]> {
+    const rows = await run((await this.client).rpc('list_delegate_candidates',{ p_registration:idSchema.parse(input.registrationId), p_query:input.query.trim().slice(0,100) }),'Kunne ikke søke etter personer.');
+    return rows.map(r=>({ id:r.id, name:r.display_name, officeTitle:r.office_title ?? undefined }));
+  }
+  async addEventDelegate(input:AddDelegateInput) {
+    const parsed = addDelegateSchema.parse(input);
+    await run((await this.client).rpc('add_event_delegate',{ p_registration:parsed.registrationId, p_user:parsed.userId }),'Kunne ikke melde på delegaten.');
+  }
+  async removeEventDelegate(delegateId:string) {
+    await run((await this.client).rpc('remove_event_delegate',{ p_delegate:idSchema.parse(delegateId) }),'Kunne ikke fjerne delegaten.');
+  }
+  async respondToDelegation(input:DelegationResponseInput) {
+    const parsed = delegationResponseSchema.parse(input);
+    await run((await this.client).rpc('respond_event_delegation',{ p_delegate:parsed.delegateId, p_accept:parsed.accept }),'Kunne ikke lagre svaret.');
+  }
+  async confirmAttendance(input:AttendanceInput) {
+    const parsed = attendanceSchema.parse(input);
+    await run((await this.client).rpc('confirm_event_attendance',{ p_delegate:parsed.delegateId, p_attended:parsed.attended }),'Kunne ikke lagre oppmøtet.');
+  }
+  async confirmAllAttendance(eventId:string) {
+    return run((await this.client).rpc('confirm_all_event_attendance',{ p_event:idSchema.parse(eventId) }),'Kunne ikke lagre oppmøtet.');
+  }
+
+  // CV
+  async getPersonCv(userId:string):Promise<PersonCv|null> {
+    const row = await run((await this.client).rpc('get_person_cv',{ p_user:idSchema.parse(userId) }),'Kunne ikke hente CV-en.') as unknown as PersonCvJson|null;
+    if (!row) return null;
+    const events = row.events.map(e=>({ eventId:e.event_id, title:e.title, startsAt:e.starts_at, category:toEventCategory(e.category), organizerName:e.organizer_name,
+      organizationId:e.organization_id, organizationName:e.organization_name, officeTitle:e.office_title ?? undefined, elevtinget:e.elevtinget }));
+    return {
+      id:row.id, name:row.display_name, initials:initialsOf(row.display_name), avatarUrl:await this.avatarUrl(row.avatar_path), schoolName:row.school_name ?? undefined, active:row.active,
+      offices:row.offices.map(o=>({ id:o.id, organizationId:o.organization_id, organizationName:o.organization_name, title:o.title, startDate:o.start_date, endDate:o.end_date, active:o.active })),
+      events, stars:events.filter(e=>e.elevtinget).length,
+      invitations:row.invitations.map(i=>({ delegateId:i.delegate_id, eventId:i.event_id, title:i.title, startsAt:i.starts_at, organizationName:i.organization_name, status:i.status })),
+    };
+  }
+  async getOrganizationCv(organizationId:string):Promise<OrganizationCvEntry[]> {
+    const rows = await run((await this.client).rpc('get_organization_cv',{ p_org:idSchema.parse(organizationId) }),'Kunne ikke hente CV-en.');
+    return rows.map(r=>({ eventId:r.event_id, title:r.title, startsAt:r.starts_at, category:toEventCategory(r.category), organizerName:r.organizer_name, elevtinget:r.elevtinget,
+      userId:r.user_id ?? undefined, name:r.display_name, officeTitle:r.office_title ?? undefined }));
   }
 
   // Meldinger
@@ -409,15 +545,9 @@ function toDraft(r:DraftRow):PostDraft {
     updatedAt:r.updated_at, actorName:r.actor_name ?? '' };
 }
 
-const categories:EventCategory[] = ['landsmote','kurs','samling','mote','digitalt','annet'];
-function toEvent(r:EventRow):Event {
-  const span = formatEventSpan(r.starts_at,r.ends_at);
-  return {
-    id:r.id, hostId:r.organizer_id, host:r.organizer_name, title:r.title, summary:r.summary ?? '', description:r.description,
-    category:categories.includes(r.category as EventCategory)?r.category as EventCategory:'annet',
-    startsAt:r.starts_at, start:span.start, end:span.end, place:r.digital?'Digitalt (lenke)':r.place ?? '', digital:r.digital,
-    deadline:r.registration_deadline?formatDayMonth(r.registration_deadline):undefined, price:r.price_label ?? undefined,
-    seatsPerOrganization:r.seats_per_organization ?? undefined, capacity:r.capacity ?? 0, registered:r.registered, interested:r.interested,
-    status:r.status, audience:audienceLabel[r.audience],
-  };
+function toEvent(r:EventRow,imageUrl?:string):Event {
+  return presentEvent({ id:r.id, organizerId:r.organizer_id, organizerName:r.organizer_name, title:r.title, summary:r.summary, description:r.description, category:r.category,
+    startsAt:r.starts_at, endsAt:r.ends_at, location:r.place, digital:r.digital, digitalUrl:r.digital_url, registrationDeadline:r.registration_deadline,
+    capacity:r.capacity, priceLabel:r.price_label, seatsPerOrganization:r.seats_per_organization, status:r.status, audience:r.audience, imageUrl,
+    registered:r.registered, interested:r.interested, interestedByMe:r.interested_by_me, canEdit:r.can_edit });
 }

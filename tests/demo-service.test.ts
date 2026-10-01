@@ -195,16 +195,6 @@ describe('DemoElevradsnettService: organisasjoner og arrangementer',()=>{
     await service.setFollow({ organizationId:'kuben', following:false });
     expect(await kuben()).toMatchObject({ following:false, followers:start });
   });
-  it('registrerer, bytter og fjerner arrangementsrespons',async()=>{
-    const event = async()=>(await service.listEvents()).find(e=>e.id==='skolering')!;
-    const start = await event();
-    await service.setEventResponse({ eventId:'skolering', organizationId:'elvebakken', response:'going' });
-    expect((await event()).registered).toBe(start.registered+1);
-    await service.setEventResponse({ eventId:'skolering', organizationId:'elvebakken', response:'interested' });
-    expect(await event()).toMatchObject({ registered:start.registered, interested:start.interested+1 });
-    await service.setEventResponse({ eventId:'skolering', organizationId:'elvebakken', response:null });
-    expect(await event()).toMatchObject({ registered:start.registered, interested:start.interested });
-  });
   it('bytter aktiv representasjon bare til egne representasjoner',async()=>{
     await service.switchRepresentation('rep-county');
     expect(signedIn(await service.getSession()).activeRepresentationId).toBe('rep-county');
@@ -417,5 +407,131 @@ describe('createService',()=>{
   });
   it('starter demoen uten innlogging',async()=>{
     expect(await createService({}).getSession()).toEqual({ status:'anonymous' });
+  });
+});
+
+/** Et tidspunkt om et antall dager, som ISO-tekst. */
+const at = (days:number, hours = 0)=>new Date(Date.now()+days*86400000+hours*3600000).toISOString();
+const newEvent = (overrides:Partial<Parameters<DemoElevradsnettService['saveEvent']>[0]> = {})=>({
+  organizerId:'oslo-fylke', title:'Testkurs', description:'Et kurs for elevråd.', category:'kurs' as const, startsAt:at(10), endsAt:at(10,3),
+  location:'Oslo', audience:'county' as const, status:'published' as const, ...overrides });
+
+describe('DemoElevradsnettService: arrangementer (§8)',()=>{
+  it('lister arrangører bare der brukeren er styreadministrator',async()=>{
+    expect((await service.listEventOrganizers()).map(o=>o.id)).toEqual(['oslo-fylke','oslo-sentrum']);
+    await expect(service.saveEvent(newEvent({ organizerId:'elvebakken' }))).rejects.toThrow('ikke tilgang');
+    await expect(service.saveEvent(newEvent({ organizerId:'eo' }))).rejects.toThrow('ikke tilgang');
+  });
+  it('validerer arrangementet før det lagres',async()=>{
+    await expect(service.saveEvent(newEvent({ title:'X' }))).rejects.toThrow('minst tre tegn');
+    await expect(service.saveEvent(newEvent({ endsAt:at(9) }))).rejects.toThrow('Slutten må være etter starten');
+    await expect(service.saveEvent(newEvent({ location:undefined }))).rejects.toThrow('Oppgi sted eller lenke');
+    await expect(service.saveEvent(newEvent({ location:undefined, digitalUrl:'http://usikker.example' }))).rejects.toThrow('https://');
+    await expect(service.saveEvent(newEvent({ registrationDeadline:at(11) }))).rejects.toThrow('fristen');
+    await expect(service.saveEvent(newEvent({ startsAt:at(-1), endsAt:at(1) }))).rejects.toThrow('starten kan ikke være passert');
+  });
+  it('viser utkast bare for arrangøren, og et publisert arrangement kan ikke bli utkast igjen',async()=>{
+    const id = await service.saveEvent(newEvent({ status:'draft' }));
+    expect((await service.listEvents()).find(e=>e.id===id)).toMatchObject({ status:'draft', canEdit:true, audienceCode:'county' });
+    await service.signOut();
+    expect((await service.listEvents()).some(e=>e.id===id)).toBe(false);
+    await service.requestLoginCode({ email:DEMO_EMAIL });
+    await service.verifyLoginCode({ email:DEMO_EMAIL, code:DEMO_LOGIN_CODE });
+    await service.saveEvent(newEvent({ id, title:'Testkurs i Oslo' }));
+    expect((await service.listEvents()).find(e=>e.id===id)).toMatchObject({ status:'published', title:'Testkurs i Oslo' });
+    await expect(service.saveEvent(newEvent({ id, status:'draft' }))).rejects.toThrow('denne statusen');
+  });
+  it('holder personlig interesse adskilt fra påmelding',async()=>{
+    const event = async()=>(await service.listEvents()).find(e=>e.id==='skolering')!;
+    const start = await event();
+    await service.setEventInterest({ eventId:'skolering', interested:true });
+    expect(await event()).toMatchObject({ interested:start.interested+1, interestedByMe:true, registered:start.registered });
+    await service.registerForEvent({ eventId:'skolering', organizationId:'elvebakken', registered:true });
+    expect(await event()).toMatchObject({ interested:start.interested+1, registered:start.registered+1 });
+    await service.setEventInterest({ eventId:'skolering', interested:false });
+    expect(await event()).toMatchObject({ interested:start.interested, interestedByMe:false, registered:start.registered+1 });
+  });
+  it('setter organisasjoner på venteliste når det er fullt, og rykker opp ved avmelding',async()=>{
+    const id = await service.saveEvent(newEvent({ capacity:1 }));
+    expect(await service.registerForEvent({ eventId:id, organizationId:'elvebakken', registered:true })).toBe('registered');
+    expect(await service.registerForEvent({ eventId:id, organizationId:'oslo-sentrum', registered:true })).toBe('waitlisted');
+    await service.registerForEvent({ eventId:id, organizationId:'elvebakken', registered:false });
+    const p = await service.getEventParticipation(id);
+    expect(p.organizations.find(o=>o.organizationId==='oslo-sentrum')?.status).toBe('registered');
+    expect(p.organizations.find(o=>o.organizationId==='elvebakken')?.status).toBe('cancelled');
+  });
+  it('stopper påmelding utenfor målgruppen og uten rettighet',async()=>{
+    const national = (await service.listEvents()).find(e=>e.id==='skolering')!;
+    expect(national.audienceCode).toBe('county');
+    await expect(service.registerForEvent({ eventId:'skolering', organizationId:'kuben', registered:true })).rejects.toThrow('ikke tilgang');
+  });
+  it('melder på delegater som varsles og må bekrefte selv, med grense per organisasjon',async()=>{
+    const id = await service.saveEvent(newEvent({ seatsPerOrganization:1 }));
+    await service.registerForEvent({ eventId:id, organizationId:'elvebakken', registered:true });
+    const registrationId = (await service.getEventParticipation(id)).organizations.find(o=>o.organizationId==='elvebakken')!.registrationId!;
+    const candidates = await service.searchDelegateCandidates({ registrationId, query:'sivert' });
+    expect(candidates).toEqual([expect.objectContaining({ name:'Sivert Aune', officeTitle:'Nestleder' })]);
+    await service.addEventDelegate({ registrationId, userId:candidates[0].id });
+    expect(service.notifications.at(-1)).toMatchObject({ userId:candidates[0].id, type:'event.delegate_invited', link:`#/arrangementer/${id}` });
+    await expect(service.addEventDelegate({ registrationId, userId:await personId('Rania') })).rejects.toThrow('ingen ledige plasser');
+    await expect(service.searchDelegateCandidates({ registrationId:'finnes-ikke', query:'' })).rejects.toThrow('ikke tilgang');
+    const delegate = (await service.getEventParticipation(id)).organizations.find(o=>o.organizationId==='elvebakken')!.delegates[0];
+    expect(delegate).toMatchObject({ name:'Sivert Aune', status:'invited', officeTitle:'Nestleder' });
+    await expect(service.respondToDelegation({ delegateId:delegate.id, accept:true })).rejects.toThrow('Fant ikke delegaten');
+  });
+  it('lar Ida svare på egen invitasjon, og viser den på profilen',async()=>{
+    const cv = await service.getPersonCv('user-ida');
+    const invitation = cv!.invitations.find(i=>i.eventId==='fylkessamling')!;
+    expect(invitation.status).toBe('invited');
+    await service.respondToDelegation({ delegateId:invitation.delegateId, accept:true });
+    expect((await service.getEventParticipation('fylkessamling')).invitations[0]).toMatchObject({ status:'confirmed', organizationName:'Elvebakken vgs elevråd' });
+  });
+  it('gir CV-oppføring bare etter at arrangøren har bekreftet oppmøte',async()=>{
+    const id = await service.saveEvent(newEvent({ organizerId:'oslo-sentrum', audience:'local', startsAt:at(0,1), endsAt:at(0,3) }));
+    await service.registerForEvent({ eventId:id, organizationId:'elvebakken', registered:true });
+    const registrationId = (await service.getEventParticipation(id)).organizations.find(o=>o.organizationId==='elvebakken')!.registrationId!;
+    await service.addEventDelegate({ registrationId, userId:'user-ida' });
+    const [invitation] = (await service.getEventParticipation(id)).invitations;
+    await service.respondToDelegation({ delegateId:invitation.delegateId, accept:true });
+    const before = (await service.getPersonCv('user-ida'))!.events.length;
+    expect((await service.getOrganizationCv('elvebakken')).some(e=>e.eventId===id)).toBe(false);
+    await expect(service.confirmAttendance({ delegateId:invitation.delegateId, attended:true })).rejects.toThrow('har startet');
+    // Arrangementet starter.
+    (service as unknown as { events:{ id:string; startsAt:string }[] }).events.find(e=>e.id===id)!.startsAt = at(0,-1);
+    await expect(service.registerForEvent({ eventId:id, organizationId:'elvebakken', registered:false })).rejects.toThrow('stengt');
+    expect(await service.confirmAllAttendance(id)).toBe(1);
+    const cv = (await service.getPersonCv('user-ida'))!;
+    expect(cv.events.length).toBe(before+1);
+    expect(cv.events.find(e=>e.eventId===id)).toMatchObject({ organizationName:'Elvebakken vgs elevråd', officeTitle:'Elevrådsleder', elevtinget:false });
+    expect((await service.getOrganizationCv('elvebakken')).find(e=>e.eventId===id)).toMatchObject({ name:'Ida Halvorsen', userId:'user-ida' });
+    await service.setEventStatus({ eventId:id, status:'completed' });
+    await expect(service.saveEvent(newEvent({ id, organizerId:'oslo-sentrum' }))).rejects.toThrow('kan ikke endres');
+  });
+  it('viser verv, bekreftede arrangementer og én stjerne per Elevting på CV-en',async()=>{
+    const cv = (await service.getPersonCv('user-ida'))!;
+    expect(cv.stars).toBe(1);
+    expect(cv.events.map(e=>e.eventId)).toEqual(['fylkessamling-var','elevtinget-i-fjor']);
+    expect(cv.offices.map(o=>o.title)).toContain('Elevrådsleder');
+    expect(cv.offices.find(o=>o.title==='Elevrådsmedlem')).toMatchObject({ active:false });
+    const school = await service.getOrganizationCv('elvebakken');
+    expect(school.filter(e=>e.eventId==='elevtinget-i-fjor').map(e=>[e.name,e.officeTitle])).toEqual([['Ida Halvorsen','Elevrådsmedlem'],['Sivert Aune','Nestleder']]);
+  });
+  it('viser CV uten innlogging, men ikke invitasjoner, og ingen CV for deaktiverte personer',async()=>{
+    await service.signOut();
+    const cv = (await service.getPersonCv('user-ida'))!;
+    expect(cv.invitations).toEqual([]);
+    expect(cv.events.length).toBeGreaterThan(0);
+    expect(await service.getPersonCv('person-jonas-berg')).toBeNull();
+    expect(await service.getEventParticipation('fylkessamling')).toMatchObject({ canEdit:false, organizations:[], attendance:null });
+  });
+  it('avlyser og varsler delegatene',async()=>{
+    await service.setEventStatus({ eventId:'fylkessamling', status:'cancelled' });
+    expect(service.notifications.some(n=>n.type==='event.cancelled' && n.userId==='user-ida')).toBe(true);
+    expect((await service.listEvents()).find(e=>e.id==='fylkessamling')?.status).toBe('cancelled');
+  });
+  it('viser lenken til digitale møter bare for arrangøren og deltakerne',async()=>{
+    expect((await service.listEvents()).find(e=>e.id==='skolemiljo')?.digitalUrl).toBeUndefined();
+    await service.registerForEvent({ eventId:'skolemiljo', organizationId:'elvebakken', registered:true });
+    expect((await service.listEvents()).find(e=>e.id==='skolemiljo')?.digitalUrl).toBe('https://meet.example.invalid/skolemiljo');
   });
 });

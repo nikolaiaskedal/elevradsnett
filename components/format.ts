@@ -6,8 +6,9 @@ export { audienceLabel, initialsOf, kindLabel, orgSub } from '@/lib/domain/label
 const MONTHS = ['JAN','FEB','MAR','APR','MAI','JUN','JUL','AUG','SEP','OKT','NOV','DES'];
 export const categoryLabel:Record<EventCategory,string> = { landsmote:'Landsmøte', kurs:'Kurs', samling:'Samling', mote:'Møte', digitalt:'Digitalt', annet:'Arrangement' };
 export const formatNumber = (n:number)=>n.toLocaleString('nb-NO');
-export const eventDay = (e:Event)=>e.startsAt.slice(8,10);
-export const eventMonth = (e:Event)=>MONTHS[Number(e.startsAt.slice(5,7))-1] ?? '';
+const osloDay = (iso:string)=>new Intl.DateTimeFormat('en-GB',{ timeZone:'Europe/Oslo', day:'2-digit', month:'numeric' }).formatToParts(new Date(iso));
+export const eventDay = (e:Event)=>osloDay(e.startsAt).find(p=>p.type==='day')?.value ?? '';
+export const eventMonth = (e:Event)=>MONTHS[Number(osloDay(e.startsAt).find(p=>p.type==='month')?.value)-1] ?? '';
 const eventWhen = (e:Event)=>e.end?`${e.start}, ${e.end}`:e.start;
 export const byDate = (a:Event,b:Event)=>a.startsAt.localeCompare(b.startsAt);
 

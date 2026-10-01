@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '@/components/app-context';
 import { useService } from '@/components/service-provider';
+import { PersonCvSections } from '@/components/shared/cv';
 import { prepareAvatar } from '@/components/shared/image';
 import { SchoolPicker } from '@/components/shared/login-flow';
 import { Avatar, ConfirmButton, Status } from '@/components/shared/ui';
-import { roleLabel } from '@/lib/domain/labels';
-import type { MyRole, SchoolAdminRequest, SchoolHistoryEntry } from '@/lib/domain/types';
+import { delegateStatusLabel, roleLabel } from '@/lib/domain/labels';
+import { formatDate } from '@/lib/domain/time';
+import type { MyRole, PersonCv, SchoolAdminRequest, SchoolHistoryEntry } from '@/lib/domain/types';
 import { errorMessage, REQUEST_TEXT_MAX_LENGTH } from '@/lib/domain/validation';
 
 const monthYear = (iso:string)=>new Date(iso).toLocaleDateString('nb-NO',{ month:'long', year:'numeric' });
@@ -110,6 +112,8 @@ export function ProfileView() {
 
     <RolesSection schoolId={user.schoolId} schoolName={school?.schoolName ?? school?.name}/>
 
+    <CvSection userId={user.id}/>
+
     <section className="section-card">
       <h2>Innlogging</h2>
       <dl className="facts">
@@ -200,4 +204,38 @@ function RolesSection({schoolId,schoolName}:{schoolId:string|null;schoolName?:st
       </p>)}
     </div>}
   </section>;
+}
+
+/** Delegatinvitasjoner og egen CV (§8). Offentlige verv står i seksjonen over, så de gjentas ikke her. */
+function CvSection({userId}:{userId:string}) {
+  const service = useService();
+  const { go, notify } = useApp();
+  const [cv,setCv] = useState<PersonCv|null>(null);
+  const [error,setError] = useState('');
+  const [busy,setBusy] = useState(false);
+  const [version,setVersion] = useState(0);
+  useEffect(()=>{
+    let cancelled = false;
+    service.getPersonCv(userId).then(c=>{ if (!cancelled) { setCv(c); setError(''); } }).catch(e=>{ if (!cancelled) setError(errorMessage(e)); });
+    return ()=>{ cancelled = true; };
+  },[service,userId,version]);
+  const respond = async(delegateId:string,accept:boolean)=>{
+    setBusy(true); setError('');
+    try { await service.respondToDelegation({ delegateId, accept }); notify(accept?'Du har bekreftet at du kommer':'Du har takket nei'); setVersion(v=>v+1); }
+    catch (e) { setError(errorMessage(e)); }
+    finally { setBusy(false); }
+  };
+  return <>
+    {error&&<p className="form-error" role="alert">{error}</p>}
+    {!!cv?.invitations.length&&<section className="section-card warm">
+      <h2>Du er meldt på som delegat</h2>
+      <div className="list" style={{ gap:10 }}>{cv.invitations.map(i=><div className="row-card wrap" key={i.delegateId}>
+        <span className="grow"><button className="name-link" onClick={()=>go({ view:'event', id:i.eventId })}>{i.title}</button><small>{formatDate(i.startsAt)} · for {i.organizationName} · {delegateStatusLabel[i.status]}</small></span>
+        {i.status!=='confirmed'&&<button className="btn small primary" disabled={busy} onClick={()=>void respond(i.delegateId,true)}>Jeg kommer</button>}
+        <button className="btn small" disabled={busy} onClick={()=>void respond(i.delegateId,false)}>Kan ikke</button>
+      </div>)}</div>
+    </section>}
+    {cv&&<PersonCvSections cv={cv} showOffices={false}/>}
+    {cv&&<div className="actions"><button className="btn ghost" onClick={()=>go({ view:'person', id:userId })}>Se CV-en slik andre ser den</button></div>}
+  </>;
 }

@@ -12,8 +12,30 @@ Planen deler `docs/KRAVSPEC.md` inn i prompter som sendes én om gangen, hver i 
 | 4. Medlemskap, roller og aktiv representasjon | Ferdig | PR #14 |
 | 5. Innlegg | Ferdig, migrasjonen må kjøres i pilotprosjektet (se under) | se git-loggen |
 | 6. Bilder | Neste | – |
+| 9. Arrangementer og CV | Ferdig, migrasjonen må kjøres i pilotprosjektet (se under) | se git-loggen |
 
-Neste prompt som skal sendes er **prompt 6**. Kjør først `supabase/migrations/202610040001_innlegg.sql` i SQL Editor i pilotprosjektet, og sjekk at stegene 3–6 under *Før prompt 4* er gjort (e-postmal, OTP-innstillinger og GitHub-variablene).
+Neste prompt som skal sendes er **prompt 6**. Prompt 9 er gjort før 6–8 etter ønske. Kjør først `supabase/migrations/202610040001_innlegg.sql` og deretter `supabase/migrations/202610090001_arrangementer_cv.sql` i SQL Editor i pilotprosjektet, og sjekk at stegene 3–6 under *Før prompt 4* er gjort (e-postmal, OTP-innstillinger og GitHub-variablene).
+
+## Utgangspunkt etter prompt 9 (1. oktober 2026)
+
+Prompt 9 ble gjort før prompt 6–8, parallelt med prompt 5.
+
+- Interesse, påmelding, delegater og bekreftet oppmøte er fire adskilte ting (§8):
+  - **Interesse** er personlig (`event_interests`, `set_event_interest`) og krever bare innlogging.
+  - **Påmelding** gjelder organisasjonen (`register_for_event`), gjøres av skoleadministrator, innholdsansvarlig eller styreadministrator, og følger kapasitet (venteliste), frist og målgruppe.
+  - **Delegater** meldes på av den samme (`add_event_delegate`), varsles i `notifications` og bekrefter eller takker nei selv (`respond_event_delegation`).
+  - **Oppmøte** bekreftes bare av arrangøren etter start (`confirm_event_attendance`, `confirm_all_event_attendance`). Bare dette gir CV-oppføring.
+- Styreadministrator i et styre eller EO oppretter, redigerer, publiserer, avlyser og avslutter arrangementer (`save_event`, `set_event_status`) og laster opp bilde (`set_event_image`, `public-content/<arrangør>/events/<id>/`). Utkast vises bare for arrangøren.
+- CV: `#/person/<id>` viser offentlige verv, arrangementer med bekreftet oppmøte og én stjerne per Elevting (landsmøte hos EO nasjonalt). Profilen viser egne invitasjoner og CV. Skolens side viser deltakelse med årstall, hvem som representerte skolen og vervet deres.
+- «Skal» fra designet er erstattet av påmelding på arrangementsiden. Tagging av arrangementer i innlegg kom med prompt 5 og gir ikke CV-oppføring.
+- Varslene lagres i `notifications`, men vises ikke før prompt 11 (varsler og e-postsammendrag).
+- Demoen har datoer relativt til i dag, og Ida har deltatt på forrige Elevting og vårsamlingen og er invitert til fylkessamlingen.
+- Databasetestene ligger i `supabase/tests/arrangementer_cv.sql`.
+
+### Før neste prompt (etter prompt 9, manuelt, ca. 5 minutter)
+
+1. Kjør hele `supabase/migrations/202610090001_arrangementer_cv.sql` (etter migrasjonen fra prompt 5) i SQL Editor i Supabase. Supabase-koblingen fra Claude krever bekreftelse for SQL med `delete` (inne i funksjonene), så den kunne ikke kjøres fra økten.
+2. Til det er gjort, viser appen arrangementene via den gamle `list_public_events`, men oppretting, påmelding, delegater og CV gir feilmelding.
 
 ## Utgangspunkt etter prompt 5 (1. oktober 2026)
 
@@ -188,7 +210,7 @@ Gjør stegene i denne rekkefølgen. Settes variablene i steg 5 før migrasjonen 
    - Valg mellom anbefalt og kronologisk feed.
    - Fulltekstsøk på norsk etter skoler, styrer, personer, arrangementer og innlegg.
    - Filteret «Vis tidligere tillitsvalgte». Deaktiverte brukere og skoler skjules ellers.
-9. **Arrangementer og CV** (§8)
+9. ✅ **Arrangementer og CV** (§8). Ferdig, se *Før neste prompt (etter prompt 9)*.
    - Opprette og redigere arrangementer med status, kapasitet, frist og bilde.
    - Interesse, skolepåmelding, delegater og bekreftet deltakelse holdes adskilt. Delegatene varsles og bekrefter selv.
    - CV for personer, med verv, arrangementer og stjerner for Elevtinget.

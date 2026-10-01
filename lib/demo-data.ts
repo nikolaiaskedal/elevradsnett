@@ -1,4 +1,5 @@
-import type { Conversation, CurrentUser, Event, InternalRole, Organization, Post, PostDraft, PostRevision } from '@/lib/domain/types';
+import type { EventRecord } from '@/lib/domain/events';
+import type { Conversation, CurrentUser, InternalRole, Organization, Post, PostDraft, PostRevision } from '@/lib/domain/types';
 
 export const currentUser: CurrentUser = { id:'user-ida', name:'Ida Halvorsen', initials:'IH', schoolId:'elvebakken', email:'ida.halvorsen@example.invalid' };
 
@@ -123,19 +124,41 @@ export const initialPosts: Post[] = [
     tags:['venneråd'], commentItems:[] },
 ];
 
-export const events: Event[] = [
-  { id:'elevtinget', hostId:'eo', host:'Elevorganisasjonen', title:'Elevtinget 2027', category:'landsmote', startsAt:'2027-03-12T12:00:00+01:00', start:'12.–15. mars 2027', end:'', place:'Lillestrøm', deadline:'1. februar', capacity:500, registered:412, interested:57, imageAlt:'foto: plenumssal med delegater', status:'published', audience:'Alle medlemselevråd',
+/** Tidspunkt relativt til i dag, så demoen alltid har kommende og tidligere arrangementer. */
+const at = (days:number, hour:number, minute = 0)=>{ const d = new Date(); d.setDate(d.getDate()+days); d.setHours(hour,minute,0,0); return d.toISOString(); };
+
+/** Arrangementer i demoen. otherRegistrations og otherInterest er påmeldte og interesserte utenom demopersonene. */
+export type DemoEvent = Omit<EventRecord,'organizerName'|'registered'|'interested'|'interestedByMe'|'canEdit'> & { otherRegistrations:number; otherInterest:number };
+export const events: DemoEvent[] = [
+  { id:'elevtinget', organizerId:'eo', title:'Elevtinget 2027', category:'landsmote', startsAt:at(160,12), endsAt:at(163,15), location:'Lillestrøm', digital:false, digitalUrl:null,
+    registrationDeadline:at(120,23,59), capacity:500, seatsPerOrganization:4, priceLabel:null, status:'published', audience:'public', otherRegistrations:412, otherInterest:57, imageAlt:'foto: plenumssal med delegater',
     summary:'Elevorganisasjonens øverste organ. Hvert medlemselevråd kan sende delegater og stemme på politikken for neste år.',
-    description:'Elevtinget er der elevpolitikken vedtas. Over fire dager behandler rundt 500 delegater politisk plattform, resolusjoner og valg av nytt sentralstyre.\n\nElevrådet melder på delegater innen 1. februar. Reise og opphold dekkes av fylkeslaget.' },
-  { id:'skolering', hostId:'oslo-fylke', host:'Elevorganisasjonen i Oslo', title:'Elevrådskurs i Oslo', category:'kurs', startsAt:'2026-09-24T17:00:00+02:00', start:'24. september 2026', end:'kl. 17–20', place:'Kuben yrkesarena', price:'Gratis', capacity:120, registered:64, interested:21, imageAlt:'foto: kursdeltakere rundt bord', status:'published', audience:'Elevråd i Oslo',
+    description:'Elevtinget er der elevpolitikken vedtas. Over fire dager behandler rundt 500 delegater politisk plattform, resolusjoner og valg av nytt sentralstyre.\n\nElevrådet melder på delegater innen fristen. Reise og opphold dekkes av fylkeslaget.' },
+  { id:'skolering', organizerId:'oslo-fylke', title:'Elevrådskurs i Oslo', category:'kurs', startsAt:at(6,17), endsAt:at(6,20), location:'Kuben yrkesarena', digital:false, digitalUrl:null,
+    registrationDeadline:null, capacity:120, seatsPerOrganization:null, priceLabel:'Gratis', status:'published', audience:'county', otherRegistrations:64, otherInterest:21, imageAlt:'foto: kursdeltakere rundt bord',
     summary:'Grunnkurs for nye elevrådsmedlemmer: møteledelse, hvordan man får gjennomslag hos rektor, og hvordan man planlegger et halvår.',
     description:'Kurset er for deg som er ny i elevrådet, eller som vil ha litt mer trøkk i arbeidet. Vi går gjennom møteledelse, saksforberedelse og hvordan man faktisk får gjennomslag i skolens ledelse.\n\nGratis for medlemselevråd. Pizza etter kurset.' },
-  { id:'fylkessamling', hostId:'oslo-fylke', host:'Elevorganisasjonen i Oslo', title:'Fylkessamling Oslo', category:'samling', startsAt:'2026-10-11T12:00:00+02:00', start:'11.–12. oktober 2026', end:'', place:'Sundvolden', deadline:'1. oktober', seatsPerOrganization:2, capacity:80, registered:78, interested:12, imageAlt:'foto: gruppearbeid på samling', status:'published', audience:'Elevråd i Oslo',
+  { id:'fylkessamling', organizerId:'oslo-fylke', title:'Fylkessamling Oslo', category:'samling', startsAt:at(10,12), endsAt:at(11,15), location:'Sundvolden', digital:false, digitalUrl:null,
+    registrationDeadline:at(5,23,59), capacity:80, seatsPerOrganization:2, priceLabel:null, status:'published', audience:'county', otherRegistrations:70, otherInterest:12, imageAlt:'foto: gruppearbeid på samling',
     summary:'Helgesamling for alle elevråd i Oslo. Vi setter felles saker for året og blir kjent med elevråd på andre skoler.',
     description:'To dager med workshops, politikkverksted og sosialt program. Alle elevråd i fylket kan sende to representanter.\n\nVi vedtar fylkeslagets prioriterte saker for året, og du får møte elevråd fra 38 skoler.' },
-  { id:'skolemiljo', hostId:'eo', host:'Elevorganisasjonen', title:'Digitalt møte om skolemiljø', category:'digitalt', startsAt:'2026-10-03T18:00:00+02:00', start:'3. oktober 2026', end:'kl. 18–19', place:'Digitalt (lenke)', digital:true, capacity:500, registered:143, interested:88, imageAlt:'foto: skjermdeling i digitalt møte', status:'published', audience:'Alle elevråd',
+  { id:'skolemiljo', organizerId:'eo', title:'Digitalt møte om skolemiljø', category:'digitalt', startsAt:at(2,18), endsAt:at(2,19), location:null, digital:true, digitalUrl:'https://meet.example.invalid/skolemiljo',
+    registrationDeadline:null, capacity:500, seatsPerOrganization:null, priceLabel:null, status:'published', audience:'public', otherRegistrations:143, otherInterest:88, imageAlt:'foto: skjermdeling i digitalt møte',
     summary:'Åpent digitalt møte om kapittel 12 og hva elevrådet kan gjøre når skolemiljøsaker ikke blir tatt tak i.',
-    description:'En time på nett med korte innlegg og god tid til spørsmål. Vi går gjennom elevenes rettigheter etter opplæringslova kapittel 12, og hva elevrådet konkret kan gjøre når saker stopper opp.\n\nLenke sendes til elevrådets e-post dagen før.' },
+    description:'En time på nett med korte innlegg og god tid til spørsmål. Vi går gjennom elevenes rettigheter etter opplæringslova kapittel 12, og hva elevrådet konkret kan gjøre når saker stopper opp.\n\nLenken vises for påmeldte elevråd og delegater.' },
+  { id:'elevtinget-i-fjor', organizerId:'eo', title:'Elevtinget i fjor', category:'landsmote', startsAt:at(-200,12), endsAt:at(-197,15), location:'Lillestrøm', digital:false, digitalUrl:null,
+    registrationDeadline:null, capacity:500, seatsPerOrganization:4, priceLabel:null, status:'completed', audience:'public', otherRegistrations:430, otherInterest:0, imageAlt:'foto: plenumssal med delegater',
+    summary:'Forrige Elevting, der dagens politiske plattform ble vedtatt.', description:'Elevtinget vedtok politisk plattform og valgte sentralstyret.' },
+  { id:'fylkessamling-var', organizerId:'oslo-fylke', title:'Vårsamling Oslo', category:'samling', startsAt:at(-150,12), endsAt:at(-149,15), location:'Sundvolden', digital:false, digitalUrl:null,
+    registrationDeadline:null, capacity:80, seatsPerOrganization:2, priceLabel:null, status:'completed', audience:'county', otherRegistrations:61, otherInterest:0, imageAlt:'foto: gruppearbeid på samling',
+    summary:'Vårens samling for elevråd i Oslo.', description:'Workshops om skolemiljø og vurdering.' },
+];
+
+/** Påmeldinger og delegater i demoen: Elvebakken deltok på forrige Elevting og vårsamlingen, og er meldt på fylkessamlingen med Ida som invitert delegat. */
+export const demoRegistrations:{ eventId:string; organizationId:string; status:'registered'|'attended'; delegates:{ person:string; status:'invited'|'attended'; officeTitle:string }[] }[] = [
+  { eventId:'elevtinget-i-fjor', organizationId:'elvebakken', status:'attended', delegates:[{ person:'Ida Halvorsen', status:'attended', officeTitle:'Elevrådsmedlem' },{ person:'Sivert Aune', status:'attended', officeTitle:'Nestleder' }] },
+  { eventId:'fylkessamling-var', organizationId:'elvebakken', status:'attended', delegates:[{ person:'Ida Halvorsen', status:'attended', officeTitle:'Elevrådsmedlem' }] },
+  { eventId:'fylkessamling', organizationId:'elvebakken', status:'registered', delegates:[{ person:'Ida Halvorsen', status:'invited', officeTitle:'Elevrådsleder' }] },
 ];
 
 export const conversations: Conversation[] = [
