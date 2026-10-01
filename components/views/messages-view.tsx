@@ -28,7 +28,7 @@ const subtitle = (c:Conversation)=>c.kind==='direct'?'Direktemelding':c.kind==='
 /** Meldinger (§9): alltid mellom personer. Organisasjoner har ingen innboks; søk etter en organisasjon viser kontaktpersonene. */
 export function MessagesView({conversations,setConversations,refresh,selectedId,onSelect,error,contactOrganizationId,onContactHandled}:MessagesViewProps) {
   const service = useService();
-  const { notify } = useApp();
+  const { notify, org } = useApp();
   const [search,setSearch] = useState('');
   const [results,setResults] = useState<RecipientSearchResult[]>([]);
   const [panel,setPanel] = useState<Panel>({ kind:'chat' });
@@ -77,7 +77,7 @@ export function MessagesView({conversations,setConversations,refresh,selectedId,
         {q&&<p className="chip-label">Samtaler</p>}
         {!hits.length&&<p className="empty-note">{q?'Ingen samtaler med dette navnet.':'Du har ingen samtaler ennå. Søk etter en person, et elevråd eller et fylkeslag for å starte.'}</p>}
         {hits.map(c=><button key={c.id} className={`convo ${panel.kind==='chat'&&c.id===active?.id?'on':''}`} aria-current={panel.kind==='chat'&&c.id===active?.id} onClick={()=>open(c.id)}>
-          <Avatar initials={c.initials} tone={c.kind==='direct'?'pale':'navy'}/>
+          <Avatar initials={c.initials} tone={c.kind==='direct'?'pale':'navy'} orgType={c.organizationId?org(c.organizationId)?.type:undefined}/>
           <span className="grow"><span className="name">{c.name}{c.muted&&<span className="muted-tag">Dempet</span>}</span>
             <span className="preview">{c.lastMessage?`${c.lastMessage.mine?'Du: ':''}${c.lastMessage.text}`:'Ingen meldinger ennå'}</span></span>
           {c.unread>0&&<span className={`unread ${c.muted?'quiet-count':''}`} aria-label={`${c.unread} uleste`}>{c.unread}</span>}
@@ -92,7 +92,7 @@ export function MessagesView({conversations,setConversations,refresh,selectedId,
           <p className="chip-label">Elevråd og styrer</p>
           {!orgs.length&&<p className="empty-note">Fant ingen elevråd eller styrer.</p>}
           {orgs.map(o=><button key={o.id} className={`convo ${panel.kind==='organization'&&panel.id===o.id?'on':''}`} onClick={()=>showPanel({ kind:'organization', id:o.id })}>
-            <Avatar initials={initialsOf(o.name)}/>
+            <Avatar initials={initialsOf(o.name)} orgType={o.type}/>
             <span className="grow"><span className="name">{o.name}</span><span className="preview">{o.type==='national'?'Nasjonalt':`${kindLabel[o.type]} · ${o.county}`}</span></span>
           </button>)}
         </>}
@@ -115,7 +115,7 @@ export function MessagesView({conversations,setConversations,refresh,selectedId,
 
 function ChatPanel({conversation,setConversations,refresh,onLeft}:{conversation:Conversation;setConversations:MessagesViewProps['setConversations'];refresh:MessagesViewProps['refresh'];onLeft:()=>void}) {
   const service = useService();
-  const { go, notify } = useApp();
+  const { go, notify, org } = useApp();
   const [messages,setMessages] = useState<Message[]|null>(null);
   const [loadError,setLoadError] = useState('');
   const [draft,setDraft] = useState('');
@@ -182,7 +182,7 @@ function ChatPanel({conversation,setConversations,refresh,onLeft}:{conversation:
 
   return <>
     <div className="chat-head">
-      <Avatar initials={conversation.initials} tone={conversation.kind==='direct'?'pale':'navy'}/>
+      <Avatar initials={conversation.initials} tone={conversation.kind==='direct'?'pale':'navy'} orgType={conversation.organizationId?org(conversation.organizationId)?.type:undefined}/>
       <div className="grow">
         {conversation.organizationId?<button className="name-link" onClick={()=>go({ view:'organization', id:conversation.organizationId! })}>{conversation.name}</button>:<strong>{conversation.name}</strong>}
         <p className="sub">{subtitle(conversation)}</p>

@@ -5,7 +5,7 @@ import { byDate, contactLabel, formatNumber, initialsOf, orgLine } from '@/compo
 import { EventMini } from '@/components/shared/event-mini';
 import { NotFound } from '@/components/shared/not-found';
 import { PostCard } from '@/components/shared/post-card';
-import { Avatar, Status } from '@/components/shared/ui';
+import { Avatar, Status, usesEoAvatar } from '@/components/shared/ui';
 import type { Organization, PublicOfficer } from '@/lib/domain/types';
 
 export function OrganizationView({id,onContact}:{id:string;onContact:(o:Organization)=>void}) {
@@ -49,7 +49,7 @@ export function OrganizationView({id,onContact}:{id:string;onContact:(o:Organiza
       <div className={`org-cover ${o.type}`}/>
       <div className="org-hero-body">
         <div className="org-identity">
-          <span className={`org-avatar ${o.type==='national'?'coral':''}`} aria-hidden="true">{o.initials}</span>
+          <span className={`org-avatar ${o.type==='national'?'coral':''} ${usesEoAvatar(o.type)?'eo':''}`} aria-hidden="true">{usesEoAvatar(o.type)?<Avatar initials={o.initials} orgType={o.type} size="xl"/>:o.initials}</span>
           <div className="names"><h1>{o.name}</h1><p>{orgLine(o)}</p></div>
           {o.status!=='active'&&<Status tone="gray">Deaktivert</Status>}
         </div>

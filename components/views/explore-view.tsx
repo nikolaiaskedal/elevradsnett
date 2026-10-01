@@ -25,7 +25,7 @@ export function ExploreView({query,setQuery}:{query:string;setQuery:(v:string)=>
       <p className="muted" style={{ marginBottom:14 }}>{q?`${shown.length} treff for «${query.trim()}»`:`${county} · ${countyBoard?.memberCount ?? shown.length} elevråd på plattformen`}</p>
       <div className="explore-grid">
         {shown.map(o=><div className="org-tile" key={o.id}>
-          <div className="top"><Avatar initials={o.initials} size="lg"/><div className="grow"><button className="name-link" onClick={()=>go({ view:'organization', id:o.id })}>{o.name}</button><p className="sub">{orgSub(o)}</p></div></div>
+          <div className="top"><Avatar initials={o.initials} size="lg" orgType={o.type}/><div className="grow"><button className="name-link" onClick={()=>go({ view:'organization', id:o.id })}>{o.name}</button><p className="sub">{orgSub(o)}</p></div></div>
           <div className="actions"><FollowButton org={o} className="" onClick={()=>toggleFollow(o.id)}/><button className="btn" onClick={()=>go({ view:'organization', id:o.id })}>Se side</button></div>
         </div>)}
       </div>
@@ -34,7 +34,7 @@ export function ExploreView({query,setQuery}:{query:string;setQuery:(v:string)=>
     <section>
       <h2 className="section-title">Fylkeslag og EO</h2>
       <div className="level-list">{levels.map(o=><div className="level-row" key={o.id}>
-        <Avatar initials={o.initials} tone="coral" size="lg"/>
+        <Avatar initials={o.initials} tone="coral" size="lg" orgType={o.type}/>
         <div className="grow" style={{ minWidth:180 }}><button className="name-link" onClick={()=>go({ view:'organization', id:o.id })}>{o.name}</button><p className="sub">{orgSub(o)}</p></div>
         <button className="btn ghost" onClick={()=>go({ view:'organization', id:o.id })}>Åpne</button>
       </div>)}</div>
