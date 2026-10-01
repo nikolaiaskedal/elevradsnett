@@ -16,13 +16,14 @@ import { LegalView } from '@/components/views/legal-view';
 import { LoginView } from '@/components/views/login-view';
 import { MessagesView } from '@/components/views/messages-view';
 import { OrganizationView } from '@/components/views/organization-view';
+import { PersonView } from '@/components/views/person-view';
 import { ProfileView } from '@/components/views/profile-view';
-import type { Conversation, Event, EventResponse, Organization, Post, Representation, Session } from '@/lib/domain/types';
+import type { Conversation, Event, Organization, Post, Representation, Session } from '@/lib/domain/types';
 import { errorMessage } from '@/lib/domain/validation';
 
 declare global { interface Document { modelContext?: { registerTool:(tool:{name:string;title?:string;description:string;inputSchema:object;annotations?:{readOnlyHint?:boolean;untrustedContentHint?:boolean};execute:(input:unknown)=>unknown},options?:{signal?:AbortSignal})=>void|Promise<void> } } }
 
-type Loaded = { session:Session; events:Event[] };
+type Loaded = { session:Session };
 type LoginRequest = { reason?:string; then?:(app:App)=>void };
 
 /** Sider som bare gir mening innlogget. Alt annet kan leses uten innlogging (§1). */
@@ -48,7 +49,7 @@ export default function ElevradsnettApp() {
   const [openComments,setOpenComments] = useState<string[]>([]);
   const [drafts,setDrafts] = useState<Record<string,string>>({});
   const [votes,setVotes] = useState<Record<string,string>>({});
-  const [responses,setResponses] = useState<Record<string,EventResponse|undefined>>({});
+  const [events,setEvents] = useState<Event[]>([]);
   const [query,setQuery] = useState('');
   const [conversations,setConversations] = useState<Conversation[]>([]);
   const [conversationsError,setConversationsError] = useState('');
@@ -73,13 +74,14 @@ export default function ElevradsnettApp() {
       ]);
       if (cancelled) return;
       currentKey.current = sessionKey(session);
-      setLoaded({ session, events });
+      setLoaded({ session });
+      setEvents(events);
       setLoadError('');
       setActiveRepId(repId);
       setOrganizations(orgs);
       setPosts(feed);
       setLiked(feed.filter(p=>p.supported).map(p=>p.id));
-      setResponses({}); setVotes({});
+      setVotes({});
       setConversations([]); setConversationsError(''); setConversationId('');
       setLoadedKey(reloadKey);
       if (signedIn) {
@@ -197,13 +199,13 @@ export default function ElevradsnettApp() {
       service.switchRepresentation(rep.id)
         .then(()=>service.listFeed({ representationId:rep.id, mode:'chronological' }))
         .then(feed=>{
-          setActiveRepId(rep.id); setPosts(feed); setLiked(feed.filter(p=>p.supported).map(p=>p.id)); setResponses({}); setVotes({});
+          setActiveRepId(rep.id); setPosts(feed); setLiked(feed.filter(p=>p.supported).map(p=>p.id)); setVotes({});
           notify(`Du representerer nå ${rep.name}`);
         }).catch(fail);
     };
     app = {
-      session, signedIn, switchRepresentation:switchTo, currentUser, representations, events:loaded.events,
-      organizations, posts, activeRep, responses, liked, openComments, drafts, votes, org, go, notify, reload,
+      session, signedIn, switchRepresentation:switchTo, currentUser, representations, events,
+      organizations, posts, activeRep, liked, openComments, drafts, votes, org, go, notify, reload,
       requireLogin:(reason,then)=>{ if (!needLogin(reason ?? 'Logg inn for å fortsette.',then ?? (()=>{}))) then?.(app!); },
       signOut:()=>{ service.signOut().then(()=>{ go({ view:'feed' }); notify('Du er logget ut'); reload(); }).catch(fail); },
       loadOrganizationPosts:id=>{
@@ -235,12 +237,12 @@ export default function ElevradsnettApp() {
         if (!rep) return;
         service.vote({ postId, optionId, organizationId:rep.organizationId }).then(()=>setVotes(all=>({ ...all, [postId]:optionId }))).catch(fail);
       },
-      respond:(eventId,response)=>{
-        if (needLogin('Logg inn for å svare på arrangementet.',a=>{ if (a.responses[eventId]!==response) a.respond(eventId,response); })) return;
-        const rep = needRep('svare på arrangementer');
-        if (!rep) return;
-        const next=responses[eventId]===response?null:response;
-        service.setEventResponse({ eventId, organizationId:rep.organizationId, response:next }).then(()=>setResponses(all=>({ ...all, [eventId]:next ?? undefined }))).catch(fail);
+      reloadEvents:()=>service.listEvents().then(setEvents).catch(fail),
+      toggleInterest:event=>{
+        if (needLogin('Logg inn for å markere interesse.',a=>{ if (!a.events.find(e=>e.id===event.id)?.interestedByMe) a.toggleInterest(event); })) return;
+        const interested = !event.interestedByMe;
+        service.setEventInterest({ eventId:event.id, interested })
+          .then(()=>setEvents(all=>all.map(e=>e.id===event.id?{ ...e, interestedByMe:interested, interested:e.interested+(interested?1:-1) }:e))).catch(fail);
       },
       openComposer:()=>{
         if (needLogin('Logg inn for å publisere for elevrådet ditt.',a=>a.openComposer())) return;
@@ -267,6 +269,7 @@ export default function ElevradsnettApp() {
       case 'events': page=<EventsView/>; break;
       case 'event': page=<EventDetailView id={route.id}/>; break;
       case 'organization': page=<OrganizationView id={route.id} onContact={openConversationWith}/>; break;
+      case 'person': page=<PersonView id={route.id}/>; break;
       case 'messages': page=<MessagesView conversations={conversations} setConversations={setConversations} selectedId={conversationId} onSelect={setConversationId} error={conversationsError}/>; break;
       case 'profile': page=<ProfileView/>; break;
       case 'login': page=<LoginView onDone={next=>{ signedInDone(next); go(returnTo.current.view==='login'?{ view:'feed' }:returnTo.current); }}/>; break;

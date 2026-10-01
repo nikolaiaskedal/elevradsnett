@@ -1,4 +1,4 @@
-import type { Audience, InternalRole, Organization, OrganizationType } from './types';
+import type { Audience, DelegateStatus, InternalRole, Organization, OrganizationType, RegistrationStatus } from './types';
 
 // Norske visningsnavn som deles av web og mobil.
 export const kindLabel:Record<OrganizationType,string> = { national:'Nasjonalt', county_board:'Fylkeslag', local_board:'Lokallag', school:'Elevråd' };
@@ -28,4 +28,12 @@ export const auditActionLabel:Record<string,string> = {
   'profile.onboarded':'ble med i Elevrådsnett', 'profile.school_changed':'byttet skole',
   'post.created':'publiserte innlegg', 'post.edited':'redigerte innlegg',
   'event.response':'svarte på arrangement', 'school.deactivated':'deaktiverte skolen',
+  'event.created':'opprettet arrangement', 'event.updated':'endret arrangement', 'event.published':'publiserte arrangement',
+  'event.cancelled':'avlyste arrangement', 'event.completed':'avsluttet arrangement', 'event.image_changed':'byttet bilde på arrangement',
+  'event.registered':'meldte på til', 'event.waitlisted':'satte på venteliste til', 'event.unregistered':'meldte av fra',
+  'event.delegate_added':'meldte på delegat til', 'event.delegate_removed':'fjernet delegat fra', 'event.delegate_confirmed':'bekreftet deltakelse på',
+  'event.delegate_declined':'takket nei til', 'event.attendance_confirmed':'bekreftet oppmøte på',
 };
+
+export const registrationStatusLabel:Record<RegistrationStatus,string> = { registered:'Påmeldt', waitlisted:'På venteliste', cancelled:'Avmeldt', attended:'Deltok' };
+export const delegateStatusLabel:Record<DelegateStatus,string> = { invited:'Venter på svar', confirmed:'Kommer', declined:'Takket nei', attended:'Møtte', absent:'Møtte ikke' };

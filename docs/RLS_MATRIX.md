@@ -15,7 +15,8 @@
 | Endringshistorikk for innlegg (`post_revisions`) | Ingen | Ingen | Lese for egen organisasjon (innholdsansvarlig og opp). Skrives bare av trigger | Alle |
 | Kommentarer | Synlige kommentarer til lesbare innlegg | Lese + skrive med aktivt verv | Moderere eget/område | Alle |
 | Reaksjoner/avstemning | Aggregerte resultater via sikre spørringer | Egen reaksjon; én organisasjonsstemme | Som bruker | Alle |
-| Arrangementer | Publiserte + aggregerte tall via `get_event_engagement` og `list_public_events` | Interesse («Interessert») for egen organisasjon via `set_event_response` | Påmelding («Skal») og delegater for egen organisasjon | Alle |
+| Arrangementer | Publiserte, avlyste og avsluttede via `list_events` (og `list_public_events`), med aggregerte tall. Lenken til digitale møter vises ikke | Personlig interesse via `set_event_interest` (tabellen `event_interests`, bare egne rader). Lenken til digitale møter når brukeren deltar. Egne delegatinvitasjoner via `get_event_participation`, svar via `respond_event_delegation` | Arrangør (styreadministrator i et aktivt styre eller EO, `can_organize_events`): opprette og endre via `save_event`, bilde via `set_event_image`, avlyse/avslutte via `set_event_status`, se utkast, se alle påmeldinger og delegater, bekrefte oppmøte via `confirm_event_attendance` og `confirm_all_event_attendance`. Påmelding (`register_for_event`) og delegater (`list_delegate_candidates`, `add_event_delegate`, `remove_event_delegate`) for egen organisasjon: skoleadministrator, innholdsansvarlig eller styreadministrator (`can_register_for`), innenfor målgruppen (`event_audience_allows`) | Alle |
+| CV | Personens offentlige verv og arrangementer med bekreftet oppmøte via `get_person_cv` (ingen interne rettigheter, ingen CV for deaktiverte). Skolens deltakelse via `get_organization_cv` (deaktiverte personer uten navn) | Som anonym, pluss egne invitasjoner og egen CV selv om profilen er deaktivert | Som bruker. Organisasjonen kan ikke bekrefte eget oppmøte; det gjør arrangøren | Alle |
 | Prioriterte saker | Aktive organisasjoners saker | Som anonym | Opprette/endre for egen organisasjon (innholdsansvarlig og opp) | Alle |
 | Offentlige tillitsvalgte | Navn og offentlig verv via `get_public_officers` | Som anonym | Som anonym; verv endres via medlemskap | Alle |
 | Valgplan | Ingen | Kan foreslå dato for neste valg én gang via `complete_onboarding`; overskriver aldri en eksisterende plan | Endre egen organisasjons plan | Alle |
@@ -48,6 +49,17 @@
 Siste administrator (skole-, styre- eller superadministrator) kan ikke fjernes, verken av seg selv eller andre, før en etterfølger har fått rollen (`last administrator`). `revoke_role` låser alle aktive tildelinger av rollen før sjekken, så to samtidige tilbakekallinger ikke kan fjerne begge de siste.
 
 Alle tildelinger og avslutninger lagrer hvem som gjorde det og når (`granted_by`, `granted_at`, `revoked_by`, `revoked_at`, `end_date`) og logges i `audit_logs` (`office.assigned`, `office.ended`, `role.assigned`, `role.revoked`, `school_admin.requested`, `.approved`, `.rejected`, `.cancelled`). Bytte av aktiv representasjon er ikke en endring av rettigheter og logges ikke.
+
+## Arrangementer og CV (prompt 9)
+
+Arrangementer har ingen skrive-policy: alt går via `security definer`-funksjonene i `202610090001_arrangementer_cv.sql`, som sjekker rettighetene selv og logger i `audit_logs` (`event.created`, `.updated`, `.published`, `.cancelled`, `.completed`, `.image_changed`, `.registered`, `.waitlisted`, `.unregistered`, `.delegate_added`, `.delegate_removed`, `.delegate_confirmed`, `.delegate_declined`, `.attendance_confirmed`).
+
+- **Interesse** er personlig (`event_interests`). Den gamle tabellen `event_organization_interests` skrives ikke lenger; markeringene ble flyttet til personen som gjorde dem.
+- **Påmelding** (`event_organization_registrations`) gjelder organisasjonen. Når kapasiteten er nådd, havner nye på venteliste, og avmelding gir plassen til den første på listen.
+- **Delegater** (`event_delegates`) varsles i `notifications` og må bekrefte selv. Vervet personen hadde lagres på delegaten.
+- **Bekreftet oppmøte** settes bare av arrangøren, etter start, og bare for delegater som har bekreftet selv. Bare oppmøte gir CV-oppføring. Versjonen fra prompt 1 lot organisasjonen bekrefte eget oppmøte; den er erstattet.
+- Arrangøren kan lese påmeldinger og delegater til egne arrangementer (`event_registrations_organizer_read`, `event_delegates_organizer_read`).
+- Anon kan kalle `list_events`, `get_person_cv`, `get_organization_cv` og `get_event_participation` (svarer tomt uten innlogging). Alle andre nye funksjoner krever innlogging.
 
 ## Funksjonstilgang
 

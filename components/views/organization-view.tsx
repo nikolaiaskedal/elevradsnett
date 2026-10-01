@@ -2,16 +2,19 @@ import { useEffect, useRef, useState } from 'react';
 import { useApp } from '@/components/app-context';
 import { useService } from '@/components/service-provider';
 import { byDate, contactLabel, formatNumber, initialsOf, orgLine } from '@/components/format';
+import { OrganizationCvSection } from '@/components/shared/cv';
 import { EventMini } from '@/components/shared/event-mini';
 import { NotFound } from '@/components/shared/not-found';
 import { PostCard } from '@/components/shared/post-card';
 import { Avatar, Status } from '@/components/shared/ui';
-import type { Organization, PublicOfficer } from '@/lib/domain/types';
+import { isPastEvent } from '@/lib/domain/events';
+import type { Organization, OrganizationCvEntry, PublicOfficer } from '@/lib/domain/types';
 
 export function OrganizationView({id,onContact}:{id:string;onContact:(o:Organization)=>void}) {
   const service = useService();
   const { events, org, posts, activeRep, openComposer, loadOrganizationPosts } = useApp();
   const [officers,setOfficers] = useState<{ id:string; list:PublicOfficer[] }|null>(null);
+  const [cv,setCv] = useState<{ id:string; list:OrganizationCvEntry[] }|null>(null);
   // Deaktiverte organisasjoner er ikke i listen, men siden skal fortsatt kunne åpnes fra gamle innlegg og lenker.
   const [fetched,setFetched] = useState<{ id:string; org:Organization|null }|null>(null);
   const listed = org(id);
@@ -32,13 +35,14 @@ export function OrganizationView({id,onContact}:{id:string;onContact:(o:Organiza
     let cancelled = false;
     loadPosts.current(id);
     service.listPublicOfficers(id).then(list=>{ if (!cancelled) setOfficers({ id, list }); }).catch(()=>{});
+    service.getOrganizationCv(id).then(list=>{ if (!cancelled) setCv({ id, list }); }).catch(()=>{});
     return ()=>{ cancelled = true; };
   },[id,exists,service]);
   if (!o) return fetched?.id===id?<NotFound/>:<div className="page"><p className="muted">Henter …</p></div>;
   const inactive = o.status!=='active';
   const people = officers?.id===o.id?officers.list:o.officers ?? [];
   const own = posts.filter(p=>p.organizationId===o.id);
-  const hosted = events.filter(e=>e.hostId===o.id).sort(byDate);
+  const hosted = events.filter(e=>e.hostId===o.id && e.status!=='draft' && !isPastEvent(e)).sort(byDate);
   const stats:[number,string][] =
     o.type==='school'?[[o.studentCount ?? 0,'elever'],[o.followers,'følgere'],[own.length,'innlegg']]
     :o.type==='county_board'?[[o.memberCount ?? 0,'elevråd'],[people.length || (o.officerCount ?? 0),'i fylkesstyret'],[own.length,'innlegg']]
@@ -75,6 +79,7 @@ export function OrganizationView({id,onContact}:{id:string;onContact:(o:Organiza
       <h2>Kommende arrangementer</h2>
       <div className="list" style={{ gap:10 }}>{hosted.map(e=><EventMini key={e.id} event={e} flat/>)}</div>
     </section>}
+    {cv?.id===o.id&&<OrganizationCvSection entries={cv.list}/>}
     <section>
       <h2 className="section-title">{o.type==='school'?'Innlegg fra elevrådet':o.type==='national'?'Innlegg fra EO':o.type==='county_board'?'Innlegg fra fylkeslaget':'Innlegg fra lokallaget'}</h2>
       <div className="list" style={{ gap:16 }}>{own.map(p=><PostCard key={p.id} post={p} plain/>)}</div>

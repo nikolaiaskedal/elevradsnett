@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useApp } from '@/components/app-context';
 import { byDate, hasOfficers } from '@/components/format';
 import { EventMini } from '@/components/shared/event-mini';
+import { isPastEvent } from '@/lib/domain/events';
 import { OrgRow } from '@/components/shared/org-row';
 import { PostCard } from '@/components/shared/post-card';
 import { SearchField } from '@/components/shared/ui';
@@ -13,7 +14,7 @@ export function FeedView({query,setQuery}:{query:string;setQuery:(v:string)=>voi
   const county = home?.county ?? 'Oslo';
   const nearby = organizations.filter(o=>o.type==='school'&&o.status==='active'&&o.county===county&&o.id!==currentUser?.schoolId&&hasOfficers(o)).slice(0,4);
   const levels = organizations.filter(o=>o.status==='active'&&(o.type==='national'||(o.type==='county_board'&&o.county===county)));
-  const upcoming = [...events].sort(byDate).slice(0,3);
+  const upcoming = events.filter(e=>e.status==='published' && !isPastEvent(e)).sort(byDate).slice(0,3);
   const visible = scope==='all'?posts:posts.filter(p=>org(p.organizationId)?.county===county);
   return <div className="page">
     <h1>Hjem</h1>

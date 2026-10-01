@@ -1,7 +1,7 @@
-import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, Event, Message, MyRole, Organization, OrganizationRoleEntry, Post, PublicOfficer, SchoolAdminRequest, SchoolHistoryEntry, Session } from '@/lib/domain/types';
-import type { AddCommentInput, AssignPublicOfficeInput, AssignRoleInput, ChangeSchoolInput, DecideSchoolAdminRequestInput, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SchoolAdminRequestInput, SendMessageInput, SetEventResponseInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput } from '@/lib/domain/validation';
+import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, DelegateCandidate, Event, EventOrganizer, EventParticipation, Message, MyRole, Organization, OrganizationCvEntry, OrganizationRoleEntry, PersonCv, Post, PublicOfficer, SchoolAdminRequest, SchoolHistoryEntry, Session } from '@/lib/domain/types';
+import type { AddCommentInput, AddDelegateInput, AttendanceInput, DelegationResponseInput, EventInput, EventInterestInput, EventRegistrationInput, EventStatusChangeInput, AssignPublicOfficeInput, AssignRoleInput, ChangeSchoolInput, DecideSchoolAdminRequestInput, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SchoolAdminRequestInput, SendMessageInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput } from '@/lib/domain/validation';
 
-export type { AddCommentInput, AssignPublicOfficeInput, AssignRoleInput, ChangeSchoolInput, DecideSchoolAdminRequestInput, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SchoolAdminRequestInput, SendMessageInput, SetEventResponseInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput };
+export type { AddCommentInput, AddDelegateInput, AttendanceInput, DelegationResponseInput, EventInput, EventInterestInput, EventRegistrationInput, EventStatusChangeInput, AssignPublicOfficeInput, AssignRoleInput, ChangeSchoolInput, DecideSchoolAdminRequestInput, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SchoolAdminRequestInput, SendMessageInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput };
 
 /**
  * Alt grensesnittet leser og gjør. Samme kontrakt skal kunne brukes av iOS og Android.
@@ -67,9 +67,35 @@ export interface ElevradsnettService {
   vote(input:VoteInput):Promise<void>;
   reportPost(input:{ postId:string }):Promise<void>;
 
-  // Organisasjoner og arrangementer
+  // Organisasjoner
   setFollow(input:{ organizationId:string; following:boolean }):Promise<void>;
-  setEventResponse(input:SetEventResponseInput):Promise<void>;
+
+  // Arrangementer (§8). Interesse, påmelding, delegater og bekreftet oppmøte er adskilte handlinger.
+  /** Organisasjonene brukeren kan opprette arrangementer for. Tom liste uten rettigheter. */
+  listEventOrganizers():Promise<EventOrganizer[]>;
+  /** Oppretter (uten id) eller endrer et arrangement. Returnerer id-en. */
+  saveEvent(input:EventInput):Promise<string>;
+  setEventStatus(input:EventStatusChangeInput):Promise<void>;
+  /** Laster opp et ferdig omkodet bilde, eller fjerner bildet (null). Returnerer adressen. */
+  setEventImage(eventId:string, image:Blob|null):Promise<string|undefined>;
+  /** Personlig interesse. Krever bare innlogging. */
+  setEventInterest(input:EventInterestInput):Promise<void>;
+  /** Melder organisasjonen på eller av. Er arrangementet fullt, havner den på venteliste. */
+  registerForEvent(input:EventRegistrationInput):Promise<'registered'|'waitlisted'|'cancelled'>;
+  getEventParticipation(eventId:string):Promise<EventParticipation>;
+  searchDelegateCandidates(input:{ registrationId:string; query:string }):Promise<DelegateCandidate[]>;
+  addEventDelegate(input:AddDelegateInput):Promise<void>;
+  removeEventDelegate(delegateId:string):Promise<void>;
+  /** Delegaten bekrefter eller takker nei selv. */
+  respondToDelegation(input:DelegationResponseInput):Promise<void>;
+  /** Arrangøren bekrefter oppmøte. Bare dette gir CV-oppføring. */
+  confirmAttendance(input:AttendanceInput):Promise<void>;
+  /** Bekrefter oppmøte for alle delegater som har bekreftet selv. Returnerer antallet. */
+  confirmAllAttendance(eventId:string):Promise<number>;
+
+  // CV (§8). Offentlig; deaktiverte personer har ingen offentlig CV (null).
+  getPersonCv(userId:string):Promise<PersonCv|null>;
+  getOrganizationCv(organizationId:string):Promise<OrganizationCvEntry[]>;
 
   // Meldinger
   openConversation(input:{ organizationId:string }):Promise<Conversation>;

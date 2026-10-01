@@ -10,7 +10,7 @@ Alle synlige knapper og kontroller i appen, per side, sammenholdt med designet i
 
 Fra prompt 3 laster appen mot Supabase: økt, organisasjoner, innlegg, arrangementer og tillitsvalgte hentes via RPC-er som også virker uten innlogging (§1). `listConversations` mangler fortsatt RPC for innloggede (prompt 10); Meldinger viser da en feilmelding i stedet for at appen stopper.
 
-**Uten innlogging** kan alt offentlig leses. Kontroller som endrer noe (støtte, kommentere, følge, stemme, svare på arrangementer, nytt innlegg, rapportere, kontakte) åpner innloggingsdialogen, og handlingen gjøres når brukeren er logget inn. Meldinger, Profil og Administrasjon viser innloggingen i stedet for siden.
+**Uten innlogging** kan alt offentlig leses. Kontroller som endrer noe (støtte, kommentere, følge, stemme, interesse for arrangementer, nytt innlegg, rapportere, kontakte) åpner innloggingsdialogen, og handlingen gjøres når brukeren er logget inn. Meldinger, Profil og Administrasjon viser innloggingen i stedet for siden.
 
 **Kravpunkt** viser til punktnumrene (§) i `docs/KRAVSPEC.md`. §19 (brukeropplevelse og universell utforming) gjelder i tillegg alle kontroller.
 
@@ -87,20 +87,48 @@ Fra prompt 3 laster appen mot Supabase: økt, organisasjoner, innlegg, arrangeme
 
 ## Arrangementer (`#/arrangementer`)
 
+Interesse, påmelding av organisasjonen, delegater og bekreftet oppmøte er fire adskilte ting (§8, prompt 9). «Skal» fra designet er erstattet av påmelding på arrangementsiden, siden påmelding gjelder organisasjonen og krever rettighet.
+
 | Kontroll | Hva den gjør | Status | Tjenestemetode | Supabase | I designet | Kravpunkt |
 |---|---|---|---|---|---|---|
-| Bilde og Detaljer | Åpner arrangementet | Fungerer | – | – | ja | §8 |
-| Skal | Melder organisasjonen på / av | Demo | `setEventResponse` | ja | ja | §8 |
-| Interessert | Markerer interesse / fjerner | Demo | `setEventResponse` | ja | ja | §8 |
-| Liste over arrangementer | Viser arrangementer, også uten innlogging | Fungerer | `listEvents` | ja (`list_public_events`) | ja | §1, §8 |
+| Liste over arrangementer | Kommende arrangementer, også uten innlogging. Utkast vises bare for arrangøren, merket «Utkast». Avlyste merkes «Avlyst» | Fungerer | `listEvents` | ja (`list_events`) | ja | §1, §8 |
+| Tidligere arrangementer, Vis / Skjul | Avsluttede og passerte arrangementer | Fungerer | `listEvents` | ja | app | §8 |
+| Nytt arrangement | Vises bare når serveren sier at brukeren kan arrangere (styreadministrator i et styre eller EO). Åpner skjemaet | Fungerer | `listEventOrganizers` | ja (`list_my_event_organizers`) | app | §4, §8 |
+| Skjema: arrangør, tittel, ingress, beskrivelse, type, målgruppe, start, slutt, sted, lenke, frist, pris, kapasitet, plasser per organisasjon | Validering i `eventInputSchema` og i databasen | Fungerer | `saveEvent` | ja (`save_event`) | app | §8 |
+| Skjema: Lagre som utkast / Publiser / Avbryt | Lagrer som utkast eller publiserer | Fungerer | `saveEvent` | ja (`save_event`) | app | §8 |
+| Bilde | Bilde eller plassholder, åpner arrangementet | Fungerer | – | – | ja | §8, §11 |
+| Interessert | Personlig interesse. Krever bare innlogging, ikke verv | Fungerer | `setEventInterest` | ja (`set_event_interest`) | ja | §8 |
+| Påmelding og detaljer | Åpner arrangementet | Fungerer | – | – | ja | §8 |
 
 ## Arrangement (`#/arrangementer/<id>`)
 
 | Kontroll | Hva den gjør | Status | Tjenestemetode | Supabase | I designet | Kravpunkt |
 |---|---|---|---|---|---|---|
 | ← Alle arrangementer | Tilbake til listen | Fungerer | – | – | ja | §8 |
-| Skal / Interessert | Som i listen; tallene under oppdateres | Demo | `setEventResponse` | ja | ja | §8 |
+| Fakta, beskrivelse, tall | Dato, sted, plasser/pris/frist, antall påmeldte organisasjoner og interesserte personer, målgruppe | Fungerer | `listEvents` | ja | ja | §8 |
+| Lenke til møtet | Vises bare for arrangøren og deltakerne | Fungerer | `listEvents` | ja (`list_events`) | app | §8, §17 |
+| Interessert | Som i listen | Fungerer | `setEventInterest` | ja | ja | §8 |
+| Administrer: Rediger / Rediger og publiser | Åpner skjemaet. Vises bare når serveren svarer `canEdit` | Fungerer | `saveEvent` | ja | app | §8 |
+| Administrer: Legg til / Bytt / Fjern bilde | Bildet kodes om i nettleseren (EXIF og GPS fjernes) og lastes opp under arrangøren i `public-content` | Fungerer | `setEventImage` | ja (`set_event_image`) | app | §8, §11 |
+| Administrer: Avlys | Avlyser etter bekreftelse og varsler delegatene | Fungerer | `setEventStatus` | ja (`set_event_status`) | app | §8, §19 |
+| Administrer: Marker som avsluttet | Etter start, etter bekreftelse | Fungerer | `setEventStatus` | ja | app | §8 |
+| Du er delegat: Jeg kommer / Kan ikke | Delegaten svarer selv frem til start | Fungerer | `getEventParticipation`, `respondToDelegation` | ja (`get_event_participation`, `respond_event_delegation`) | app | §8 |
+| Påmelding: Meld på / Meld av | For organisasjonene serveren sier brukeren kan melde på (skoleadministrator, innholdsansvarlig, styreadministrator). Fullt gir venteliste; avmelding gir plassen til den første på ventelisten og fjerner delegatene | Fungerer | `registerForEvent` | ja (`register_for_event`) | app | §8 |
+| Påmelding: Logg inn for å melde på | Uten innlogging | Fungerer | – | – | app | §1 |
+| Delegater: + Legg til delegat, søk, Fjern | Elever ved skolen eller personer med verv i styret. Grense per organisasjon. Delegaten varsles | Fungerer | `searchDelegateCandidates`, `addEventDelegate`, `removeEventDelegate` | ja (`list_delegate_candidates`, `add_event_delegate`, `remove_event_delegate`) | app | §8 |
+| Påmeldte og oppmøte: Møtte / Møtte ikke, Bekreft alle som har sagt ja | Bare for arrangøren, etter start. Bare dette gir CV-oppføring | Fungerer | `confirmAttendance`, `confirmAllAttendance` | ja (`confirm_event_attendance`, `confirm_all_event_attendance`) | app | §8, §22 |
 | Arrangør | Åpner arrangørens side | Fungerer | – | – | ja | §8 |
+
+## Person (`#/person/<id>`)
+
+Offentlig CV (§8). Kan leses uten innlogging. Deaktiverte personer har ingen offentlig side.
+
+| Kontroll | Hva den gjør | Status | Tjenestemetode | Supabase | I designet | Kravpunkt |
+|---|---|---|---|---|---|---|
+| Navn, skole og stjerner | Én stjerne per bekreftet deltakelse på Elevtinget | Fungerer | `getPersonCv` | ja (`get_person_cv`) | app | §8 |
+| Verv | Aktive og tidligere offentlige verv. Interne rettigheter vises aldri. Organisasjonen kan åpnes | Fungerer | `getPersonCv` | ja | app | §4, §8 |
+| Arrangementer | Arrangementer med bekreftet oppmøte, for hvilken organisasjon og i hvilket verv | Fungerer | `getPersonCv` | ja | app | §8 |
+| Til profilen din | Vises på egen side | Fungerer | – | – | app | §8 |
 
 ## Organisasjon (`#/org/<id>`)
 
@@ -110,7 +138,8 @@ Fra prompt 3 laster appen mot Supabase: økt, organisasjoner, innlegg, arrangeme
 | Deaktivert-merke og forklaring | Deaktiverte organisasjoner kan åpnes fra gamle innlegg og lenker. Historikken vises, men ikke kontakt- eller publiseringsknapper | Fungerer | `getOrganization` | ja (`get_public_organization`) | app | §1, §2 |
 | Kontakt EO / fylkesstyret / lokallaget, Foreslå samarbeid | Åpner eller oppretter samtale og går til Meldinger | Demo | `openConversation` | nei | ja | §9 |
 | Prioriterte saker, tillitsvalgte, statistikk | Visning, også uten innlogging | Fungerer | `listOrganizations`, `listPublicOfficers` | ja (`list_public_organizations`, `get_public_officers`) | ja | §1, §2, §4 |
-| Kommende arrangementer | Åpner arrangementet | Fungerer | – | – | ja | §8 |
+| Kommende arrangementer | Åpner arrangementet. Utkast og passerte arrangementer vises ikke | Fungerer | – | – | ja | §8 |
+| Deltakelse på arrangementer (skolens CV) | Arrangementer organisasjonen har deltatt på, med årstall, hvem som representerte den og vervet de hadde. Deaktiverte personer vises som «Tidligere tillitsvalgt» uten lenke | Fungerer | `getOrganizationCv` | ja (`get_organization_cv`) | app | §8 |
 | Innlegg | Innleggskort uten meny (se over). Hentes for siden, også når de ikke er i feeden | Fungerer | `listOrganizationPosts` | ja (`get_post_cards`) | ja | §1, §7 |
 
 ## Meldinger (`#/meldinger`)
@@ -142,6 +171,9 @@ Uten innlogging vises innloggingen i stedet for profilen.
 | Gi fra deg (rettighet) | Gir fra seg egen rettighet etter bekreftelse. Siste administrator stoppes | Fungerer | `revokeRole` | ja (`revoke_role`) | app | §4, §17 |
 | Be om å bli skoleadministrator, melding, Send / Avbryt | Sender forespørsel for egen skole til styret. Vises ikke for skoleadministratorer | Fungerer | `requestSchoolAdmin` | ja (`request_school_admin`) | app | §4 |
 | Forespørsel: status og Trekk | Viser egne forespørsler og lar en ventende trekkes | Fungerer | `listSchoolAdminRequests`, `cancelSchoolAdminRequest` | ja | app | §4 |
+| Du er meldt på som delegat: Jeg kommer / Kan ikke | Egne ubesvarte og bekreftede invitasjoner | Fungerer | `getPersonCv`, `respondToDelegation` | ja (`get_person_cv`, `respond_event_delegation`) | app | §8 |
+| Arrangementer (CV) med stjerner | Egne arrangementer med bekreftet oppmøte | Fungerer | `getPersonCv` | ja | app | §8 |
+| Se CV-en slik andre ser den | Åpner `#/person/<id>` | Fungerer | – | – | app | §8 |
 | Innlogging: e-post, Telefonnummer og Feide («Kommer senere») | Visning. Telefonnummer kan ikke lagres i piloten | Fungerer | `getSession` | ja | app | §1, §3 |
 | Logg ut | Logger ut og går til Hjem | Fungerer | `signOut` | ja | app | §3 |
 
