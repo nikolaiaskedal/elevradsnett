@@ -1,6 +1,6 @@
 # Promptplan for Elevrådsnett
 
-Planen deler `docs/KRAVSPEC.md` inn i prompter som sendes én om gangen, hver i en egen økt. Hver prompt avsluttes med en PR som merges før neste prompt sendes. Punktnumre (§) viser til kravspesifikasjonen.
+Planen deler `docs/KRAVSPEC.md` inn i prompter som sendes én om gangen, hver i en egen økt. Hver prompt avsluttes med at endringene merges til `main` (se `CLAUDE.md`) før neste prompt sendes. Punktnumre (§) viser til kravspesifikasjonen.
 
 ## Utgangspunkt (oktober 2026)
 
@@ -148,7 +148,7 @@ Feide-innlogging planlegges senere og er ikke med her.
 
 > Vi bygger Elevrådsnett etter `docs/KRAVSPEC.md`, og promptplanen ligger i `docs/PROMPTPLAN.md`. Denne første runden legger fundamentet. Ingen nye funksjoner og ingen visuelle endringer. Demoen skal fortsatt fungere med demodata.
 >
-> 1. **CLAUDE.md:** Lag en `CLAUDE.md` med faste regler for alt videre arbeid:
+> 1. **CLAUDE.md:** Utvid `CLAUDE.md` (behold regelen om å alltid merge) med faste regler for alt videre arbeid:
 >    - Fargene: hvit bakgrunn, aksent #FF6340 med undertonene #FFB19F, #FFE0D9 og #FFEFEC, og navy #0A466E med #85A2B7, #CEDAE2 og #E7ECF0. Fargene skal brukes som CSS-variabler.
 >    - Teksten i grensesnittet skal være på norsk.
 >    - Ingen rolle- eller tilgangslogikk i frontend.
@@ -173,4 +173,4 @@ Feide-innlogging planlegges senere og er ikke med her.
 > 7. **CI:** Legg til scriptet `typecheck` og en workflow som kjører lint, typecheck og test på alle PR-er.
 > 8. **Tester:** Legg til tester for demotjenesten.
 >
-> Sjekk i nettleseren på desktop og 375px at alle visningene fungerer som før. Lag en PR.
+> Sjekk i nettleseren på desktop og 375px at alle visningene fungerer som før. Merge til `main` når du er ferdig, slik `CLAUDE.md` sier.
