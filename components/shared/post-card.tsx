@@ -6,7 +6,7 @@ import { Avatar, CommentIcon, ShareIcon, SupportIcon } from '@/components/shared
 import type { Post } from '@/lib/domain/types';
 
 export function PostCard({post,plain}:{post:Post;plain?:boolean}) {
-  const { currentUser, events, org, go, activeRep, liked, openComments, drafts, votes, toggleLike, toggleComments, setDraft, sendComment, vote, share, report } = useApp();
+  const { signedIn, currentUser, events, org, go, activeRep, liked, openComments, drafts, votes, toggleLike, toggleComments, setDraft, sendComment, vote, share, report, requireLogin } = useApp();
   const [menuOpen,setMenuOpen] = useState(false);
   const menuWrap = useRef<HTMLDivElement>(null);
   const closeMenuOutside = (e:React.FocusEvent)=>{ if (!menuWrap.current?.contains(e.relatedTarget as Node|null)) setMenuOpen(false); };
@@ -45,11 +45,13 @@ export function PostCard({post,plain}:{post:Post;plain?:boolean}) {
         <Avatar size="sm" tone="pale" initials={org(c.organizationId)?.initials ?? initialsOf(c.organizationName)}/>
         <div className="comment-bubble"><strong>{c.organizationName}</strong><span className="time"> · {c.createdAt}</span><p>{c.body}</p></div>
       </div>)}
-      <form className="comment-form" onSubmit={e=>{ e.preventDefault(); sendComment(post.id); }}>
-        <Avatar size="sm" initials={currentUser.initials}/>
+      {activeRep&&currentUser?<form className="comment-form" onSubmit={e=>{ e.preventDefault(); sendComment(post.id); }}>
+        <Avatar size="sm" initials={currentUser.initials} src={currentUser.avatarUrl}/>
         <input value={drafts[post.id] ?? ''} onChange={e=>setDraft(post.id,e.target.value)} aria-label="Skriv en kommentar" placeholder={`Skriv en kommentar som ${activeRep.name} …`}/>
         <button className="btn primary">Send</button>
       </form>
+      :signedIn?<p className="comment-note">Kommentarer skrives på vegne av et elevråd eller styre. Du trenger et verv for å kommentere.</p>
+      :<button className="btn small comment-login" onClick={()=>requireLogin('Logg inn for å kommentere.')}>Logg inn for å kommentere</button>}
     </div>}
   </article>;
 }

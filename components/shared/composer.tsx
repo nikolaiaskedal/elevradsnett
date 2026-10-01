@@ -6,9 +6,11 @@ import { useService } from '@/components/service-provider';
 import type { Audience, Post } from '@/lib/domain/types';
 import { errorMessage, POST_MAX_LENGTH } from '@/lib/domain/validation';
 
+/** Vises bare når brukeren har en aktiv representasjon (se elevradsnett-app). */
 export function Composer({open,onClose,onPublish}:{open:boolean;onClose:()=>void;onPublish:(post:Post)=>void}) {
   const service = useService();
-  const { currentUser, activeRep, notify } = useApp();
+  const { currentUser, activeRep:rep, notify } = useApp();
+  const activeRep = rep!;
   const [text,setText] = useState('');
   const [withPoll,setWithPoll] = useState(false);
   const [withImage,setWithImage] = useState(false);
@@ -31,7 +33,7 @@ export function Composer({open,onClose,onPublish}:{open:boolean;onClose:()=>void
   return <Modal open={open} onClose={onClose} labelledBy="composer-title">
     <div className="modal-head"><h2 id="composer-title">Nytt innlegg</h2><button className="close-btn" aria-label="Lukk" onClick={onClose}>×</button></div>
     <div className="modal-body">
-      <div className="publisher"><Avatar initials={activeRep.initials} size="lg" tone={activeRep.type==='school'?'navy':'coral'}/><div><strong>{activeRep.name}</strong><p className="sub">Publiseres av {publisherKind} · {currentUser.name}</p></div></div>
+      <div className="publisher"><Avatar initials={activeRep.initials} size="lg" tone={activeRep.type==='school'?'navy':'coral'}/><div><strong>{activeRep.name}</strong><p className="sub">Publiseres av {publisherKind} · {currentUser?.name}</p></div></div>
       {!activeRep.canPublish&&<p className="warn-box">{activeRep.name} har ikke gitt deg publiseringsrett. Bytt representasjon under Profil for å publisere.</p>}
       <textarea value={text} onChange={e=>setText(e.target.value)} aria-label="Tekst" placeholder={`Hva har ${publisherKind} jobbet med?`} maxLength={POST_MAX_LENGTH}/>
       <div className="dash-grid">

@@ -1,24 +1,45 @@
-import type { Comment, Conversation, Event, Message, Organization, Post, PublicOfficer, Session } from '@/lib/domain/types';
-import type { AddCommentInput, OnboardingInput, PublishPostInput, SendMessageInput, SetEventResponseInput, VoteInput } from '@/lib/domain/validation';
+import type { Comment, Conversation, Event, Message, Organization, Post, PublicOfficer, SchoolHistoryEntry, Session } from '@/lib/domain/types';
+import type { AddCommentInput, ChangeSchoolInput, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SendMessageInput, SetEventResponseInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput } from '@/lib/domain/validation';
 
-export type { AddCommentInput, OnboardingInput, PublishPostInput, SendMessageInput, SetEventResponseInput, VoteInput };
+export type { AddCommentInput, ChangeSchoolInput, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SendMessageInput, SetEventResponseInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput };
 
 /**
  * Alt grensesnittet leser og gjør. Samme kontrakt skal kunne brukes av iOS og Android.
  * Tilgang avgjøres alltid på serveren (RLS og RPC-er), aldri i klienten.
  */
 export interface ElevradsnettService {
-  // Lesing
+  /** Bare i demoen: hvordan man logger inn uten ekte e-post. Vises i innloggingen. */
+  readonly demoLoginHint?:string;
+
+  // Innlogging og økt
   getSession():Promise<Session>;
+  /** Kalles når innloggingen endres utenfra (annen fane, utløpt økt). Returnerer en funksjon som avslutter lyttingen. */
+  onSessionChange(listener:()=>void):()=>void;
+  /** Sender en engangskode på e-post. Svarer likt om kontoen finnes eller ikke. */
+  requestLoginCode(input:RequestLoginCodeInput):Promise<void>;
+  verifyLoginCode(input:VerifyLoginCodeInput):Promise<Session>;
+  signOut():Promise<void>;
+
+  // Lesing. Alt her virker uten innlogging; serveren avgjør hva som er synlig.
   listOrganizations():Promise<Organization[]>;
-  listFeed(input:{ representationId:string; mode:'recommended'|'chronological' }):Promise<Post[]>;
+  /** Med representasjon: rangert feed for den. Uten: offentlige innlegg, nyeste først. */
+  listFeed(input:{ representationId:string|null; mode:'recommended'|'chronological' }):Promise<Post[]>;
+  listOrganizationPosts(organizationId:string):Promise<Post[]>;
   listEvents():Promise<Event[]>;
   listConversations():Promise<Conversation[]>;
   listPublicOfficers(organizationId:string):Promise<PublicOfficer[]>;
 
-  // Representasjon og innlogging
-  switchRepresentation(representationId:string):Promise<void>;
+  // Profil
   completeOnboarding(input:OnboardingInput):Promise<void>;
+  updateProfile(input:UpdateProfileInput):Promise<void>;
+  /** Laster opp et ferdig omkodet profilbilde og returnerer adressen til det. */
+  setAvatar(image:Blob):Promise<string>;
+  removeAvatar():Promise<void>;
+  changeSchool(input:ChangeSchoolInput):Promise<void>;
+  listSchoolHistory():Promise<SchoolHistoryEntry[]>;
+
+  // Representasjon
+  switchRepresentation(representationId:string):Promise<void>;
 
   // Innlegg
   publishPost(input:PublishPostInput):Promise<Post>;

@@ -1,18 +1,18 @@
 import { useApp } from '@/components/app-context';
-import { orgSub } from '@/components/format';
+import { hasOfficers, orgSub } from '@/components/format';
 import { FollowButton } from '@/components/shared/org-row';
 import { Avatar, SearchField } from '@/components/shared/ui';
 
 export function ExploreView({query,setQuery}:{query:string;setQuery:(v:string)=>void}) {
   const { currentUser, organizations, posts, org, go, toggleFollow } = useApp();
-  const home = org(currentUser.schoolId);
+  const home = currentUser?.schoolId?org(currentUser.schoolId):undefined;
   const county = home?.county ?? 'Oslo';
   const countyBoard = organizations.find(o=>o.type==='county_board'&&o.county===county);
   const q = query.trim().toLowerCase();
   const schools = organizations.filter(o=>o.type==='school'&&o.status==='active');
   const shown = q
     ? schools.filter(o=>[o.name,o.schoolName,o.bio,o.county,o.place].join(' ').toLowerCase().includes(q))
-    : schools.filter(o=>o.county===county&&o.officers);
+    : schools.filter(o=>o.county===county&&hasOfficers(o));
   const levels = organizations.filter(o=>o.status==='active'&&(o.type==='national'||(o.type==='county_board'&&o.county===county)));
   const recent = (q?posts.filter(p=>[p.body,p.organizationName,...(p.tags ?? [])].join(' ').toLowerCase().includes(q)):posts).slice(0,4);
   return <div className="page" style={{ gap:26 }}>

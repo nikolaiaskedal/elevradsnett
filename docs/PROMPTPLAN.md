@@ -8,9 +8,22 @@ Planen deler `docs/KRAVSPEC.md` inn i prompter som sendes én om gangen, hver i 
 |---|---|---|
 | 1. Fundament | Ferdig | PR #3, #4 |
 | 2. Datamodell og Supabase-prosjekt | Ferdig, med to manuelle steg (se under) | PR #7, #10 |
-| 3. Innlogging, profiler og offentlig lesing | Neste | – |
+| 3. Innlogging, profiler og offentlig lesing | Ferdig, med manuelle steg (se *Før prompt 4*) | se git-loggen |
+| 4. Medlemskap, roller og aktiv representasjon | Neste | – |
 
-Neste prompt som skal sendes er **prompt 3**.
+Neste prompt som skal sendes er **prompt 4**, etter de manuelle stegene under *Før prompt 4*.
+
+## Utgangspunkt etter prompt 3 (1. oktober 2026)
+
+- Innlogging med sekssifret engangskode på e-post (Supabase Auth). Telefonnummer og Feide vises som «Kommer senere».
+- Handlinger som krever innlogging åpner en innloggingsdialog over siden, og handlingen fullføres etter innlogging. Meldinger, Profil og Administrasjon viser innloggingen i stedet for siden.
+- Nye brukere går gjennom onboarding (skole, navn og valgfri dato for neste valg). Profilen opprettes først da (`complete_onboarding`).
+- Profilsiden: profilbilde (kodes om i nettleseren, så EXIF og GPS forsvinner), navn, skolebytte med historikk, representasjoner og utlogging.
+- Alt offentlig kan leses uten innlogging via `list_public_organizations`, `get_post_cards` og `list_public_events`. Appen laster nå mot Supabase når variablene er satt. `listConversations` og noen handlinger (følge, støtte, rapportere, kontakte) kaster fortsatt `NotImplementedError` og gir en feilmelding; de kobles i senere prompter.
+- Brukeren kan ikke lenger endre egen profil direkte i tabellen (`profiles_self_update` er fjernet). Alt går via RPC-er.
+- `get_ranked_feed` feilet etter at `posts` fikk søkekolonnen i prompt 2. Den er rettet og returnerer nå bare innlegg og poeng.
+- Demoen (uten Supabase-variabler) starter nå uten innlogging. Koden er `123456`; med `ida.halvorsen@example.invalid` blir du Ida, andre adresser går til onboarding.
+- Migrasjonen `202610020001_innlogging_profiler.sql` er testet lokalt (`npm run test:db`), men ikke kjørt i pilotprosjektet, fordi Supabase-koblingen krever en bekreftelse for `drop` som ikke kan gis fra en Claude-økt.
 
 ## Utgangspunkt etter prompt 2 (1. oktober 2026)
 
@@ -65,6 +78,17 @@ Grensene må overholdes i piloten. Spesielt e-post: engangskoder går foran vars
 
 Appassordet legges bare inn i Supabase, aldri i repoet eller i en `VITE_`-variabel.
 
+### Før prompt 4 (manuelt, ca. 15 minutter)
+
+Gjør stegene i denne rekkefølgen. Settes variablene i steg 5 før migrasjonen er kjørt, slutter GitHub Pages-siden å virke.
+
+1. Gjør stegene 2–5 under *Før prompt 3* (Gmail SMTP og URL-oppsett) hvis de ikke er gjort.
+2. Kjør hele `supabase/migrations/202610020001_innlogging_profiler.sql` i SQL Editor i Supabase.
+3. I Supabase: *Authentication → Emails → Templates*. For både «Magic Link» og «Confirm signup»: sett emnet til `Koden din til Elevrådsnett` og lim inn innholdet i `supabase/templates/engangskode.html`. Malen viser koden (`{{ .Token }}`), ikke en lenke.
+4. I Supabase: *Authentication → Sign In / Providers → Email*. Sett «Email OTP Expiration» til `600` sekunder og «Email OTP Length» til `6`.
+5. I GitHub: *Settings → Secrets and variables → Actions → Variables*. Legg til `VITE_SUPABASE_URL` = `https://ibipqyombdmtfvgthugz.supabase.co` og `VITE_SUPABASE_ANON_KEY` = den publiserbare nøkkelen (`sb_publishable_…`) fra *Project Settings → API Keys* i Supabase. Nøkkelen er offentlig og skal være synlig i nettleseren. Bruk aldri service role-nøkkelen.
+6. Kjør «Deploy static content to Pages» på nytt under *Actions*, og test innlogging på `https://nikolaiaskedal.github.io/elevradsnett/`.
+
 ### Kommer senere (koster penger)
 
 | Hva | Kostnad | Når |
@@ -97,7 +121,7 @@ Appassordet legges bare inn i Supabase, aldri i repoet eller i en `VITE_`-variab
    - Fylkene og skolene i piloten ligger i `supabase/pilot/` (471 skoler i 15 fylker fra medlemsregisteret 2025/2026). Disse er ekte data og merkes ikke med `is_placeholder`.
    - Pilotprosjektet opprettes i Supabase. TypeScript-typer genereres, og RLS-testene kjøres i CI mot lokal Supabase.
    - `docs/RLS_MATRIX.md` oppdateres.
-3. **Innlogging, profiler og offentlig lesing** (§1, §3, §10)
+3. ✅ **Innlogging, profiler og offentlig lesing** (§1, §3, §10). Ferdig, se *Før prompt 4* for det som gjenstår manuelt.
    - Supabase Auth med engangskode på e-post, sendt via Gmail SMTP (se *Før prompt 3*). E-postmalen viser en sekssifret kode (`{{ .Token }}`) som skrives inn i appen, ikke bare en lenke, så innloggingen ikke er avhengig av domene eller omdirigering.
    - Valget «Telefonnummer» i innloggingsdialogen deaktiveres og merkes «Kommer senere», på samme måte som Feide. Telefonnummer kan ikke lagres eller brukes til innlogging i piloten.
    - Innloggingsdialog som sender brukeren tilbake til handlingen de prøvde på (§7).
