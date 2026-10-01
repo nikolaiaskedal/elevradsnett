@@ -7,7 +7,7 @@ export function OrgRow({org:o,openOnly}:{org:Organization;openOnly?:boolean}) {
   const { go, toggleFollow } = useApp();
   const open=()=>go({ view:'organization', id:o.id });
   return <div className="org-row">
-    <Avatar initials={o.initials} tone={openOnly?'coral':'navy'}/>
+    <Avatar initials={o.initials} tone={openOnly?'coral':'navy'} orgType={o.type}/>
     <div className="grow"><button className="name-link" onClick={open}>{o.name}</button><p className="sub">{orgSub(o)}</p></div>
     {openOnly
       ?<button className="btn ghost small follow" onClick={open}>Åpne</button>

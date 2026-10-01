@@ -107,7 +107,7 @@ export function Composer({open,editing,onClose,onPublished,onEdited}:{open:boole
     <div className="modal-head"><h2 id="composer-title">{title}</h2><button className="close-btn" aria-label="Lukk" onClick={onClose}>×</button></div>
     <div className="modal-body">
       <div className="publisher">
-        <Avatar initials={previewPost.initials} size="lg" tone={senderType==='school'?'navy':'coral'}/>
+        <Avatar initials={previewPost.initials} size="lg" tone={senderType==='school'?'navy':'coral'} orgType={senderType}/>
         <div className="grow"><strong>{senderName}</strong><p className="sub">{editing?`Publisert av ${editing.actorName || 'tidligere tillitsvalgt'} · endres av ${currentUser?.name ?? ''}`:`Publiseres av ${publisherKind} · ${currentUser?.name ?? ''}`}</p></div>
         {!editing&&!!draftCount&&<button className="link" aria-expanded={showDrafts} onClick={()=>setShowDrafts(v=>!v)}>Utkast ({draftCount})</button>}
       </div>

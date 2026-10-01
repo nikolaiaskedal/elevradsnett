@@ -25,7 +25,7 @@ export function EventDetailView({id}:{id:string}) {
         {host&&<div className="detail-section">
           <h2>Arrangør</h2>
           <div className="host-row">
-            <Avatar initials={host.initials} tone="coral" size="lg"/>
+            <Avatar initials={host.initials} tone="coral" size="lg" orgType={host.type}/>
             <div><button className="name-link" onClick={()=>go({ view:'organization', id:host.id })}>{host.name}</button><p className="sub">{kindLabel[host.type]}{host.type!=='school'?' · verifisert':''}</p></div>
           </div>
         </div>}
