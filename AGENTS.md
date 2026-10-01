@@ -4,8 +4,10 @@ Les `CLAUDE.md` i sin helhet før du gjør arbeid i dette repoet, og følg den s
 
 ## Viktige inngangspunkter
 
+`docs/PROMPTPLAN.md` er den overordnede planen for prosjektet og skal være styrende for rekkefølge, prioriteringer og videre arbeid.
+
 - Krav: `docs/KRAVSPEC.md`
-- Arbeidsrekkefølge: `docs/PROMPTPLAN.md`
+- Overordnet prosjektplan: `docs/PROMPTPLAN.md`
 - Design: `docs/design/elevradsnett.dc.html`
 - Lokal oppstart og publisering: `README.md`
 
