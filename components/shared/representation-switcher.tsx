@@ -29,7 +29,7 @@ export function RepresentationSwitcher() {
   return <div className="rep-switch" ref={wrap}>
     <button ref={button} className="rep-switch-button" aria-haspopup="true" aria-expanded={open} onClick={()=>setOpen(v=>!v)}
       aria-label={activeRep?`Du representerer ${activeRep.name}. Bytt representasjon`:'Velg hvem du representerer'}>
-      <Avatar initials={activeRep?.initials ?? '?'} size="sm" tone={activeRep?.type==='school'?'navy':'coral'}/>
+      <Avatar initials={activeRep?.initials ?? '?'} size="sm" tone={activeRep?.type==='school'?'navy':'coral'} orgType={activeRep?.type}/>
       <span className="rep-switch-text"><small>Representerer</small><strong>{activeRep?.name ?? 'Ingen valgt'}</strong></span>
       <span className="caret" aria-hidden="true"/>
     </button>
@@ -41,7 +41,7 @@ export function RepresentationSwitcher() {
           const disabled = rep.organizationStatus!=='active';
           return <li key={rep.id}>
             <button className={`rep-option ${on?'on':''}`} disabled={disabled} aria-current={on?'true':undefined} onClick={()=>choose(rep)}>
-              <Avatar initials={rep.initials} size="sm" tone={on?'coral':disabled?'pale':'navy'}/>
+              <Avatar initials={rep.initials} size="sm" tone={on?'coral':disabled?'pale':'navy'} orgType={rep.type}/>
               <span className="grow"><strong>{rep.name}</strong><small>{rep.publicRole} · {repState(rep)}</small></span>
               {on&&<Status tone="coral">Aktiv</Status>}
               {disabled&&<Status tone="gray">Deaktivert</Status>}

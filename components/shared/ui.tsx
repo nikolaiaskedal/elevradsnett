@@ -1,13 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
+import eoLogo from '@/app/brand/eo-logo.svg';
+import eoProfilbilde from '@/app/brand/eo-profilbilde.png';
+import type { OrganizationType } from '@/lib/domain/types';
 
 export type Tone = 'navy'|'coral'|'pale';
 
 export function Logo(){
-  return <span className="brand" aria-label="Elevrådsnett"><span className="brand-mark"><span/></span><span className="brand-word">elevråds<strong>nett</strong></span></span>;
+  return <span className="brand" aria-label="Elevrådsnett"><img className="brand-mark" src={eoLogo} alt=""/><span className="brand-word">elevråds<strong>nett</strong></span></span>;
 }
 
-export function Avatar({initials,tone='navy',size='md',src}:{initials:string;tone?:Tone;size?:'sm'|'md'|'lg'|'xl';src?:string}){
-  return <span className={`avatar ${tone} ${size}`} aria-hidden="true">{src?<img src={src} alt=""/>:initials}</span>;
+/** Styrene i EO (nasjonalt, fylkeslag og lokallag) får EO-logoen som standard profilbilde. */
+export const usesEoAvatar = (type?:OrganizationType)=>!!type&&type!=='school';
+
+export function Avatar({initials,tone='navy',size='md',src,orgType}:{initials:string;tone?:Tone;size?:'sm'|'md'|'lg'|'xl';src?:string;orgType?:OrganizationType}){
+  const image = src ?? (usesEoAvatar(orgType)?eoProfilbilde:undefined);
+  return <span className={`avatar ${tone} ${size} ${!src&&image?'eo':''}`} aria-hidden="true">{image?<img src={image} alt=""/>:initials}</span>;
 }
 
 export function Status({children,tone='blue'}:{children:React.ReactNode;tone?:'blue'|'coral'|'green'|'gray'}){

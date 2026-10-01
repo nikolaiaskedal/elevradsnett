@@ -73,11 +73,7 @@ p { margin: 0; }
 }
 .logo-button { border: 0; background: none; padding: 0; display: flex; }
 .brand { display: flex; align-items: center; gap: 9px; }
-.brand-mark {
-  width: 32px; height: 32px; border-radius: 6px; background: var(--accent);
-  display: flex; align-items: center; justify-content: center;
-}
-.brand-mark span { width: 11px; height: 11px; border-radius: 50%; background: var(--white); }
+.brand-mark { flex: none; width: 40px; height: auto; display: block; }
 .brand-word { font-weight: 600; font-size: 14px; line-height: 1; letter-spacing: -0.4px; color: var(--navy); }
 .brand-word strong { font-weight: 600; color: var(--accent); }
 .main-nav { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; min-width: 220px; }
@@ -528,6 +524,9 @@ p { margin: 0; }
 .notice-bar { background: var(--accent-100); border-bottom: 1px solid var(--accent-200); color: var(--ink); padding: 10px 16px; text-align: center; line-height: 1.5; }
 .avatar { overflow: hidden; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.avatar.eo { background: none; border-radius: 50%; }
+.org-avatar.eo { background: var(--white); border-radius: 50%; overflow: hidden; padding: 0; }
+.org-avatar.eo img { width: 100%; height: 100%; display: block; }
 .avatar-edit { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .avatar-edit label.btn { cursor: pointer; text-align: center; }
 .avatar-edit input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 2px; }

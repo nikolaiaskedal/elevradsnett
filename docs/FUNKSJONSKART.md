@@ -20,7 +20,7 @@ Fra prompt 3 laster appen mot Supabase: økt, organisasjoner, innlegg, arrangeme
 
 | Kontroll | Hva den gjør | Status | Tjenestemetode | Supabase | I designet | Kravpunkt |
 |---|---|---|---|---|---|---|
-| Logo | Går til Hjem | Fungerer | – | – | ja | §19 |
+| Logo (EO-merket + «elevrådsnett») | Går til Hjem | Fungerer | – | – | ja | §19 |
 | Meny: Hjem, Arrangementer, Profil | Navigasjon | Fungerer | – | – | ja | §19 |
 | Meny: Logg inn | Vises bare uten innlogging | Fungerer | `getSession` | ja | ja | §1, §3 |
 | Meny: Meldinger med antall uleste | Navigasjon; tallet summerer uleste samtaler | Demo | `listConversations` | nei | ja | §9 |
@@ -49,7 +49,7 @@ Fra prompt 3 laster appen mot Supabase: økt, organisasjoner, innlegg, arrangeme
 
 | Kontroll | Hva den gjør | Status | Tjenestemetode | Supabase | I designet | Kravpunkt |
 |---|---|---|---|---|---|---|
-| Avatar og organisasjonsnavn | Åpner organisasjonssiden | Fungerer | – | – | ja | §7 |
+| Avatar og organisasjonsnavn | Åpner organisasjonssiden. Styrer i EO (nasjonalt, fylkeslag, lokallag) har EO-logoen som standard profilbilde; elevråd viser initialer | Fungerer | – | – | ja | §7 |
 | Navn under avsender | Personen som publiserte. Er profilen deaktivert, står det «Tidligere tillitsvalgt» | Fungerer | `listFeed` | ja | ja | §1, §10 |
 | ··· (flere valg) | Åpner menyen | Fungerer | – | – | ja | §7 |
 | Meny: Del innlegget | Deler via systemdeling, ellers kopieres lenken | Fungerer | – | – | app | §7 (Deling) |
