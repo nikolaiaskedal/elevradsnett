@@ -249,13 +249,13 @@ isOneToOne: false
                   ]
                 },"event_delegates": {
                   Row: {
-                    "attendance_confirmed_at": string | null,"attendance_confirmed_by": string | null,"confirmed_at": string | null,"id": string,"notified_at": string | null,"registration_id": string,"status": string,"user_id": string
+                    "attendance_confirmed_at": string | null,"attendance_confirmed_by": string | null,"confirmed_at": string | null,"created_at": string,"id": string,"invited_by": string | null,"notified_at": string | null,"office_title": string | null,"registration_id": string,"responded_at": string | null,"status": string,"user_id": string
                   }
                   Insert: {
-                    "attendance_confirmed_at"?: string | null,"attendance_confirmed_by"?: string | null,"confirmed_at"?: string | null,"id"?: string,"notified_at"?: string | null,"registration_id": string,"status": string,"user_id": string
+                    "attendance_confirmed_at"?: string | null,"attendance_confirmed_by"?: string | null,"confirmed_at"?: string | null,"created_at"?: string,"id"?: string,"invited_by"?: string | null,"notified_at"?: string | null,"office_title"?: string | null,"registration_id": string,"responded_at"?: string | null,"status": string,"user_id": string
                   }
                   Update: {
-                    "attendance_confirmed_at"?: string | null,"attendance_confirmed_by"?: string | null,"confirmed_at"?: string | null,"id"?: string,"notified_at"?: string | null,"registration_id"?: string,"status"?: string,"user_id"?: string
+                    "attendance_confirmed_at"?: string | null,"attendance_confirmed_by"?: string | null,"confirmed_at"?: string | null,"created_at"?: string,"id"?: string,"invited_by"?: string | null,"notified_at"?: string | null,"office_title"?: string | null,"registration_id"?: string,"responded_at"?: string | null,"status"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -267,6 +267,18 @@ isOneToOne: false
     },{
       foreignKeyName: "event_delegates_attendance_confirmed_by_fkey"
       columns: ["attendance_confirmed_by"]
+isOneToOne: false
+      referencedRelation: "public_profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "event_delegates_invited_by_fkey"
+      columns: ["invited_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "event_delegates_invited_by_fkey"
+      columns: ["invited_by"]
 isOneToOne: false
       referencedRelation: "public_profiles"
       referencedColumns: ["id"]
@@ -284,6 +296,37 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "event_delegates_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "public_profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"event_interests": {
+                  Row: {
+                    "created_at": string,"event_id": string,"user_id": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"event_id": string,"user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"event_id"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "event_interests_event_id_fkey"
+      columns: ["event_id"]
+isOneToOne: false
+      referencedRelation: "events"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "event_interests_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "event_interests_user_id_fkey"
       columns: ["user_id"]
 isOneToOne: false
       referencedRelation: "public_profiles"
@@ -1099,13 +1142,13 @@ isOneToOne: false
                   ]
                 },"posts": {
                   Row: {
-                    "actor_user_id": string,"audience": Database["public"]['Enums']["audience_type"],"body": string,"created_at": string,"deleted_at": string | null,"edited_at": string | null,"id": string,"moderation_status": Database["public"]['Enums']["moderation_status"],"organization_id": string,"priority": boolean,"published_at": string | null,"school_level_target": string,"search_vector": unknown,"status": Database["public"]['Enums']["content_status"],"updated_at": string
+                    "actor_user_id": string,"audience": Database["public"]['Enums']["audience_type"],"body": string,"created_at": string,"deleted_at": string | null,"edited_at": string | null,"event_id": string | null,"id": string,"moderation_status": Database["public"]['Enums']["moderation_status"],"organization_id": string,"priority": boolean,"published_at": string | null,"school_level_target": string,"search_vector": unknown,"status": Database["public"]['Enums']["content_status"],"updated_at": string
                   }
                   Insert: {
-                    "actor_user_id": string,"audience"?: Database["public"]['Enums']["audience_type"],"body": string,"created_at"?: string,"deleted_at"?: string | null,"edited_at"?: string | null,"id"?: string,"moderation_status"?: Database["public"]['Enums']["moderation_status"],"organization_id": string,"priority"?: boolean,"published_at"?: string | null,"school_level_target"?: string,"search_vector"?: never,"status"?: Database["public"]['Enums']["content_status"],"updated_at"?: string
+                    "actor_user_id": string,"audience"?: Database["public"]['Enums']["audience_type"],"body": string,"created_at"?: string,"deleted_at"?: string | null,"edited_at"?: string | null,"event_id"?: string | null,"id"?: string,"moderation_status"?: Database["public"]['Enums']["moderation_status"],"organization_id": string,"priority"?: boolean,"published_at"?: string | null,"school_level_target"?: string,"search_vector"?: never,"status"?: Database["public"]['Enums']["content_status"],"updated_at"?: string
                   }
                   Update: {
-                    "actor_user_id"?: string,"audience"?: Database["public"]['Enums']["audience_type"],"body"?: string,"created_at"?: string,"deleted_at"?: string | null,"edited_at"?: string | null,"id"?: string,"moderation_status"?: Database["public"]['Enums']["moderation_status"],"organization_id"?: string,"priority"?: boolean,"published_at"?: string | null,"school_level_target"?: string,"search_vector"?: never,"status"?: Database["public"]['Enums']["content_status"],"updated_at"?: string
+                    "actor_user_id"?: string,"audience"?: Database["public"]['Enums']["audience_type"],"body"?: string,"created_at"?: string,"deleted_at"?: string | null,"edited_at"?: string | null,"event_id"?: string | null,"id"?: string,"moderation_status"?: Database["public"]['Enums']["moderation_status"],"organization_id"?: string,"priority"?: boolean,"published_at"?: string | null,"school_level_target"?: string,"search_vector"?: never,"status"?: Database["public"]['Enums']["content_status"],"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -1119,6 +1162,12 @@ isOneToOne: false
       columns: ["actor_user_id"]
 isOneToOne: false
       referencedRelation: "public_profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "posts_event_id_fkey"
+      columns: ["event_id"]
+isOneToOne: false
+      referencedRelation: "events"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "posts_organization_id_fkey"
@@ -1415,6 +1464,9 @@ isOneToOne: false
 "add_conversation_members":
 { Args: { "p_conversation": string,"p_members": (string)[] }; Returns: undefined
                            },
+"add_event_delegate":
+{ Args: { "p_registration": string,"p_user": string }; Returns: string
+                           },
 "apply_moderation_action":
 { Args: { "p_action": string,"p_reason": string,"p_report": string }; Returns: undefined
                            },
@@ -1427,11 +1479,26 @@ isOneToOne: false
 "assign_role":
 { Args: { "p_ends"?: string,"p_org": string,"p_role": Database["public"]['Enums']["admin_role"],"p_starts": string,"p_user": string }; Returns: string
                            },
+"audience_fits_organization":
+{ Args: { "p_audience": Database["public"]['Enums']["audience_type"],"p_org": string }; Returns: boolean
+                           },
 "block_user":
 { Args: { "p_user": string }; Returns: undefined
                            },
+"can_be_delegate":
+{ Args: { "p_org": string,"p_user": string }; Returns: boolean
+                           },
 "can_grant_role":
 { Args: { "p_org": string,"p_role": Database["public"]['Enums']["admin_role"] }; Returns: boolean
+                           },
+"can_manage_event":
+{ Args: { "p_event": string }; Returns: boolean
+                           },
+"can_organize_events":
+{ Args: { "p_org": string }; Returns: boolean
+                           },
+"can_register_for":
+{ Args: { "p_org": string }; Returns: boolean
                            },
 "can_view_message":
 { Args: { "p_message": string,"p_user"?: string }; Returns: boolean
@@ -1451,11 +1518,20 @@ isOneToOne: false
 "check_conversation_rate_limit":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
+"check_post_content":
+{ Args: { "p_audience": Database["public"]['Enums']["audience_type"],"p_body": string,"p_event": string,"p_org": string,"p_school_level": string }; Returns: undefined
+                           },
+"clean_text":
+{ Args: { "p_text": string }; Returns: string
+                           },
 "complete_handover":
 { Args: { "p_handover": string }; Returns: undefined
                            },
 "complete_onboarding":
 { Args: { "p_display_name": string,"p_next_election"?: string,"p_school": string }; Returns: undefined
+                           },
+"confirm_all_event_attendance":
+{ Args: { "p_event": string }; Returns: number
                            },
 "confirm_event_attendance":
 { Args: { "p_attended": boolean,"p_delegate": string }; Returns: undefined
@@ -1466,20 +1542,15 @@ isOneToOne: false
 "create_organization_group":
 { Args: { "p_org": string }; Returns: string
                            },
-"deactivate_school":
-{ Args: { "p_reason": string,"p_school": string }; Returns: undefined
-                           },
-"decide_school_admin_request":
-{ Args: { "p_approve": boolean,"p_reason"?: string,"p_request": string }; Returns: undefined
-                           },
-"edit_post":
-{ Args: { "p_audience": Database["public"]['Enums']["audience_type"],"p_body": string,"p_post": string,"p_school_level_target"?: string }; Returns: {
+"create_post":
+{ Args: { "p_audience": Database["public"]['Enums']["audience_type"],"p_body": string,"p_event"?: string,"p_organization": string,"p_publish"?: boolean,"p_school_level"?: string }; Returns: {
               "actor_user_id": string,
 "audience": Database["public"]['Enums']["audience_type"],
 "body": string,
 "created_at": string,
 "deleted_at": string | null,
 "edited_at": string | null,
+"event_id": string | null,
 "id": string,
 "moderation_status": Database["public"]['Enums']["moderation_status"],
 "organization_id": string,
@@ -1496,8 +1567,51 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"deactivate_school":
+{ Args: { "p_reason": string,"p_school": string }; Returns: undefined
+                           },
+"decide_friend_request":
+{ Args: { "p_accept": boolean,"p_connection": string }; Returns: undefined
+                           },
+"decide_school_admin_request":
+{ Args: { "p_approve": boolean,"p_reason"?: string,"p_request": string }; Returns: undefined
+                           },
+"delete_post":
+{ Args: { "p_post": string }; Returns: undefined
+                           },
+"edit_post":
+{ Args: { "p_audience": Database["public"]['Enums']["audience_type"],"p_body": string,"p_post": string,"p_school_level_target"?: string }; Returns: {
+              "actor_user_id": string,
+"audience": Database["public"]['Enums']["audience_type"],
+"body": string,
+"created_at": string,
+"deleted_at": string | null,
+"edited_at": string | null,
+"event_id": string | null,
+"id": string,
+"moderation_status": Database["public"]['Enums']["moderation_status"],
+"organization_id": string,
+"priority": boolean,
+"published_at": string | null,
+"school_level_target": string,
+"search_vector": unknown,
+"status": Database["public"]['Enums']["content_status"],
+"updated_at": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "posts"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"end_friend_connection":
+{ Args: { "p_connection": string }; Returns: undefined
+                           },
 "end_public_office":
 { Args: { "p_membership": string }; Returns: undefined
+                           },
+"event_audience_allows":
+{ Args: { "p_event": string,"p_org": string }; Returns: boolean
                            },
 "get_conversation_messages":
 { Args: { "p_before"?: string,"p_conversation": string,"p_limit"?: number }; Returns: {
@@ -1508,6 +1622,9 @@ isOneToOne: false
 { Args: { "p_event": string }; Returns: {
               "interested": number,"registered": number
             }[]
+                           },
+"get_event_participation":
+{ Args: { "p_event": string }; Returns: Json
                            },
 "get_message_settings":
 { Args: Record<PropertyKey, never>; Returns: {
@@ -1527,9 +1644,22 @@ isOneToOne: false
 "get_my_session":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
+"get_organization_cv":
+{ Args: { "p_org": string }; Returns: {
+              "category": string,"display_name": string,"elevtinget": boolean,"event_id": string,"office_title": string,"organizer_name": string,"starts_at": string,"title": string,"user_id": string
+            }[]
+                           },
+"get_person_cv":
+{ Args: { "p_user": string }; Returns: Json
+                           },
 "get_post_cards":
 { Args: { "p_limit"?: number,"p_mode"?: string,"p_organization"?: string,"p_representation_id"?: string }; Returns: {
               "actor_name": string,"actor_title": string,"audience": Database["public"]['Enums']["audience_type"],"body": string,"comment_count": number,"comments": Json,"edited": boolean,"id": string,"organization_id": string,"organization_name": string,"poll": Json,"priority": boolean,"published_at": string,"support_count": number,"supported": boolean
+            }[]
+                           },
+"get_post_history":
+{ Args: { "p_post": string }; Returns: {
+              "audience": Database["public"]['Enums']["audience_type"],"body": string,"created_at": string,"edited_by_name": string,"id": string,"school_level": string
             }[]
                            },
 "get_public_officers":
@@ -1571,6 +1701,9 @@ isOneToOne: false
 "is_conversation_member":
 { Args: { "p_conversation": string,"p_user"?: string }; Returns: boolean
                            },
+"is_event_participant":
+{ Args: { "p_event": string }; Returns: boolean
+                           },
 "leave_conversation":
 { Args: { "p_conversation": string }; Returns: undefined
                            },
@@ -1589,6 +1722,21 @@ isOneToOne: false
               "display_name": string,"is_admin": boolean,"me": boolean,"school_name": string,"user_id": string
             }[]
                            },
+"list_delegate_candidates":
+{ Args: { "p_query"?: string,"p_registration": string }; Returns: {
+              "display_name": string,"id": string,"office_title": string
+            }[]
+                           },
+"list_events":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "audience": Database["public"]['Enums']["audience_type"],"can_edit": boolean,"capacity": number,"category": string,"description": string,"digital": boolean,"digital_url": string,"ends_at": string,"id": string,"image_path": string,"interested": number,"interested_by_me": boolean,"organizer_id": string,"organizer_name": string,"place": string,"price_label": string,"registered": number,"registration_deadline": string,"seats_per_organization": number,"starts_at": string,"status": Database["public"]['Enums']["event_status"],"summary": string,"title": string
+            }[]
+                           },
+"list_friend_connections":
+{ Args: { "p_school": string }; Returns: {
+              "approved_at": string,"can_decide": boolean,"county": string,"created_at": string,"direction": string,"id": string,"school_id": string,"school_name": string,"status": string
+            }[]
+                           },
 "list_my_admin_organizations":
 { Args: Record<PropertyKey, never>; Returns: {
               "county": string,"grantable_roles": (Database["public"]['Enums']["admin_role"])[],"id": string,"my_role": Database["public"]['Enums']["admin_role"],"name": string,"school_name": string,"status": Database["public"]['Enums']["organization_status"],"type": Database["public"]['Enums']["organization_type"]
@@ -1604,6 +1752,11 @@ isOneToOne: false
               "created_at": string,"id": string,"is_admin": boolean,"kind": string,"last_message_at": string,"last_message_body": string,"last_message_has_attachment": boolean,"last_message_mine": boolean,"member_count": number,"muted": boolean,"name": string,"organization_id": string,"other_user_id": string,"unread_count": number
             }[]
                            },
+"list_my_event_organizers":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "county": string,"id": string,"name": string,"type": Database["public"]['Enums']["organization_type"]
+            }[]
+                           },
 "list_organization_contacts":
 { Args: { "p_org": string }; Returns: {
               "display_name": string,"me": boolean,"public_title": string,"user_id": string
@@ -1612,6 +1765,16 @@ isOneToOne: false
 "list_organization_roles":
 { Args: { "p_org": string }; Returns: {
               "can_change": boolean,"display_name": string,"end_date": string,"granted_at": string,"granted_by_name": string,"id": string,"kind": string,"role": Database["public"]['Enums']["admin_role"],"start_date": string,"status": Database["public"]['Enums']["membership_status"],"title": string,"user_active": boolean,"user_id": string
+            }[]
+                           },
+"list_post_cards":
+{ Args: { "p_limit"?: number,"p_mode"?: string,"p_organization"?: string,"p_representation_id"?: string }; Returns: {
+              "actor_name": string,"actor_title": string,"audience": Database["public"]['Enums']["audience_type"],"body": string,"can_manage": boolean,"comment_count": number,"comments": Json,"edited": boolean,"event_id": string,"id": string,"organization_id": string,"organization_name": string,"poll": Json,"priority": boolean,"published_at": string,"school_level": string,"support_count": number,"supported": boolean
+            }[]
+                           },
+"list_post_drafts":
+{ Args: { "p_org": string }; Returns: {
+              "actor_name": string,"audience": Database["public"]['Enums']["audience_type"],"body": string,"event_id": string,"id": string,"organization_id": string,"school_level": string,"updated_at": string
             }[]
                            },
 "list_public_events":
@@ -1629,6 +1792,9 @@ isOneToOne: false
               "can_decide": boolean,"created_at": string,"decided_at": string,"decision_reason": string,"display_name": string,"id": string,"message": string,"mine": boolean,"school_id": string,"school_name": string,"status": string,"user_id": string
             }[]
                            },
+"log_friend_event":
+{ Args: { "p_action": string,"p_connection": Database["public"]['Tables']["organization_connections"]['Row'] }; Returns: undefined
+                           },
 "mark_conversation_read":
 { Args: { "p_conversation": string }; Returns: undefined
                            },
@@ -1640,6 +1806,7 @@ isOneToOne: false
 "created_at": string,
 "deleted_at": string | null,
 "edited_at": string | null,
+"event_id": string | null,
 "id": string,
 "moderation_status": Database["public"]['Enums']["moderation_status"],
 "organization_id": string,
@@ -1656,8 +1823,17 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"register_for_event":
+{ Args: { "p_event": string,"p_org": string,"p_register": boolean }; Returns: string
+                           },
+"remove_event_delegate":
+{ Args: { "p_delegate": string }; Returns: undefined
+                           },
 "report_message":
 { Args: { "p_category": string,"p_description"?: string,"p_message": string }; Returns: string
+                           },
+"request_friend_school":
+{ Args: { "p_school": string,"p_target": string }; Returns: string
                            },
 "request_personal_data":
 { Args: { "p_kind": string }; Returns: string
@@ -1670,11 +1846,17 @@ isOneToOne: false
               "cover_image_path": string,"cover_image_source": string,"profile_image_path": string,"profile_image_source": string
             }[]
                            },
+"respond_event_delegation":
+{ Args: { "p_accept": boolean,"p_delegate": string }; Returns: undefined
+                           },
 "revoke_role":
 { Args: { "p_grant": string }; Returns: undefined
                            },
 "role_fits_organization":
 { Args: { "p_org": string,"p_role": Database["public"]['Enums']["admin_role"] }; Returns: boolean
+                           },
+"save_event":
+{ Args: { "p_audience": Database["public"]['Enums']["audience_type"],"p_capacity": number,"p_category": string,"p_description": string,"p_digital_url": string,"p_ends_at": string,"p_event": string,"p_organizer": string,"p_place": string,"p_price_label": string,"p_registration_deadline": string,"p_seats_per_organization": number,"p_starts_at": string,"p_status": Database["public"]['Enums']["event_status"],"p_summary": string,"p_title": string }; Returns: string
                            },
 "search":
 { Args: { "p_include_former"?: boolean,"p_kinds"?: (string)[],"p_limit"?: number,"p_query": string }; Returns: {
@@ -1703,8 +1885,17 @@ isOneToOne: false
 "set_conversation_muted":
 { Args: { "p_conversation": string,"p_muted": boolean }; Returns: undefined
                            },
+"set_event_image":
+{ Args: { "p_event": string,"p_path"?: string }; Returns: string
+                           },
+"set_event_interest":
+{ Args: { "p_event": string,"p_interested": boolean }; Returns: undefined
+                           },
 "set_event_response":
 { Args: { "p_event": string,"p_organization": string,"p_response": string }; Returns: undefined
+                           },
+"set_event_status":
+{ Args: { "p_event": string,"p_status": Database["public"]['Enums']["event_status"] }; Returns: undefined
                            },
 "set_read_receipts":
 { Args: { "p_enabled": boolean }; Returns: undefined
@@ -1721,6 +1912,31 @@ isOneToOne: false
 "unblock_user":
 { Args: { "p_user": string }; Returns: undefined
                            },
+"update_post":
+{ Args: { "p_audience": Database["public"]['Enums']["audience_type"],"p_body": string,"p_event"?: string,"p_post": string,"p_publish"?: boolean,"p_school_level"?: string }; Returns: {
+              "actor_user_id": string,
+"audience": Database["public"]['Enums']["audience_type"],
+"body": string,
+"created_at": string,
+"deleted_at": string | null,
+"edited_at": string | null,
+"event_id": string | null,
+"id": string,
+"moderation_status": Database["public"]['Enums']["moderation_status"],
+"organization_id": string,
+"priority": boolean,
+"published_at": string | null,
+"school_level_target": string,
+"search_vector": unknown,
+"status": Database["public"]['Enums']["content_status"],
+"updated_at": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "posts"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "update_profile":
 { Args: { "p_display_name": string }; Returns: undefined
                            }

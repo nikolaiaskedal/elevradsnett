@@ -583,10 +583,10 @@ p { margin: 0; }
 .change-school { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
 .history-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
 .history-list li { display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--navy-100); border-radius: 9px; padding: 10px 14px; }
-.facts { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
-.facts div { display: flex; gap: 12px; flex-wrap: wrap; justify-content: space-between; border-bottom: 1px solid var(--hair); padding-bottom: 8px; }
-.facts dt { color: var(--navy-300); font-weight: 500; }
-.facts dd { font-weight: 600; overflow-wrap: anywhere; }
+dl.facts { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+dl.facts div { display: flex; gap: 12px; flex-wrap: wrap; justify-content: space-between; border-bottom: 1px solid var(--hair); padding-bottom: 8px; }
+dl.facts dt { color: var(--navy-300); font-weight: 500; }
+dl.facts dd { font-weight: 600; overflow-wrap: anywhere; }
 .comment-note { color: var(--navy-300); line-height: 1.5; margin-top: 6px; }
 .comment-login { align-self: flex-start; margin-top: 6px; }
 .login-flow .card h1 + .muted, .login-flow .card h2 + .muted { margin-top: 6px; line-height: 1.6; }
@@ -647,3 +647,44 @@ p { margin: 0; }
   .rep-switch-button { padding-right: 6px; gap: 6px; }
 }
 .card .card-head h2 + .muted { margin-top: 3px; }
+
+/* ---------- Innlegg: utkast, forhåndsvisning og historikk ---------- */
+.publisher .grow { min-width: 0; }
+.composer-note { line-height: 1.5; }
+.composer-preview { border: 1px dashed var(--navy-200); border-radius: 9px; padding: 8px; background: var(--soft); }
+.composer-preview .post { margin: 0; }
+.composer-buttons { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+.draft-row { flex-wrap: wrap; }
+.draft-row .grow { min-width: 0; flex: 1 1 180px; }
+.draft-row .grow strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu button.danger-item { color: var(--accent); }
+.revision { border: 1px solid var(--navy-100); border-radius: 9px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.revision-meta { color: var(--navy-300); line-height: 1.5; }
+.revision-meta strong { color: var(--navy); font-weight: 600; }
+.revision-body { white-space: pre-wrap; line-height: 1.6; overflow-wrap: anywhere; }
+.friend-hits { display: flex; flex-direction: column; gap: 6px; }
+.sub-head { font-size: inherit; font-weight: 600; margin: 6px 0 0; }
+.friend-hits .row-card, .card .list .row-card { flex-wrap: wrap; }
+@media (max-width: 480px) {
+  .composer-buttons { width: 100%; }
+  .composer-buttons .btn { flex: 1 1 auto; }
+}
+
+/* ---------- Arrangementer og CV ---------- */
+.event-visual img, .hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.hero-ph { position: relative; overflow: hidden; }
+.event-title .status, .detail-body h1 .status { vertical-align: middle; margin-left: 4px; }
+.event-link { margin-top: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.event-link a { color: var(--accent); font-weight: 600; }
+.event-form textarea { min-height: 110px; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.modal-body.event-form { max-height: min(70vh, 720px); overflow-y: auto; }
+.row-card.wrap { flex-wrap: wrap; }
+.row-card .grow { min-width: 160px; }
+.registration { display: flex; flex-direction: column; gap: 10px; }
+.delegates { padding-left: 14px; border-left: 2px solid var(--accent-200); }
+.delegates .chip-label { margin-top: 4px; }
+label.btn { cursor: pointer; }
+input:focus-visible + label.btn { outline: 2px solid var(--accent); outline-offset: 2px; }
+.stars { color: var(--accent); letter-spacing: 1px; white-space: nowrap; }
+h1 .stars { font-size: 0.7em; vertical-align: middle; }
