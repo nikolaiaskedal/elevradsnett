@@ -1,4 +1,4 @@
-# Bygger Elevrådsnett-demoen (vite.config.ts) og publiserer den på GitHub Pages i tillegg til Cloudflare Pages
+# Bygger Elevrådsnett (vite.config.ts) og publiserer dist/ på GitHub Pages
 name: Deploy static content to Pages
 
 on:
@@ -42,6 +42,9 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

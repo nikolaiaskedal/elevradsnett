@@ -1,11 +1,11 @@
 # CLAUDE.md
 
-Faste regler for alt arbeid i dette repoet. Kravene står i `docs/KRAVSPEC.md`; prompter viser til punktnumrene der.
+Faste regler for alt arbeid i dette repoet. Kravene står i `docs/KRAVSPEC.md`, og rekkefølgen arbeidet gjøres i står i `docs/PROMPTPLAN.md`. Prompter viser til punktnumrene der.
 
 ## Stack
 
 - Ren Vite + React SPA med hash-routing (`components/routing.ts`). Ingen Next, vinext, Workers eller server-rendering.
-- Publiseres som statiske filer på Cloudflare Pages (`dist/`, se README). Sikkerhetsheadere ligger i `public/_headers`.
+- Publiseres som statiske filer fra `dist/` til GitHub Pages i piloten (`.github/workflows/static.yml`). Før full lansering byttes det til Cloudflare Pages; `public/_headers` er klargjort for det og ignoreres av GitHub Pages.
 - Miljøvariabler til nettleseren har `VITE_`-prefiks. Hemmeligheter (service role o.l.) skal aldri ha det.
 - Font: Graphik (Regular, Regular Italic, Semibold) fra `app/fonts/`. Ingen eksterne fonter.
 
@@ -61,3 +61,21 @@ Alt skal være grønt. CI kjører det samme på alle pull requests.
 ## Mobil
 
 Hver visning skal sjekkes på mobilbredde (375px), i tillegg til desktop: ingen horisontal scrolling, og alle knapper skal kunne nås og trykkes.
+
+## Arbeidsflyt: alltid merge
+
+Når du har gjort endringer i repoet, skal du ALLTID avslutte med å merge dem inn i `main`. Brukeren har gitt varig tillatelse til dette, og du skal ikke spørre først.
+
+1. Kjør repoets sjekker (lint, typecheck, test og build) og rett feil til alt går gjennom.
+2. Commit og push til arbeidsbranchen.
+3. Opprett en PR mot `main` hvis det ikke allerede finnes en for branchen.
+4. Vent til CI er grønn, og rett eventuelle feil.
+5. Merge PR-en inn i `main`.
+
+Ikke merge hvis sjekkene eller CI feiler. Fiks feilen først, eller forklar brukeren hva som stopper.
+
+## Prosjektdokumenter
+
+- Kravspesifikasjon: `docs/KRAVSPEC.md`
+- Promptplan: `docs/PROMPTPLAN.md`
+- Design: `docs/design/elevradsnett.dc.html`

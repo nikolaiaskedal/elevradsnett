@@ -18,7 +18,7 @@ Appen er en ren Vite + React SPA med hash-routing (`#/utforsk`, `#/org/<id>` osv
 - `supabase/functions/`: serverfunksjoner for filvalidering og videre mediebehandling.
 - `supabase/tests/`: sikkerhets- og invariantsjekker.
 
-Designet grensesnittet følger ligger i `docs/design/elevradsnett.dc.html`. Kravene står i `docs/KRAVSPEC.md`, og `docs/FUNKSJONSKART.md` viser status for hver knapp og kontroll.
+Designet grensesnittet følger ligger i `docs/design/elevradsnett.dc.html`. Kravspesifikasjonen ligger i `docs/KRAVSPEC.md`, rekkefølgen arbeidet gjøres i står i `docs/PROMPTPLAN.md`, og `docs/FUNKSJONSKART.md` viser status for hver knapp og kontroll.
 
 ### Demo eller Supabase
 
@@ -43,19 +43,25 @@ Designet grensesnittet følger ligger i `docs/design/elevradsnett.dc.html`. Krav
 
 CI (`.github/workflows/ci.yml`) kjører lint, typecheck, test og bygg på alle pull requests.
 
-## Publisering på Cloudflare Pages
+## Publisering
 
-Repoet kobles til Cloudflare Pages med Git-integrasjonen:
+### GitHub Pages (piloten)
+
+Workflowen `.github/workflows/static.yml` kjører test og `npm run build` og publiserer `dist/` til GitHub Pages ved hver merge til `main`. I repoets innstillinger må *Settings → Pages → Source* være satt til *GitHub Actions*. Når Supabase-prosjektet finnes, legges `VITE_SUPABASE_URL` og `VITE_SUPABASE_ANON_KEY` inn som Actions-variabler (*Settings → Secrets and variables → Actions → Variables*); uten dem bygges demoen. Navigasjonen skjer i `#/`-delen av adressen, så siden trenger ingen omskrivinger på serveren.
+
+GitHub Pages kan ikke sette egne HTTP-headere. Når domenet er på plass, legges Cloudflare sin gratis proxy foran for sikkerhetsheadere (se `docs/PROMPTPLAN.md`).
+
+### Cloudflare Pages (før full lansering)
+
+`public/_headers` er klargjort for Cloudflare Pages og gir sikkerhetsheadere (CSP, `X-Frame-Options`, `Referrer-Policy` m.m.), `no-cache` på `index.html` og lang cache på hashede filer i `/assets/`. GitHub Pages ignorerer filen. Slik kobles repoet til når det er aktuelt:
 
 1. I Cloudflare-dashbordet: *Workers & Pages → Create → Pages → Connect to Git*, og velg `nikolaiaskedal/elevradsnett`.
 2. Produksjonsgren: `main`.
 3. Byggeinnstillinger: *Framework preset* `None` (eller `Vite`), *Build command* `npm run build`, *Build output directory* `dist`.
-4. Under *Settings → Variables and Secrets*: sett `NODE_VERSION` til `22`. Legg til `VITE_SUPABASE_URL` og `VITE_SUPABASE_ANON_KEY` når appen skal mot Supabase; uten dem bygges demoen. Variablene bakes inn ved bygg, så endringer krever et nytt bygg.
-5. Hver pull request får automatisk en forhåndsvisning på en egen `*.pages.dev`-adresse.
+4. Under *Settings → Variables and Secrets*: sett `NODE_VERSION` til `22`, og legg til `VITE_SUPABASE_URL` og `VITE_SUPABASE_ANON_KEY`. Variablene bakes inn ved bygg.
+5. Hver pull request får da en forhåndsvisning på en egen `*.pages.dev`-adresse.
 
-SPA-oppsettet: `public/_headers` kopieres til `dist/` og gir sikkerhetsheadere (CSP, `X-Frame-Options`, `Referrer-Policy` m.m.), `no-cache` på `index.html` og lang cache på hashede filer i `/assets/`. Siden det ikke finnes noen `404.html`, svarer Cloudflare Pages med `index.html` på ukjente stier, og all navigasjon skjer uansett i `#/`-delen av adressen. Legges en ny ekstern tjeneste til, må `Content-Security-Policy` i `_headers` utvides.
-
-Workflowen `.github/workflows/static.yml` publiserer det samme bygget til GitHub Pages ved push til `main`.
+Uten `404.html` svarer Cloudflare Pages med `index.html` på ukjente stier. Legges en ny ekstern tjeneste til, må `Content-Security-Policy` i `_headers` utvides.
 
 ## Produksjonsoppsett
 
