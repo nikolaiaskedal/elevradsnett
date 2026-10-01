@@ -1362,8 +1362,14 @@ isOneToOne: false
 "apply_school_import":
 { Args: { "p_batch": string }; Returns: Json
                            },
+"assign_public_office":
+{ Args: { "p_org": string,"p_starts"?: string,"p_title": string,"p_user": string }; Returns: string
+                           },
 "assign_role":
 { Args: { "p_ends"?: string,"p_org": string,"p_role": Database["public"]['Enums']["admin_role"],"p_starts": string,"p_user": string }; Returns: string
+                           },
+"can_grant_role":
+{ Args: { "p_org": string,"p_role": Database["public"]['Enums']["admin_role"] }; Returns: boolean
                            },
 "can_view_post":
 { Args: { "p": Database["public"]['Tables']["posts"]['Row'],"p_user"?: string }; Returns: boolean
@@ -1416,9 +1422,17 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"end_public_office":
+{ Args: { "p_membership": string }; Returns: undefined
+                           },
 "get_event_engagement":
 { Args: { "p_event": string }; Returns: {
               "interested": number,"registered": number
+            }[]
+                           },
+"get_my_roles":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "end_date": string,"id": string,"kind": string,"organization_id": string,"organization_name": string,"organization_status": Database["public"]['Enums']["organization_status"],"role": Database["public"]['Enums']["admin_role"],"start_date": string,"status": Database["public"]['Enums']["membership_status"],"title": string
             }[]
                            },
 "get_my_school_history":
@@ -1439,6 +1453,11 @@ isOneToOne: false
               "display_name": string,"membership_id": string,"public_title": string
             }[]
                            },
+"get_public_organization":
+{ Args: { "p_org": string }; Returns: {
+              "bio": string,"contact_email": string,"county": string,"follower_count": number,"following": boolean,"id": string,"local_board_id": string,"local_board_name": string,"member_count": number,"name": string,"officer_count": number,"priorities": Json,"priorities_heading": string,"school_level": string,"school_name": string,"slug": string,"status": Database["public"]['Enums']["organization_status"],"student_count": number,"type": Database["public"]['Enums']["organization_type"]
+            }[]
+                           },
 "get_ranked_feed":
 { Args: { "p_mode"?: string,"p_representation_id": string }; Returns: {
               "post_id": string,"score": number
@@ -1456,11 +1475,34 @@ isOneToOne: false
 "is_active_user":
 { Args: { "p_user"?: string }; Returns: boolean
                            },
+"is_area_board_admin":
+{ Args: { "p_school": string }; Returns: boolean
+                           },
 "is_blocked_between":
 { Args: { "p_a": string,"p_b": string }; Returns: boolean
                            },
 "is_conversation_member":
 { Args: { "p_conversation": string,"p_user"?: string }; Returns: boolean
+                           },
+"list_assignable_people":
+{ Args: { "p_org": string,"p_query"?: string }; Returns: {
+              "display_name": string,"id": string,"school_name": string
+            }[]
+                           },
+"list_audit_log":
+{ Args: { "p_limit"?: number,"p_org": string }; Returns: {
+              "action": string,"actor_name": string,"created_at": string,"details": Json,"id": number,"subject_name": string
+            }[]
+                           },
+"list_my_admin_organizations":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "county": string,"grantable_roles": (Database["public"]['Enums']["admin_role"])[],"id": string,"my_role": Database["public"]['Enums']["admin_role"],"name": string,"school_name": string,"status": Database["public"]['Enums']["organization_status"],"type": Database["public"]['Enums']["organization_type"]
+            }[]
+                           },
+"list_organization_roles":
+{ Args: { "p_org": string }; Returns: {
+              "can_change": boolean,"display_name": string,"end_date": string,"granted_at": string,"granted_by_name": string,"id": string,"kind": string,"role": Database["public"]['Enums']["admin_role"],"start_date": string,"status": Database["public"]['Enums']["membership_status"],"title": string,"user_active": boolean,"user_id": string
+            }[]
                            },
 "list_public_events":
 { Args: Record<PropertyKey, never>; Returns: {
@@ -1470,6 +1512,11 @@ isOneToOne: false
 "list_public_organizations":
 { Args: Record<PropertyKey, never>; Returns: {
               "bio": string,"contact_email": string,"county": string,"follower_count": number,"following": boolean,"id": string,"local_board_id": string,"local_board_name": string,"member_count": number,"name": string,"officer_count": number,"priorities": Json,"priorities_heading": string,"school_level": string,"school_name": string,"slug": string,"status": Database["public"]['Enums']["organization_status"],"student_count": number,"type": Database["public"]['Enums']["organization_type"]
+            }[]
+                           },
+"list_school_admin_requests":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "can_decide": boolean,"created_at": string,"decided_at": string,"decision_reason": string,"display_name": string,"id": string,"message": string,"mine": boolean,"school_id": string,"school_name": string,"status": string,"user_id": string
             }[]
                            },
 "publish_post":
@@ -1506,6 +1553,12 @@ isOneToOne: false
 { Args: { "p_org": string }; Returns: {
               "cover_image_path": string,"cover_image_source": string,"profile_image_path": string,"profile_image_source": string
             }[]
+                           },
+"revoke_role":
+{ Args: { "p_grant": string }; Returns: undefined
+                           },
+"role_fits_organization":
+{ Args: { "p_org": string,"p_role": Database["public"]['Enums']["admin_role"] }; Returns: boolean
                            },
 "search":
 { Args: { "p_include_former"?: boolean,"p_kinds"?: (string)[],"p_limit"?: number,"p_query": string }; Returns: {

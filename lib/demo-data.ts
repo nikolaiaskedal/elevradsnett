@@ -1,11 +1,28 @@
-import type { Conversation, CurrentUser, Event, Organization, Post, Representation } from '@/lib/domain/types';
+import type { Conversation, CurrentUser, Event, InternalRole, Organization, Post } from '@/lib/domain/types';
 
 export const currentUser: CurrentUser = { id:'user-ida', name:'Ida Halvorsen', initials:'IH', schoolId:'elvebakken', email:'ida.halvorsen@example.invalid' };
 
-export const representations: Representation[] = [
-  { id:'rep-school', organizationId:'elvebakken', name:'Elvebakken vgs elevråd', initials:'EV', publicRole:'Elevrådsleder', canPublish:true, type:'school' },
-  { id:'rep-county', organizationId:'oslo-fylke', name:'Elevorganisasjonen i Oslo', initials:'OS', publicRole:'Fylkesstyremedlem', canPublish:true, type:'county_board' },
-  { id:'rep-local', organizationId:'oslo-sentrum', name:'Oslo Sentrum lokallag', initials:'SE', publicRole:'Lokallagsmedlem', canPublish:false, type:'local_board' },
+/**
+ * Verv, rettigheter og personer i demoen. Vervene til de tillitsvalgte under lages fra listene over tillitsvalgte
+ * på organisasjonene; her står bare id-ene for Idas verv og det som ikke står der.
+ */
+export const demoRepresentationIds:Record<string,string> = { elvebakken:'rep-school', 'oslo-fylke':'rep-county', 'oslo-sentrum':'rep-local' };
+/** Skolen til personer i styrene, så de kan finnes når administratoren gir verv. */
+export const demoPersonSchools:Record<string,string> = {
+  'Mathilde Rø':'hartvig', 'Omar Haddad':'kuben', 'Vilde Sunde':'ohg', 'Elias Brekke':'kuben', 'Nora Tangen':'hartvig', 'Aksel Vangen':'ohg',
+};
+export const demoFormerOfficers = [
+  { name:'Jonas Berg', organizationId:'elvebakken', title:'Elevrådsleder', startDate:'2024-08-20', endDate:'2025-06-20', personActive:false },
+  { name:'Ida Halvorsen', organizationId:'elvebakken', title:'Elevrådsmedlem', startDate:'2024-08-20', endDate:'2025-06-20', personActive:true },
+];
+export const demoGrants:{ person:string; organizationId:string; role:InternalRole; startDate:string }[] = [
+  { person:'Ida Halvorsen', organizationId:'elvebakken', role:'school_admin', startDate:'2025-08-25' },
+  { person:'Ida Halvorsen', organizationId:'oslo-fylke', role:'board_admin', startDate:'2025-09-10' },
+  { person:'Mathilde Rø', organizationId:'oslo-fylke', role:'board_admin', startDate:'2025-09-10' },
+  { person:'Sivert Aune', organizationId:'elvebakken', role:'content_manager', startDate:'2025-08-25' },
+];
+export const demoSchoolAdminRequests = [
+  { person:'Frida Aas', schoolId:'ohg', message:'Jeg er elevrådsleder og vil oppdatere siden vår.', createdAt:'2026-09-28T10:15:00.000Z' },
 ];
 
 const officers = (prefix:string, list:[string,string][]) => list.map(([name,publicTitle],i)=>({ id:`${prefix}-${i+1}`, name, publicTitle }));

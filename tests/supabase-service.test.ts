@@ -79,9 +79,44 @@ describe('SupabaseElevradsnettService: offentlig lesing',()=>{
   });
 });
 
+describe('SupabaseElevradsnettService: verv og rettigheter',()=>{
+  it('viser verv i deaktiverte organisasjoner, men velger dem aldri som aktive',async()=>{
+    const { client } = fakeClient({ get_my_session:{
+      status:'active', active_membership_id:'m1',
+      profile:{ id:'u1', display_name:'Ida Halvorsen', email:'ida@example.invalid', avatar_path:null, current_school_id:'s1' },
+      representations:[
+        { id:'m2', organization_id:'c1', name:'Elevorganisasjonen i Oslo', type:'county_board', organization_status:'active', public_title:'Fylkesleder', can_publish:true },
+        { id:'m1', organization_id:'s0', name:'Nedlagt skole', type:'school', organization_status:'deactivated', public_title:'Leder', can_publish:false },
+      ] } });
+    const session = await new SupabaseElevradsnettService(client).getSession();
+    if (session.status!=='active') throw new Error();
+    expect(session.activeRepresentationId).toBe('m2');
+    expect(session.representations.map(r=>r.organizationStatus)).toEqual(['active','deactivated']);
+  });
+  it('sender rettigheter og verv til RPC-ene og viser serverens svar',async()=>{
+    const { client,calls } = fakeClient({
+      list_my_admin_organizations:[{ id:'s1', type:'school', name:'Elvebakken vgs', school_name:'Elvebakken videregående skole', county:'Oslo', status:'active', my_role:'school_admin', grantable_roles:['school_admin','content_manager'] }],
+      list_organization_roles:[{ kind:'role', id:'g1', user_id:'u2', display_name:'Sivert Aune', user_active:false, title:null, role:'content_manager', start_date:'2026-09-01', end_date:null, status:'active', granted_by_name:'Ida Halvorsen', granted_at:'2026-09-01T10:00:00Z', can_change:true }],
+    });
+    const service = new SupabaseElevradsnettService(client);
+    expect(await service.listAdminOrganizations()).toEqual([{ id:'s1', type:'school', name:'Elvebakken videregående skole', county:'Oslo', status:'active', myRole:'school_admin', grantableRoles:['school_admin','content_manager'] }]);
+    expect((await service.listOrganizationRoles('s1'))[0]).toMatchObject({ kind:'role', role:'content_manager', userName:'Sivert Aune', userActive:false, title:'', endDate:null, canChange:true });
+    await service.assignPublicOffice({ organizationId:'s1', userId:'u2', title:' Nestleder ' });
+    await service.assignRole({ organizationId:'s1', userId:'u2', role:'content_manager' });
+    await service.revokeRole('g1');
+    expect(calls.slice(-3).map(c=>c.name)).toEqual(['assign_public_office','assign_role','revoke_role']);
+    expect(calls.at(-3)?.args).toEqual({ p_user:'u2', p_org:'s1', p_title:'Nestleder' });
+    expect(calls.at(-2)?.args).toMatchObject({ p_user:'u2', p_org:'s1', p_role:'content_manager', p_starts:expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
+    await expect(service.assignRole({ organizationId:'s1', userId:'u2', role:'eier' as never })).rejects.toThrow('Ukjent rettighet');
+  });
+});
+
 describe('toNorwegianError',()=>{
   it('oversetter kjente feil fra databasen og Auth',()=>{
     expect(toNorwegianError({ message:'last school administrator' }).message).toContain('siste skoleadministrator');
+    expect(toNorwegianError({ message:'last administrator' }).message).toContain('minst én administrator');
+    expect(toNorwegianError({ message:'self escalation is not allowed' }).message).toBe('Du kan ikke gi deg selv rettigheter.');
+    expect(toNorwegianError({ message:'duplicate key value violates unique constraint "x"' }).message).toBe('Dette er allerede registrert.');
     expect(toNorwegianError({ message:'email rate limit exceeded', status:429 }).message).toBe('For mange forsøk. Vent litt og prøv igjen.');
     expect(toNorwegianError({ message:'something internal' },'Kunne ikke lagre.').message).toBe('Kunne ikke lagre.');
   });

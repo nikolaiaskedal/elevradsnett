@@ -1,37 +1,261 @@
-import { useState } from 'react';
-import { Avatar, Status } from '@/components/shared/ui';
-import type { Representation } from '@/lib/domain/types';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useApp } from '@/components/app-context';
+import { useService } from '@/components/service-provider';
+import { Avatar, ConfirmButton, Status } from '@/components/shared/ui';
+import { auditActionLabel, initialsOf, kindLabel, officeSuggestions, roleLabel } from '@/lib/domain/labels';
+import { formatDate, formatRelative } from '@/lib/domain/time';
+import type { AdminOrganization, AssignablePerson, AuditEntry, InternalRole, OrganizationRoleEntry, SchoolAdminRequest } from '@/lib/domain/types';
+import { errorMessage, OFFICE_TITLE_MAX_LENGTH, REQUEST_TEXT_MAX_LENGTH } from '@/lib/domain/validation';
 
-// Administrasjonen er foreløpig en ren demo: tallene og tabellene er statiske, og knappene viser bare en melding.
+// Administrasjonen viser bare det serveren svarer: hvilke organisasjoner brukeren administrerer, og hvilke
+// rettigheter som kan tildeles der. Oversikt, Roller og verv og Forespørsler er koblet til tjenestelaget.
+// Styreoverføring, Skoler, Moderering og CSV er fortsatt statiske demoer (prompt 11, 12 og 13).
 
 type Notify = (text:string)=>void;
-const adminTabs = [['overview','Oversikt'],['handover','Styreoverføring'],['roles','Roller og verv'],['schools','Skoler'],['moderation','Moderering'],['import','CSV']] as const;
+const adminTabs = [['overview','Oversikt'],['roles','Roller og verv'],['requests','Forespørsler'],['handover','Styreoverføring'],['schools','Skoler'],['moderation','Moderering'],['import','CSV']] as const;
 type AdminTab = typeof adminTabs[number][0];
 
-export function AdminView({activeRep,onNotify}:{activeRep:Representation;onNotify:Notify}){
-  const [tab,setTab]=useState<AdminTab>('overview');
+/** Henter data på nytt når nøkkelen endres. Feil vises i stedet for dataene. */
+function useLoad<T>(load:()=>Promise<T>,key:string):{ data:T|null; error:string; refresh:()=>void } {
+  const [state,setState] = useState<{ key:string; data:T|null; error:string }>({ key:'', data:null, error:'' });
+  const [version,setVersion] = useState(0);
+  // load lages på nytt ved hver visning, så den leses fra en ref. Nøkkelen og versjonen bestemmer når det hentes.
+  const loader = useRef(load);
+  useEffect(()=>{ loader.current = load; });
+  useEffect(()=>{
+    let cancelled = false;
+    loader.current().then(data=>{ if (!cancelled) setState({ key, data, error:'' }); }).catch(e=>{ if (!cancelled) setState({ key, data:null, error:errorMessage(e) }); });
+    return ()=>{ cancelled = true; };
+  },[key,version]);
+  const current = state.key===key;
+  return { data:current?state.data:null, error:current?state.error:'', refresh:()=>setVersion(v=>v+1) };
+}
+
+export function AdminView(){
+  const service = useService();
+  const { notify, go } = useApp();
+  const orgs = useLoad(()=>service.listAdminOrganizations(),'orgs');
+  const requests = useLoad(()=>service.listSchoolAdminRequests(),'requests');
+  const [orgId,setOrgId] = useState('');
+  const [tab,setTab] = useState<AdminTab>('overview');
+  if (orgs.error) return <div className="page narrow"><h1>Administrasjon</h1><p className="form-error" role="alert">{orgs.error}</p><button className="btn" onClick={orgs.refresh}>Prøv igjen</button></div>;
+  if (!orgs.data) return <div className="page narrow"><h1>Administrasjon</h1><p className="muted">Henter organisasjonene du administrerer …</p></div>;
+  if (!orgs.data.length) return <div className="page narrow">
+    <h1>Administrasjon</h1>
+    <p className="muted" style={{ lineHeight:1.6 }}>Du har ingen administratorrettigheter. Skoleadministrator eller styreadministrator i elevrådet eller styret ditt kan gi deg det, eller du kan be styret om å bli skoleadministrator for skolen din.</p>
+    <div className="actions"><button className="btn" onClick={()=>go({ view:'profile' })}>Gå til Verv og rettigheter</button></div>
+  </div>;
+  const org = orgs.data.find(o=>o.id===orgId) ?? orgs.data[0];
+  const decidable = (requests.data ?? []).filter(r=>r.canDecide);
   return <div className="page">
     <div className="page-head split">
-      <div><h1>Administrasjon</h1><p className="muted">{activeRep.name} · Rettigheter kontrolleres på nytt for hver serveroperasjon.</p></div>
-      <Status tone="green">Skoleadministrator</Status>
+      <div className="grow"><h1>Administrasjon</h1><p className="muted">Rettigheter kontrolleres på nytt for hver serveroperasjon.</p></div>
+      <Status tone="green">{roleLabel[org.myRole]}{org.myRole==='board_admin'&&org.type==='school'?' i området':''}</Status>
     </div>
+    <OrganizationPicker orgs={orgs.data} value={org.id} onChange={setOrgId}/>
+    {org.status!=='active'&&<p className="warn-box">{org.name} er deaktivert. Verv, innlegg og historikk er bevart, men ingen kan opptre på vegne av organisasjonen.</p>}
     <div className="segmented wide" role="tablist" aria-label="Administrasjon">
-      {adminTabs.map(([id,label])=><button key={id} role="tab" id={`tab-${id}`} aria-selected={tab===id} aria-controls={`panel-${id}`} className={tab===id?'on':''} onClick={()=>setTab(id)}>{label}</button>)}
+      {adminTabs.map(([id,label])=><button key={id} role="tab" id={`tab-${id}`} aria-selected={tab===id} aria-controls={`panel-${id}`} className={tab===id?'on':''} onClick={()=>setTab(id)}>
+        {label}{id==='requests'&&decidable.length?<span className="nav-count" aria-label={`${decidable.length} venter`}>{decidable.length}</span>:null}
+      </button>)}
     </div>
     <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="stack">
-      {tab==='overview'?<Overview/>:tab==='handover'?<Handover onNotify={onNotify}/>:tab==='roles'?<Roles onNotify={onNotify}/>:tab==='schools'?<Schools onNotify={onNotify}/>:tab==='moderation'?<Moderation onNotify={onNotify}/>:<CsvImport onNotify={onNotify}/>}
+      {tab==='overview'?<Overview key={org.id} org={org} pending={decidable.length} onTab={setTab}/>
+      :tab==='roles'?<Roles key={org.id} org={org} onNotify={notify}/>
+      :tab==='requests'?<Requests requests={requests.data} error={requests.error} onChanged={()=>{ requests.refresh(); orgs.refresh(); }} onNotify={notify}/>
+      :tab==='handover'?<Handover onNotify={notify}/>:tab==='schools'?<Schools onNotify={notify}/>:tab==='moderation'?<Moderation onNotify={notify}/>:<CsvImport onNotify={notify}/>}
     </div>
   </div>;
 }
 
-function Overview(){
+/** Velger organisasjon blant dem serveren sier brukeren administrerer. Med mange (styre og superadministrator) kan listen filtreres. */
+function OrganizationPicker({orgs,value,onChange}:{orgs:AdminOrganization[];value:string;onChange:(id:string)=>void}){
+  const [filter,setFilter] = useState('');
+  const shown = useMemo(()=>{
+    const q = filter.trim().toLowerCase();
+    const list = q?orgs.filter(o=>`${o.name} ${o.county}`.toLowerCase().includes(q)):orgs;
+    return list.some(o=>o.id===value)?list:[...orgs.filter(o=>o.id===value),...list];
+  },[orgs,filter,value]);
+  if (orgs.length===1) return <p className="admin-org"><strong>{orgs[0].name}</strong> · {kindLabel[orgs[0].type]}, {orgs[0].county}</p>;
+  return <div className="admin-picker">
+    {orgs.length>8&&<label className="field"><span>Søk i organisasjonene</span><input value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Navn eller fylke"/></label>}
+    <label className="field"><span>Organisasjon</span>
+      <select value={value} onChange={e=>onChange(e.target.value)}>
+        {shown.map(o=><option key={o.id} value={o.id}>{o.name} · {kindLabel[o.type]}{o.type==='national'?'':`, ${o.county}`}{o.status!=='active'?' (deaktivert)':''}</option>)}
+      </select>
+    </label>
+  </div>;
+}
+
+function Overview({org,pending,onTab}:{org:AdminOrganization;pending:number;onTab:(tab:AdminTab)=>void}){
+  const service = useService();
+  const roles = useLoad(()=>service.listOrganizationRoles(org.id),`roles:${org.id}`);
+  const audit = useLoad(()=>service.listAuditLog(org.id),`audit:${org.id}`);
+  const active = (roles.data ?? []).filter(r=>r.status==='active');
+  const metrics:[string,string,string][] = [
+    [roles.data?String(active.filter(r=>r.kind==='office').length):'–','Aktive verv','Vises offentlig'],
+    [roles.data?String(active.filter(r=>r.kind==='role').length):'–','Interne rettigheter','Vises ikke offentlig'],
+    [String(pending),'Forespørsler','Venter på deg'],
+  ];
   return <>
-    <div className="metric-grid">{[['12','Aktive medlemmer','+2 siste måned'],['8','Publiserte innlegg','3 utkast'],['4','Arrangementer','2 kommende'],['46','Dager til styreskifte','25. oktober']].map(([n,l,s])=><div className="card metric" key={l}><strong>{n}</strong><span>{l}</span><small>{s}</small></div>)}</div>
-    <div className="two-col">
-      <section className="card"><h2>Oppgaver</h2><div className="list">{[['Inviter ny skoleadministrator','Anbefalt før styreskiftet',true],['Bekreft delegater','Elevrådskurs i Oslo',false],['Gjennomgå to rapporter','Moderering',false]].map(([t,s,important])=><div className="row-card" key={String(t)}><Status tone={important?'coral':'blue'}>{important?'Viktig':'Åpen'}</Status><span className="grow"><strong>{t}</strong><small>{s}</small></span></div>)}</div></section>
-      <section className="card"><h2>Nylige handlinger</h2><div className="list">{['Ida oppdaterte skolens biografi','Sivert publiserte et innlegg','Rania aksepterte et offentlig verv','Ida registrerte valgdato'].map((text,i)=><div className="audit-row" key={text}><span aria-hidden="true"/><div><strong>{text}</strong><small>{i===0?'for 12 min siden':`${i+1} dager siden`}</small></div></div>)}</div></section>
-    </div>
+    <div className="metric-grid">{metrics.map(([n,l,s])=><div className="card metric" key={l}><strong>{n}</strong><span>{l}</span><small>{s}</small></div>)}</div>
+    {!!pending&&<div className="row-card"><Status tone="coral">Viktig</Status><span className="grow"><strong>{pending===1?'Én forespørsel':`${pending} forespørsler`} om å bli skoleadministrator</strong><small>Skolene i området venter på svar</small></span><button className="btn small" onClick={()=>onTab('requests')}>Behandle</button></div>}
+    <section className="card">
+      <div className="card-head"><div><h2>Revisjonslogg</h2><p className="muted">Alle endringer av verv, rettigheter og forespørsler i {org.name}.</p></div></div>
+      {audit.error&&<p className="form-error" role="alert">{audit.error}</p>}
+      {!audit.data&&!audit.error&&<p className="muted">Henter …</p>}
+      {audit.data&&!audit.data.length&&<p className="empty-note">Ingen endringer registrert ennå.</p>}
+      {!!audit.data?.length&&<div className="list">{audit.data.map(a=><AuditRow key={a.id} entry={a}/>)}</div>}
+    </section>
   </>;
+}
+
+function AuditRow({entry}:{entry:AuditEntry}){
+  const detail = typeof entry.details.title==='string'?entry.details.title:typeof entry.details.role==='string'?roleLabel[entry.details.role as InternalRole] ?? entry.details.role:'';
+  return <div className="audit-row"><span aria-hidden="true"/><div>
+    <strong>{entry.actorName || 'Systemet'} {auditActionLabel[entry.action] ?? entry.action}{detail?` «${detail}»`:''}{entry.subjectName&&entry.subjectName!==entry.actorName?` · ${entry.subjectName}`:''}</strong>
+    <small>{formatRelative(entry.createdAt)}</small>
+  </div></div>;
+}
+
+function Roles({org,onNotify}:{org:AdminOrganization;onNotify:Notify}){
+  const service = useService();
+  const { reload } = useApp();
+  const roles = useLoad(()=>service.listOrganizationRoles(org.id),`roles:${org.id}`);
+  const [adding,setAdding] = useState<'office'|'role'|null>(null);
+  const [showHistory,setShowHistory] = useState(false);
+  const [busy,setBusy] = useState(false);
+  const [error,setError] = useState('');
+  const act = async(work:()=>Promise<unknown>,done:string)=>{
+    setBusy(true); setError('');
+    try { await work(); onNotify(done); roles.refresh(); reload(); return true; }
+    catch (e) { setError(errorMessage(e)); return false; }
+    finally { setBusy(false); }
+  };
+  const list = roles.data ?? [];
+  const offices = list.filter(r=>r.kind==='office' && r.status==='active');
+  const grants = list.filter(r=>r.kind==='role' && r.status==='active');
+  const history = list.filter(r=>r.status!=='active');
+  const usable = org.status==='active';
+  return <>
+    <section className="card">
+      <div className="card-head">
+        <div><h2>Offentlige verv</h2><p className="muted">Vises på profilen og på organisasjonssiden. Et verv gir rett til å kommentere og stemme for {org.name}.</p></div>
+        {usable&&<button className="link" onClick={()=>setAdding(adding==='office'?null:'office')} aria-expanded={adding==='office'}>+ Gi verv</button>}
+      </div>
+      {adding==='office'&&<AssignForm org={org} mode="office" busy={busy} onCancel={()=>setAdding(null)}
+        onSubmit={(person,value)=>act(()=>service.assignPublicOffice({ organizationId:org.id, userId:person.id, title:value }),`${person.name} er nå ${value.toLowerCase()}`).then(ok=>{ if (ok) setAdding(null); })}/>}
+      {error&&<p className="form-error" role="alert">{error}</p>}
+      {roles.error&&<p className="form-error" role="alert">{roles.error}</p>}
+      {!roles.data&&!roles.error&&<p className="muted">Henter …</p>}
+      {roles.data&&(offices.length?<div className="list">{offices.map(r=><RoleRow key={r.id} entry={r} busy={busy}
+        onEnd={()=>void act(()=>service.endPublicOffice(r.id),'Vervet er avsluttet')}/>)}</div>:<p className="empty-note">Ingen aktive verv.</p>)}
+    </section>
+    <section className="card">
+      <div className="card-head">
+        <div><h2>Interne rettigheter</h2><p className="muted">Styrer hvem som kan publisere og administrere. Vises ikke offentlig; innholdsansvarlig ser bare administratorer og personen selv.</p></div>
+        {usable&&!!org.grantableRoles.length&&<button className="link" onClick={()=>setAdding(adding==='role'?null:'role')} aria-expanded={adding==='role'}>+ Gi rettighet</button>}
+      </div>
+      {adding==='role'&&<AssignForm org={org} mode="role" busy={busy} onCancel={()=>setAdding(null)}
+        onSubmit={(person,value)=>act(()=>service.assignRole({ organizationId:org.id, userId:person.id, role:value as InternalRole }),`${person.name} er nå ${roleLabel[value as InternalRole].toLowerCase()}`).then(ok=>{ if (ok) setAdding(null); })}/>}
+      {roles.data&&(grants.length?<div className="list">{grants.map(r=><RoleRow key={r.id} entry={r} busy={busy}
+        onEnd={()=>void act(()=>service.revokeRole(r.id),'Rettigheten er fjernet')}/>)}</div>:<p className="empty-note">Ingen har interne rettigheter. Uten skoleadministrator kan styreadministrator i området gi rollen.</p>)}
+      <p className="muted" style={{ lineHeight:1.5 }}>Ingen kan gi seg selv rettigheter, og den siste administratoren kan ikke fjernes før en etterfølger har fått rollen.</p>
+    </section>
+    {!!history.length&&<section className="card">
+      <div className="card-head"><div><h2>Historikk</h2><p className="muted">Avsluttede verv og rettigheter blir stående med sluttdato.</p></div>
+        <button className="link" aria-expanded={showHistory} onClick={()=>setShowHistory(v=>!v)}>{showHistory?'Skjul':`Vis ${history.length}`}</button></div>
+      {showHistory&&<div className="list">{history.map(r=><RoleRow key={r.id} entry={r} busy={busy}/>)}</div>}
+    </section>}
+  </>;
+}
+
+const statusLabel:Record<OrganizationRoleEntry['status'],string> = { active:'Aktiv', invited:'Invitert', ended:'Avsluttet', revoked:'Fjernet' };
+
+function RoleRow({entry,busy,onEnd}:{entry:OrganizationRoleEntry;busy:boolean;onEnd?:()=>void}){
+  const what = entry.kind==='office'?entry.title || 'Medlem':entry.role?roleLabel[entry.role]:'';
+  const since = `${formatDate(entry.startDate)}${entry.endDate?` – ${formatDate(entry.endDate)}`:''}`;
+  return <div className="row-card role-row">
+    <Avatar size="sm" tone="pale" initials={initialsOf(entry.userName)}/>
+    <span className="grow"><strong>{entry.userName}</strong><small>{what} · {since}{entry.grantedByName?` · gitt av ${entry.grantedByName}`:''}</small></span>
+    {!entry.userActive&&<Status tone="gray">Deaktivert bruker</Status>}
+    {entry.status!=='active'&&<Status tone="gray">{statusLabel[entry.status]}</Status>}
+    {entry.status==='active'&&onEnd&&entry.canChange&&<ConfirmButton label={entry.kind==='office'?'Avslutt':'Fjern'} confirmLabel={entry.kind==='office'?'Avslutt verv':'Fjern rettighet'}
+      question={`${entry.kind==='office'?'Avslutte':'Fjerne'} ${what.toLowerCase()} for ${entry.userName}?`} disabled={busy} onConfirm={onEnd}/>}
+  </div>;
+}
+
+/** Velg person og verv eller rettighet. Personsøket viser bare dem serveren lar administratoren velge. */
+function AssignForm({org,mode,busy,onSubmit,onCancel}:{org:AdminOrganization;mode:'office'|'role';busy:boolean;onSubmit:(person:AssignablePerson,value:string)=>void;onCancel:()=>void}){
+  const service = useService();
+  const [query,setQuery] = useState('');
+  const [hits,setHits] = useState<AssignablePerson[]|null>(null);
+  const [person,setPerson] = useState<AssignablePerson|null>(null);
+  const [value,setValue] = useState(mode==='role'?org.grantableRoles.find(r=>r==='content_manager') ?? org.grantableRoles[0] ?? '':'');
+  const [error,setError] = useState('');
+  useEffect(()=>{
+    let cancelled = false;
+    const timer = window.setTimeout(()=>{
+      service.searchAssignablePeople({ organizationId:org.id, query })
+        .then(list=>{ if (!cancelled) { setHits(list); setError(''); } })
+        .catch(e=>{ if (!cancelled) setError(errorMessage(e)); });
+    },200);
+    return ()=>{ cancelled = true; window.clearTimeout(timer); };
+  },[service,org.id,query]);
+  const listId = `office-suggestions-${org.id}`;
+  return <form className="assign-form" onSubmit={e=>{ e.preventDefault(); if (!person) { setError('Velg en person.'); return; } if (!value.trim()) { setError(mode==='office'?'Skriv inn vervet.':'Velg en rettighet.'); return; } onSubmit(person,value.trim()); }}>
+    <label className="field"><span>Person</span>
+      <input value={query} onChange={e=>{ setQuery(e.target.value); setPerson(null); }} placeholder={org.type==='school'?'Søk blant elevene ved skolen':'Søk etter navn'} autoComplete="off"/>
+      <small>{org.type==='school'?'Bare elever som har valgt denne skolen, vises.':org.type==='national'?'Alle med aktiv profil kan velges.':'Elever ved skolene i området og dem som allerede har verv her.'}</small>
+    </label>
+    <div className="hits" role="group" aria-label="Personer">
+      {(hits ?? []).map(p=><button type="button" key={p.id} className={`hit ${person?.id===p.id?'on':''}`} aria-pressed={person?.id===p.id} onClick={()=>setPerson(p)}>
+        <Avatar size="sm" tone="pale" initials={initialsOf(p.name)}/>
+        <span className="grow"><span className="name">{p.name}</span><span className="sub">{p.schoolName ?? 'Ingen skole'}</span></span>
+        {person?.id===p.id&&<span className="tick" aria-hidden="true">✓</span>}
+      </button>)}
+      {hits&&!hits.length&&<p className="empty-note">Fant ingen. Personen må ha logget inn og valgt skole først.</p>}
+    </div>
+    {mode==='office'
+      ?<label className="field"><span>Verv</span><input value={value} onChange={e=>setValue(e.target.value)} list={listId} maxLength={OFFICE_TITLE_MAX_LENGTH} placeholder={officeSuggestions[org.type][0]}/>
+        <datalist id={listId}>{officeSuggestions[org.type].map(t=><option key={t} value={t}>{t}</option>)}</datalist></label>
+      :<label className="field"><span>Rettighet</span><select value={value} onChange={e=>setValue(e.target.value)}>{org.grantableRoles.map(r=><option key={r} value={r}>{roleLabel[r]}</option>)}</select>
+        <small>{value==='content_manager'?'Kan publisere, redigere og slette innlegg, og moderere kommentarer. Kan ikke tildele roller.':value==='school_admin'?'Kan administrere skolens side, gi verv og rettigheter og gjennomføre styreoverføring.':value==='board_admin'?'Administrerer styret og har myndighet over skolene i området.':'Full tilgang til hele Elevrådsnett.'}</small></label>}
+    {error&&<p className="form-error" role="alert">{error}</p>}
+    <div className="actions"><button className="btn primary" disabled={busy}>{mode==='office'?'Gi verv':'Gi rettighet'}{person?` til ${person.name}`:''}</button><button type="button" className="btn" onClick={onCancel}>Avbryt</button></div>
+  </form>;
+}
+
+function Requests({requests,error,onChanged,onNotify}:{requests:SchoolAdminRequest[]|null;error:string;onChanged:()=>void;onNotify:Notify}){
+  const service = useService();
+  const [busy,setBusy] = useState(false);
+  const [failure,setFailure] = useState('');
+  const [reasons,setReasons] = useState<Record<string,string>>({});
+  const decide = async(r:SchoolAdminRequest,approve:boolean)=>{
+    setBusy(true); setFailure('');
+    try {
+      await service.decideSchoolAdminRequest({ requestId:r.id, approve, reason:reasons[r.id]?.trim() || undefined });
+      onNotify(approve?`${r.userName} er nå skoleadministrator for ${r.schoolName}`:'Forespørselen er avslått');
+      onChanged();
+    } catch (e) { setFailure(errorMessage(e)); }
+    finally { setBusy(false); }
+  };
+  const open = (requests ?? []).filter(r=>r.canDecide);
+  return <section className="card">
+    <div className="card-head"><div><h2>Forespørsler om å bli skoleadministrator</h2><p className="muted">Elever kan be om å bli administrator for egen skole. Styreadministrator i lokallaget eller fylket avgjør. Ingen kan godkjenne seg selv.</p></div></div>
+    {(error || failure)&&<p className="form-error" role="alert">{error || failure}</p>}
+    {!requests&&!error&&<p className="muted">Henter …</p>}
+    {requests&&!open.length&&<p className="empty-note">Ingen forespørsler venter på deg.</p>}
+    <div className="list">{open.map(r=><div className="request-row" key={r.id}>
+      <div className="row-card">
+        <Avatar size="sm" tone="pale" initials={initialsOf(r.userName)}/>
+        <span className="grow"><strong>{r.userName}</strong><small>{r.schoolName} · {formatRelative(r.createdAt)}</small></span>
+      </div>
+      {r.message&&<p className="request-message">«{r.message}»</p>}
+      <label className="field"><span>Begrunnelse (valgfritt)</span><input value={reasons[r.id] ?? ''} maxLength={REQUEST_TEXT_MAX_LENGTH} onChange={e=>setReasons(all=>({ ...all, [r.id]:e.target.value }))} placeholder="F.eks. bekreftet med rektor"/></label>
+      <div className="actions"><button className="btn primary" disabled={busy} onClick={()=>void decide(r,true)}>Godkjenn</button><button className="btn" disabled={busy} onClick={()=>void decide(r,false)}>Avslå</button></div>
+    </div>)}</div>
+  </section>;
 }
 
 function Handover({onNotify}:{onNotify:Notify}){
@@ -50,12 +274,6 @@ function Handover({onNotify}:{onNotify:Notify}){
 
 function Table({head,rows}:{head:string[];rows:React.ReactNode[][]}){
   return <div className="table" role="table"><div className="table-row head" role="row">{head.map(h=><span role="columnheader" key={h}>{h}</span>)}</div>{rows.map((r,i)=><div className="table-row" role="row" key={i}>{r.map((c,j)=><span role="cell" key={j}>{c}</span>)}</div>)}</div>;
-}
-
-function Roles({onNotify}:{onNotify:Notify}){
-  return <section className="card"><div className="card-head"><div><h2>Roller og offentlige verv</h2><p className="muted">Tekniske rettigheter og offentlige verv administreres separat.</p></div><button className="link" onClick={()=>onNotify('Skjema for ny rolle er åpnet')}>+ Tildel rolle</button></div>
-    <Table head={['Person','Offentlig verv','Intern rettighet','Status']} rows={[['Ida Halvorsen','Elevrådsleder','Skoleadministrator'],['Sivert Aune','Nestleder','Innholdsansvarlig'],['Rania Osman','Skolemiljøansvarlig','Ingen']].map(r=>[<span className="cell-person" key="p"><Avatar size="sm" tone="pale" initials={r[0].split(' ').map(v=>v[0]).join('')}/><strong>{r[0]}</strong></span>,r[1],r[2],<Status key="s" tone="green">Aktiv</Status>])}/>
-  </section>;
 }
 
 function Schools({onNotify}:{onNotify:Notify}){

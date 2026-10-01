@@ -1,7 +1,7 @@
-import type { Comment, Conversation, Event, Message, Organization, Post, PublicOfficer, SchoolHistoryEntry, Session } from '@/lib/domain/types';
-import type { AddCommentInput, ChangeSchoolInput, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SendMessageInput, SetEventResponseInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput } from '@/lib/domain/validation';
+import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, Event, Message, MyRole, Organization, OrganizationRoleEntry, Post, PublicOfficer, SchoolAdminRequest, SchoolHistoryEntry, Session } from '@/lib/domain/types';
+import type { AddCommentInput, AssignPublicOfficeInput, AssignRoleInput, ChangeSchoolInput, DecideSchoolAdminRequestInput, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SchoolAdminRequestInput, SendMessageInput, SetEventResponseInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput } from '@/lib/domain/validation';
 
-export type { AddCommentInput, ChangeSchoolInput, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SendMessageInput, SetEventResponseInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput };
+export type { AddCommentInput, AssignPublicOfficeInput, AssignRoleInput, ChangeSchoolInput, DecideSchoolAdminRequestInput, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SchoolAdminRequestInput, SendMessageInput, SetEventResponseInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput };
 
 /**
  * Alt grensesnittet leser og gjør. Samme kontrakt skal kunne brukes av iOS og Android.
@@ -22,6 +22,8 @@ export interface ElevradsnettService {
 
   // Lesing. Alt her virker uten innlogging; serveren avgjør hva som er synlig.
   listOrganizations():Promise<Organization[]>;
+  /** Én organisasjon, også når den er deaktivert (så gamle lenker viser siden med historikken). null hvis den ikke finnes. */
+  getOrganization(organizationId:string):Promise<Organization|null>;
   /** Med representasjon: rangert feed for den. Uten: offentlige innlegg, nyeste først. */
   listFeed(input:{ representationId:string|null; mode:'recommended'|'chronological' }):Promise<Post[]>;
   listOrganizationPosts(organizationId:string):Promise<Post[]>;
@@ -38,8 +40,25 @@ export interface ElevradsnettService {
   changeSchool(input:ChangeSchoolInput):Promise<void>;
   listSchoolHistory():Promise<SchoolHistoryEntry[]>;
 
-  // Representasjon
+  // Representasjon, verv og rettigheter (§3, §4)
   switchRepresentation(representationId:string):Promise<void>;
+  /** Egne verv og interne rettigheter, også avsluttede. */
+  listMyRoles():Promise<MyRole[]>;
+  requestSchoolAdmin(input:SchoolAdminRequestInput):Promise<void>;
+  cancelSchoolAdminRequest(requestId:string):Promise<void>;
+  /** Egne forespørsler og forespørsler brukeren kan avgjøre. */
+  listSchoolAdminRequests():Promise<SchoolAdminRequest[]>;
+  decideSchoolAdminRequest(input:DecideSchoolAdminRequestInput):Promise<void>;
+
+  // Administrasjon. Serveren avgjør hvilke organisasjoner og rettigheter som vises.
+  listAdminOrganizations():Promise<AdminOrganization[]>;
+  listOrganizationRoles(organizationId:string):Promise<OrganizationRoleEntry[]>;
+  searchAssignablePeople(input:{ organizationId:string; query:string }):Promise<AssignablePerson[]>;
+  assignPublicOffice(input:AssignPublicOfficeInput):Promise<void>;
+  endPublicOffice(membershipId:string):Promise<void>;
+  assignRole(input:AssignRoleInput):Promise<void>;
+  revokeRole(grantId:string):Promise<void>;
+  listAuditLog(organizationId:string):Promise<AuditEntry[]>;
 
   // Innlegg
   publishPost(input:PublishPostInput):Promise<Post>;

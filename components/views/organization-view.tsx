@@ -12,7 +12,16 @@ export function OrganizationView({id,onContact}:{id:string;onContact:(o:Organiza
   const service = useService();
   const { events, org, posts, activeRep, openComposer, loadOrganizationPosts } = useApp();
   const [officers,setOfficers] = useState<{ id:string; list:PublicOfficer[] }|null>(null);
-  const o = org(id);
+  // Deaktiverte organisasjoner er ikke i listen, men siden skal fortsatt kunne åpnes fra gamle innlegg og lenker.
+  const [fetched,setFetched] = useState<{ id:string; org:Organization|null }|null>(null);
+  const listed = org(id);
+  useEffect(()=>{
+    if (listed) return;
+    let cancelled = false;
+    service.getOrganization(id).then(found=>{ if (!cancelled) setFetched({ id, org:found }); }).catch(()=>{ if (!cancelled) setFetched({ id, org:null }); });
+    return ()=>{ cancelled = true; };
+  },[id,listed,service]);
+  const o = listed ?? (fetched?.id===id?fetched.org ?? undefined:undefined);
   // Innleggene og tillitsvalgte hentes for siden, så de vises også når de ikke er i feeden.
   // loadOrganizationPosts er ny ved hver oppdatering av appen, så den leses fra en ref: det holder å hente når siden byttes.
   const loadPosts = useRef(loadOrganizationPosts);
@@ -25,7 +34,8 @@ export function OrganizationView({id,onContact}:{id:string;onContact:(o:Organiza
     service.listPublicOfficers(id).then(list=>{ if (!cancelled) setOfficers({ id, list }); }).catch(()=>{});
     return ()=>{ cancelled = true; };
   },[id,exists,service]);
-  if (!o) return <NotFound/>;
+  if (!o) return fetched?.id===id?<NotFound/>:<div className="page"><p className="muted">Henter …</p></div>;
+  const inactive = o.status!=='active';
   const people = officers?.id===o.id?officers.list:o.officers ?? [];
   const own = posts.filter(p=>p.organizationId===o.id);
   const hosted = events.filter(e=>e.hostId===o.id).sort(byDate);
@@ -43,12 +53,13 @@ export function OrganizationView({id,onContact}:{id:string;onContact:(o:Organiza
           <div className="names"><h1>{o.name}</h1><p>{orgLine(o)}</p></div>
           {o.status!=='active'&&<Status tone="gray">Deaktivert</Status>}
         </div>
+        {inactive&&<p className="warn-box">{o.type==='school'?'Elevrådet':'Organisasjonen'} er deaktivert. Innlegg, verv og arrangementer er bevart som historikk, men ingen kan publisere eller opptre på vegne av {o.name}.</p>}
         <p className="org-bio">{o.bio}</p>
-        <div className="org-actions">
+        {!inactive&&<div className="org-actions">
           {isActiveOrg&&activeRep?.canPublish
             ?<button className="btn ghost large" onClick={openComposer}>Nytt innlegg som {o.name}</button>
             :<button className="btn ghost large" onClick={()=>onContact(o)}>{contactLabel(o)}</button>}
-        </div>
+        </div>}
         <div className="org-stats">{stats.map(([value,label])=><div key={label}><strong>{formatNumber(value)}</strong><span>{label}</span></div>)}</div>
       </div>
     </div>

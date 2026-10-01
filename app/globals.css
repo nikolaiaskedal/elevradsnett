@@ -30,6 +30,7 @@
   --font: Graphik, system-ui, sans-serif;
   --shadow-card: 0 1px 2px rgba(10, 70, 110, 0.04), 0 10px 30px rgba(10, 70, 110, 0.04);
   --shadow-coral: 0 6px 16px rgba(255, 99, 64, 0.28);
+  --shadow-panel: 0 20px 50px rgba(10, 70, 110, 0.18);
 }
 
 * { box-sizing: border-box; }
@@ -542,3 +543,60 @@ p { margin: 0; }
 .comment-note { color: var(--navy-300); line-height: 1.5; margin-top: 6px; }
 .comment-login { align-self: flex-start; margin-top: 6px; }
 .login-flow .card h1 + .muted, .login-flow .card h2 + .muted { margin-top: 6px; line-height: 1.6; }
+
+/* ---------- Representasjon, verv og rettigheter ---------- */
+.rep-switch { position: relative; margin-left: auto; min-width: 0; }
+.rep-switch + .btn.primary { margin-left: 0; }
+.rep-switch-button {
+  border: 1px solid var(--navy-100); background: var(--white); color: var(--navy); border-radius: 9px;
+  padding: 5px 10px 5px 5px; display: flex; align-items: center; gap: 9px; max-width: 260px; text-align: left;
+}
+.rep-switch-button:hover, .rep-switch-button[aria-expanded='true'] { border-color: var(--accent-300); }
+.rep-switch-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.rep-switch-text small { color: var(--navy-300); font-weight: 500; }
+.rep-switch-text strong { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.caret { flex: none; width: 8px; height: 8px; border-right: 2px solid var(--navy-300); border-bottom: 2px solid var(--navy-300); transform: rotate(45deg); margin: -4px 4px 0 2px; }
+.rep-switch-panel {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 60; width: 340px; max-width: calc(100vw - 32px);
+  background: var(--white); border: 1px solid var(--navy-100); border-radius: 12px; padding: 14px;
+  box-shadow: var(--shadow-panel); display: flex; flex-direction: column; gap: 10px; animation: pop 0.16s ease;
+}
+.rep-switch-panel ul { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.rep-option {
+  width: 100%; border: 1px solid var(--navy-100); background: var(--soft); border-radius: 9px; padding: 8px 10px;
+  display: flex; align-items: center; gap: 10px; text-align: left; color: var(--navy);
+}
+.rep-option:hover:not(:disabled) { border-color: var(--accent-300); }
+.rep-option.on { border-color: var(--accent-300); background: var(--accent-100); }
+.rep-option:disabled { cursor: not-allowed; opacity: 0.75; }
+.rep-option strong { display: block; font-weight: 600; }
+.rep-option small { display: block; color: var(--navy-300); }
+.rep-switch-note { color: var(--navy-300); line-height: 1.5; }
+.confirm { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.confirm-question { font-weight: 600; color: var(--ink); }
+.btn.danger { border-color: var(--accent); color: var(--accent); }
+.btn.danger:hover { background: var(--accent-100); }
+.role-item { flex-direction: row !important; align-items: center; gap: 10px; flex-wrap: wrap; }
+.role-item .sub, .history-list .sub { display: block; }
+.request-box { margin-top: 6px; }
+.admin-org { color: var(--navy-300); }
+.admin-org strong { color: var(--navy); }
+.admin-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.assign-form { display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--accent-200); background: var(--accent-50); border-radius: 11px; padding: 16px; }
+.assign-form .hits { max-height: 220px; }
+.role-row { flex-wrap: wrap; }
+.request-row { display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--hair); padding-bottom: 14px; }
+.request-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.request-message { line-height: 1.6; color: var(--ink); }
+.segmented .nav-count { margin-left: 6px; display: inline-block; }
+
+@media (max-width: 720px) {
+  .rep-switch-button { max-width: 180px; padding-right: 8px; }
+  .rep-switch-text small { display: none; }
+  .rep-switch-panel { position: fixed; left: 16px; right: 16px; top: 64px; width: auto; max-width: none; }
+}
+@media (max-width: 480px) {
+  .rep-switch-text { display: none; }
+  .rep-switch-button { padding-right: 6px; gap: 6px; }
+}
+.card .card-head h2 + .muted { margin-top: 3px; }

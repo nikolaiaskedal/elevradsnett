@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export type Tone = 'navy'|'coral'|'pale';
 
@@ -45,3 +45,14 @@ const icon={width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentCo
 export function SupportIcon(){return <svg {...icon}><path d="M3.5 20.5 9 8.5l6.5 6.5-12 5.5Z"/><path d="M13 3.5v2"/><path d="M18.5 5.5 17 7"/><path d="M20.5 11h-2"/><path d="M16.5 11.5c1-2.5 3-3 5-2.5"/></svg>}
 export function CommentIcon(){return <svg {...icon}><path d="M20 12.5c0 3.9-3.6 7-8 7-1 0-2-.15-2.9-.44L4.5 20.5l1.2-3.4C4.6 15.85 4 14.25 4 12.5c0-3.9 3.6-7 8-7s8 3.1 8 7Z"/></svg>}
 export function ShareIcon(){return <svg {...icon}><path d="M13 4.5 20 11l-7 6.5v-3.7c-4.6 0-7.3 1.3-8.6 4 0-5.6 2.9-8.8 8.6-9.1V4.5Z"/></svg>}
+
+/** Knapp for handlinger som ikke kan angres (§19): første trykk spør, andre trykk utfører. */
+export function ConfirmButton({label,question,confirmLabel,onConfirm,disabled}:{label:string;question:string;confirmLabel:string;onConfirm:()=>void;disabled?:boolean}){
+  const [asking,setAsking]=useState(false);
+  if(!asking)return <button className="btn small" disabled={disabled} onClick={()=>setAsking(true)}>{label}</button>;
+  return <span className="confirm" role="group" aria-label={question}>
+    <span className="confirm-question">{question}</span>
+    <button className="btn small danger" disabled={disabled} onClick={()=>{setAsking(false);onConfirm()}}>{confirmLabel}</button>
+    <button className="btn small" onClick={()=>setAsking(false)}>Avbryt</button>
+  </span>;
+}

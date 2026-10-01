@@ -1,10 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { audienceLabel, initialsOf } from '@/lib/domain/labels';
 import { formatDayMonth, formatEventSpan, formatRelative } from '@/lib/domain/time';
-import type { Comment, Conversation, CurrentUser, Event, EventCategory, Message, Organization, OrganizationType, Post, PublicOfficer, Representation, SchoolHistoryEntry, Session } from '@/lib/domain/types';
-import { avatarSchema, changeSchoolSchema, commentSchema, eventResponseInputSchema, messageSchema, onboardingSchema, publishPostSchema, requestLoginCodeSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema } from '@/lib/domain/validation';
+import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, CurrentUser, Event, EventCategory, GrantStatus, Message, MyRole, Organization, OrganizationRoleEntry, OrganizationStatus, OrganizationType, Post, PublicOfficer, Representation, SchoolAdminRequest, SchoolHistoryEntry, Session } from '@/lib/domain/types';
+import { assignPublicOfficeSchema, assignRoleSchema, avatarSchema, changeSchoolSchema, commentSchema, decideSchoolAdminRequestSchema, eventResponseInputSchema, idSchema, isoDate, messageSchema, onboardingSchema, publishPostSchema, requestLoginCodeSchema, schoolAdminRequestSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema } from '@/lib/domain/validation';
 import type { Database } from '@/lib/supabase/database.types';
-import { NotImplementedError, type AddCommentInput, type ChangeSchoolInput, type ElevradsnettService, type OnboardingInput, type PublishPostInput, type RequestLoginCodeInput, type SendMessageInput, type SetEventResponseInput, type UpdateProfileInput, type VerifyLoginCodeInput, type VoteInput } from './contracts';
+import { NotImplementedError, type AddCommentInput, type AssignPublicOfficeInput, type AssignRoleInput, type ChangeSchoolInput, type DecideSchoolAdminRequestInput, type ElevradsnettService, type OnboardingInput, type SchoolAdminRequestInput, type PublishPostInput, type RequestLoginCodeInput, type SendMessageInput, type SetEventResponseInput, type UpdateProfileInput, type VerifyLoginCodeInput, type VoteInput } from './contracts';
 
 type Client = SupabaseClient<Database>;
 type Rpc<Name extends keyof Database['public']['Functions']> = Database['public']['Functions'][Name]['Returns'];
@@ -16,7 +16,7 @@ type SessionRow =
   | { status:'onboarding'; email:string }
   | { status:'active'|'deactivated'; active_membership_id:string|null;
       profile:{ id:string; display_name:string; email:string; avatar_path:string|null; current_school_id:string|null };
-      representations:{ id:string; organization_id:string; name:string; type:OrganizationType; public_title:string; can_publish:boolean }[] };
+      representations:{ id:string; organization_id:string; name:string; type:OrganizationType; organization_status?:OrganizationStatus; public_title:string; can_publish:boolean }[] };
 
 const AVATAR_BUCKET = 'public-avatars';
 
@@ -33,12 +33,31 @@ const serverMessages:Record<string,string> = {
   'invalid representation':'Du kan ikke representere denne organisasjonen.',
   'event closed':'Påmeldingen er stengt.',
   'post not found':'Fant ikke innlegget.',
+  'self escalation is not allowed':'Du kan ikke gi deg selv rettigheter.',
+  'last administrator':'Organisasjonen må ha minst én administrator. Gi rollen til en etterfølger før denne fjernes.',
+  'role already assigned':'Personen har allerede denne rettigheten.',
+  'office already assigned':'Personen har allerede dette vervet.',
+  'invalid role':'Denne rettigheten finnes ikke for denne typen organisasjon.',
+  'invalid title':'Vervet må ha mellom 2 og 80 tegn.',
+  'invalid date range':'Ugyldig dato.',
+  'person not found':'Fant ikke personen, eller profilen er deaktivert.',
+  'person not at school':'Personen går ikke på denne skolen.',
+  'organization not found':'Fant ikke organisasjonen, eller den er deaktivert.',
+  'role not found':'Fant ikke rettigheten.',
+  'role not active':'Rettigheten er allerede avsluttet.',
+  'office not found':'Fant ikke vervet.',
+  'office not active':'Vervet er allerede avsluttet.',
+  'request not pending':'Forespørselen er allerede behandlet.',
+  'request outdated':'Søkeren går ikke lenger på skolen, eller skolen er deaktivert. Forespørselen kan bare avslås.',
+  'only for own school':'Du kan bare be om å bli administrator for din egen skole.',
+  'already administrator':'Du er allerede skoleadministrator.',
 };
 export function toNorwegianError(error:unknown, fallback = 'Noe gikk galt. Prøv igjen.'):Error {
   if (error instanceof NotImplementedError) return error;
   const raw = error && typeof error==='object' && 'message' in error ? String((error as { message:unknown }).message) : '';
   const status = error && typeof error==='object' && 'status' in error ? Number((error as { status:unknown }).status) : 0;
   if (serverMessages[raw]) return new Error(serverMessages[raw]);
+  if (/duplicate key|unique constraint/i.test(raw)) return new Error('Dette er allerede registrert.');
   if (status===429 || /rate limit|too many/i.test(raw)) return new Error('For mange forsøk. Vent litt og prøv igjen.');
   if (/failed to fetch|network/i.test(raw)) return new Error('Fikk ikke kontakt med serveren. Sjekk nettet og prøv igjen.');
   return new Error(fallback);
@@ -79,8 +98,10 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
     const user:CurrentUser = { id:row.profile.id, name:row.profile.display_name, initials:initialsOf(row.profile.display_name), schoolId:row.profile.current_school_id,
       email:row.profile.email, avatarUrl:await this.avatarUrl(row.profile.avatar_path) };
     const representations = row.representations.map(r=>({ id:r.id, organizationId:r.organization_id, name:r.name, initials:initialsOf(r.name),
-      publicRole:r.public_title || 'Medlem', canPublish:r.can_publish, type:r.type }) satisfies Representation);
-    const active = representations.find(r=>r.id===row.active_membership_id) ?? representations[0];
+      publicRole:r.public_title || 'Medlem', canPublish:r.can_publish, type:r.type, organizationStatus:r.organization_status ?? 'active' }) satisfies Representation);
+    // Verv i deaktiverte organisasjoner vises, men kan ikke være aktive.
+    const usable = representations.filter(r=>r.organizationStatus==='active');
+    const active = usable.find(r=>r.id===row.active_membership_id) ?? usable[0];
     return { status:row.status, user, representations, activeRepresentationId:active?.id ?? null };
   }
   onSessionChange(listener:()=>void) {
@@ -117,6 +138,10 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
   async listOrganizations():Promise<Organization[]> {
     const rows = await run((await this.client).rpc('list_public_organizations'),'Kunne ikke hente organisasjonene.');
     return rows.map(toOrganization);
+  }
+  async getOrganization(organizationId:string) {
+    const rows = await run((await this.client).rpc('get_public_organization',{ p_org:organizationId }),'Kunne ikke hente organisasjonen.');
+    return rows[0]?toOrganization(rows[0]):null;
   }
   async listFeed(input:{ representationId:string|null; mode:'recommended'|'chronological' }) {
     const rows = await run((await this.client).rpc('get_post_cards',{ p_representation_id:input.representationId ?? undefined, p_mode:input.mode }),'Kunne ikke hente innleggene.');
@@ -184,6 +209,64 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
   // Representasjon
   async switchRepresentation(representationId:string) {
     await run((await this.client).rpc('set_active_representation',{ p_membership_id:representationId }));
+  }
+
+  async listMyRoles():Promise<MyRole[]> {
+    const rows = await run((await this.client).rpc('get_my_roles'),'Kunne ikke hente vervene dine.');
+    return rows.map(r=>({ id:r.id, kind:r.kind as MyRole['kind'], organizationId:r.organization_id, organizationName:r.organization_name, organizationStatus:r.organization_status,
+      title:r.title ?? '', role:r.role ?? undefined, startDate:r.start_date, endDate:r.end_date ?? null, status:r.status as GrantStatus }));
+  }
+  async requestSchoolAdmin(input:SchoolAdminRequestInput) {
+    const parsed = schoolAdminRequestSchema.parse(input);
+    await run((await this.client).rpc('request_school_admin',{ p_school:parsed.schoolId, p_message:parsed.message || undefined }),'Kunne ikke sende forespørselen.');
+  }
+  async cancelSchoolAdminRequest(requestId:string) {
+    await run((await this.client).rpc('cancel_school_admin_request',{ p_request:idSchema.parse(requestId) }));
+  }
+  async listSchoolAdminRequests():Promise<SchoolAdminRequest[]> {
+    const rows = await run((await this.client).rpc('list_school_admin_requests'),'Kunne ikke hente forespørslene.');
+    return rows.map(r=>({ id:r.id, userId:r.user_id, userName:r.display_name, schoolId:r.school_id, schoolName:r.school_name, message:r.message ?? undefined,
+      status:r.status as SchoolAdminRequest['status'], createdAt:r.created_at, decidedAt:r.decided_at ?? undefined, decisionReason:r.decision_reason ?? undefined,
+      mine:r.mine, canDecide:r.can_decide }));
+  }
+  async decideSchoolAdminRequest(input:DecideSchoolAdminRequestInput) {
+    const parsed = decideSchoolAdminRequestSchema.parse(input);
+    await run((await this.client).rpc('decide_school_admin_request',{ p_request:parsed.requestId, p_approve:parsed.approve, p_reason:parsed.reason || undefined }));
+  }
+
+  // Administrasjon
+  async listAdminOrganizations():Promise<AdminOrganization[]> {
+    if (!await this.userId()) return [];
+    const rows = await run((await this.client).rpc('list_my_admin_organizations'),'Kunne ikke hente organisasjonene du administrerer.');
+    return rows.map(r=>({ id:r.id, type:r.type, name:r.school_name ?? r.name, county:r.county, status:r.status, myRole:r.my_role, grantableRoles:r.grantable_roles ?? [] }));
+  }
+  async listOrganizationRoles(organizationId:string):Promise<OrganizationRoleEntry[]> {
+    const rows = await run((await this.client).rpc('list_organization_roles',{ p_org:organizationId }),'Kunne ikke hente verv og rettigheter.');
+    return rows.map(r=>({ id:r.id, kind:r.kind as OrganizationRoleEntry['kind'], userId:r.user_id, userName:r.display_name, userActive:r.user_active, title:r.title ?? '',
+      role:r.role ?? undefined, startDate:r.start_date, endDate:r.end_date ?? null, status:r.status as GrantStatus, grantedByName:r.granted_by_name ?? undefined, canChange:r.can_change }));
+  }
+  async searchAssignablePeople(input:{ organizationId:string; query:string }):Promise<AssignablePerson[]> {
+    const rows = await run((await this.client).rpc('list_assignable_people',{ p_org:input.organizationId, p_query:input.query.trim().slice(0,100) }),'Kunne ikke søke etter personer.');
+    return rows.map(r=>({ id:r.id, name:r.display_name, schoolName:r.school_name ?? undefined }));
+  }
+  async assignPublicOffice(input:AssignPublicOfficeInput) {
+    const parsed = assignPublicOfficeSchema.parse(input);
+    await run((await this.client).rpc('assign_public_office',{ p_user:parsed.userId, p_org:parsed.organizationId, p_title:parsed.title }),'Kunne ikke gi vervet.');
+  }
+  async endPublicOffice(membershipId:string) {
+    await run((await this.client).rpc('end_public_office',{ p_membership:idSchema.parse(membershipId) }),'Kunne ikke avslutte vervet.');
+  }
+  async assignRole(input:AssignRoleInput) {
+    const parsed = assignRoleSchema.parse(input);
+    await run((await this.client).rpc('assign_role',{ p_user:parsed.userId, p_org:parsed.organizationId, p_role:parsed.role, p_starts:isoDate(new Date()) }),'Kunne ikke gi rettigheten.');
+  }
+  async revokeRole(grantId:string) {
+    await run((await this.client).rpc('revoke_role',{ p_grant:idSchema.parse(grantId) }),'Kunne ikke fjerne rettigheten.');
+  }
+  async listAuditLog(organizationId:string):Promise<AuditEntry[]> {
+    const rows = await run((await this.client).rpc('list_audit_log',{ p_org:organizationId }),'Kunne ikke hente revisjonsloggen.');
+    return rows.map(r=>({ id:String(r.id), createdAt:r.created_at, actorName:r.actor_name ?? '', action:r.action, subjectName:r.subject_name ?? undefined,
+      details:(r.details && typeof r.details==='object' && !Array.isArray(r.details) ? r.details : {}) as Record<string,unknown> }));
   }
 
   // Innlegg

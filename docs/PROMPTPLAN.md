@@ -8,10 +8,25 @@ Planen deler `docs/KRAVSPEC.md` inn i prompter som sendes én om gangen, hver i 
 |---|---|---|
 | 1. Fundament | Ferdig | PR #3, #4 |
 | 2. Datamodell og Supabase-prosjekt | Ferdig, med to manuelle steg (se under) | PR #7, #10 |
-| 3. Innlogging, profiler og offentlig lesing | Ferdig, med manuelle steg (se *Før prompt 4*) | se git-loggen |
-| 4. Medlemskap, roller og aktiv representasjon | Neste | – |
+| 3. Innlogging, profiler og offentlig lesing | Ferdig, med manuelle steg (se *Før prompt 4*) | PR #13 |
+| 4. Medlemskap, roller og aktiv representasjon | Ferdig | se git-loggen |
+| 5. Innlegg | Neste | – |
 
-Neste prompt som skal sendes er **prompt 4**, etter de manuelle stegene under *Før prompt 4*.
+Neste prompt som skal sendes er **prompt 5**. Sjekk først at stegene 3–6 under *Før prompt 4* er gjort (e-postmal, OTP-innstillinger og GitHub-variablene).
+
+## Utgangspunkt etter prompt 4 (1. oktober 2026)
+
+- Toppmenyen har en velger som viser hvem brukeren representerer og alle tilknytningene, med verv og om de gir publiseringsrett. Ved bytte hentes feeden for den nye representasjonen. Verv i deaktiverte organisasjoner vises merket og kan ikke velges.
+- Offentlige verv (`memberships`) og interne rettigheter (`role_grants`) er adskilt. Verv tildeles og avsluttes med `assign_public_office` og `end_public_office`, rettigheter med `assign_role` og `revoke_role`. Hvem som kan tildele hva, står i `docs/RLS_MATRIX.md`. Innholdsansvarlig er bare synlig for administratorer og personen selv.
+- Ingen kan gi seg selv rettigheter, og siste skole-, styre- eller superadministrator kan ikke fjernes før en etterfølger har fått rollen.
+- Forespørsel om å bli skoleadministrator: eleven ber fra profilen, styreadministrator i lokallaget eller fylket godkjenner eller avslår under Administrasjon → Forespørsler.
+- Administrasjonen viser organisasjonene serveren sier brukeren administrerer (`list_my_admin_organizations`). Oversikt (med revisjonslogg), Roller og verv og Forespørsler er ekte. Styreoverføring, Skoler, Moderering og CSV er fortsatt statiske (prompt 11–13).
+- Alle endringer av verv, rettigheter og forespørsler logges i `audit_logs` og vises i revisjonsloggen med navn.
+- Deaktiverte organisasjoner kan åpnes (`get_public_organization`) og er tydelig merket. `has_active_membership` krever nå aktiv organisasjon, så ingen kan publisere, kommentere eller stemme for en deaktivert organisasjon. Innlegg fra deaktiverte brukere vises med «Tidligere tillitsvalgt».
+- Profilen viser egne verv og rettigheter, også tidligere, med «Gå av» og «Gi fra deg».
+- Demoen: Ida er skoleadministrator på Elvebakken og styreadministrator i Oslo (og dermed i Oslo Sentrum lokallag). Frida Aas ved Oslo handelsgymnasium har en ventende forespørsel.
+- Migrasjonen `202610030001_medlemskap_roller.sql` har ingen `drop`, og er kjørt i pilotprosjektet.
+- Databasetestene for prompt 4 ligger i `supabase/tests/medlemskap_roller.sql`.
 
 ## Utgangspunkt etter prompt 3 (1. oktober 2026)
 
@@ -23,7 +38,7 @@ Neste prompt som skal sendes er **prompt 4**, etter de manuelle stegene under *F
 - Brukeren kan ikke lenger endre egen profil direkte i tabellen (`profiles_self_update` er fjernet). Alt går via RPC-er.
 - `get_ranked_feed` feilet etter at `posts` fikk søkekolonnen i prompt 2. Den er rettet og returnerer nå bare innlegg og poeng.
 - Demoen (uten Supabase-variabler) starter nå uten innlogging. Koden er `123456`; med `ida.halvorsen@example.invalid` blir du Ida, andre adresser går til onboarding.
-- Migrasjonen `202610020001_innlogging_profiler.sql` er testet lokalt (`npm run test:db`), men ikke kjørt i pilotprosjektet, fordi Supabase-koblingen krever en bekreftelse for `drop` som ikke kan gis fra en Claude-økt.
+- Migrasjonen `202610020001_innlogging_profiler.sql` er kjørt i pilotprosjektet (manuelt, steg 2 under *Før prompt 4*).
 
 ## Utgangspunkt etter prompt 2 (1. oktober 2026)
 
@@ -83,7 +98,7 @@ Appassordet legges bare inn i Supabase, aldri i repoet eller i en `VITE_`-variab
 Gjør stegene i denne rekkefølgen. Settes variablene i steg 5 før migrasjonen er kjørt, slutter GitHub Pages-siden å virke.
 
 1. Gjør stegene 2–5 under *Før prompt 3* (Gmail SMTP og URL-oppsett) hvis de ikke er gjort.
-2. Kjør hele `supabase/migrations/202610020001_innlogging_profiler.sql` i SQL Editor i Supabase.
+2. ✅ Kjør hele `supabase/migrations/202610020001_innlogging_profiler.sql` i SQL Editor i Supabase. (Gjort.)
 3. I Supabase: *Authentication → Emails → Templates*. For både «Magic Link» og «Confirm signup»: sett emnet til `Koden din til Elevrådsnett` og lim inn innholdet i `supabase/templates/engangskode.html`. Malen viser koden (`{{ .Token }}`), ikke en lenke.
 4. I Supabase: *Authentication → Sign In / Providers → Email*. Sett «Email OTP Expiration» til `600` sekunder og «Email OTP Length» til `6`.
 5. I GitHub: *Settings → Secrets and variables → Actions → Variables*. Legg til `VITE_SUPABASE_URL` = `https://ibipqyombdmtfvgthugz.supabase.co` og `VITE_SUPABASE_ANON_KEY` = den publiserbare nøkkelen (`sb_publishable_…`) fra *Project Settings → API Keys* i Supabase. Nøkkelen er offentlig og skal være synlig i nettleseren. Bruk aldri service role-nøkkelen.
@@ -129,7 +144,7 @@ Gjør stegene i denne rekkefølgen. Settes variablene i steg 5 før migrasjonen 
    - Profilvisning og -redigering med profilbilde.
    - Skolebytte på egen hånd uten at historikken forsvinner.
    - Alle offentlige sider kan leses uten innlogging.
-4. **Medlemskap, roller og aktiv representasjon** (§3, §4)
+4. ✅ **Medlemskap, roller og aktiv representasjon** (§3, §4). Ferdig.
    - Velger som viser alle tilknytninger og hvilken som er aktiv. Feed og navigasjon oppdateres ved bytte.
    - Offentlige verv holdes adskilt fra interne rettigheter, og innholdsansvarlig skjules for andre.
    - Tildeling og tilbakekalling av roller.
