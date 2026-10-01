@@ -20,18 +20,36 @@ Planen deler `docs/KRAVSPEC.md` inn i prompter som sendes én om gangen, hver i 
 
 ## Hosting og tjenester
 
+**Alt i piloten skal være gratis.** Funksjoner som koster penger å drive, bygges ikke før piloten. Står de i designet, vises de som deaktiverte med merket «Kommer senere», på samme måte som Feide-knappen. Listen over hva som kommer senere står under tabellen.
+
 | Hva | Valg | Kostnad | Merknad |
 |---|---|---|---|
-| Frontend | GitHub Pages | Gratis | Allerede satt opp med `.github/workflows/static.yml`. Publiseres ved hver merge til `main`. Krever offentlig repo, og har ingen egne HTTP-headere eller testversjon per PR. Når domenet er på plass, legges Cloudflare sin gratis proxy foran for sikkerhetsheadere. Før full lansering byttes det til Cloudflare Pages, siden GitHub sine vilkår ikke er ment for å drive en tjeneste. |
-| Backend | Supabase Free, region eu-north-1 | Gratis | 500 MB database, 1 GB lagring, ingen automatisk backup og pause etter en uke uten bruk. Utvikling kjøres lokalt med Supabase CLI. Pro (25 USD/mnd) før full lansering. |
-| E-post | Resend | Gratis | 100 e-poster per dag og 3000 per måned. Krever eget domene. Supabase sin innebygde e-post er bare til testing. |
-| Domene | F.eks. elevradsnett.no via Domeneshop | Ca. 150 kr/år | `.no` registreres på Elevorganisasjonens organisasjonsnummer. Bør være på plass før prompt 3. |
-| Spambeskyttelse | Cloudflare Turnstile | Gratis | |
-| Feillogging | Sentry | Gratis | |
+| Frontend | GitHub Pages | Gratis | Allerede satt opp med `.github/workflows/static.yml`. Publiseres ved hver merge til `main`. Krever offentlig repo, og har ingen egne HTTP-headere eller testversjon per PR. Før full lansering byttes det til Cloudflare Pages (også gratis), siden GitHub sine vilkår ikke er ment for å drive en tjeneste. |
+| Backend | Supabase Free, region eu-north-1 | Gratis | 500 MB database, 1 GB lagring, 50 000 aktive brukere per måned, ingen automatisk backup og pause etter en uke uten bruk. Den nattlige backupen holder prosjektet aktivt. Utvikling kjøres lokalt med Supabase CLI. |
+| Innlogging | Supabase Auth med engangskode på e-post | Gratis | Innlogging med telefonnummer krever SMS, som koster per melding. Den kommer senere. |
+| E-post | Resend | Gratis | 100 e-poster per dag og 3000 per måned. Krever et domene vi kan legge inn DNS-poster på. Brukes som SMTP for Supabase Auth, siden Supabase sin innebygde e-post bare er til testing. |
+| Domene | Underdomene av `elev.no`, f.eks. `nett.elev.no` | Gratis | Elevorganisasjonen eier allerede `elev.no`. Den som har tilgang til DNS-en legger inn en CNAME til GitHub Pages og postene Resend trenger (SPF, DKIM). Må være på plass før prompt 3. Går ikke det, kjører piloten på `nikolaiaskedal.github.io/elevradsnett`, men e-postkoder krever fortsatt et domene for Resend. |
+| Spambeskyttelse | Cloudflare Turnstile | Gratis | Fungerer på alle vertsnavn, også `github.io`. |
+| Feillogging | Sentry | Gratis | 5000 feil per måned. |
 | Analyse | PostHog Cloud EU (Frankfurt) | Gratis opptil 1 mill. hendelser/mnd | Aktiveres først etter samtykke (§16), se prompt 17. |
 | Backup | Nattlig `pg_dump` og kopi av Storage via GitHub Actions | Gratis | Erstatter backup som gratisplanen mangler. |
+| MFA | TOTP (autentiseringsapp) i Supabase Auth | Gratis | MFA med SMS koster og brukes ikke. |
 
 Alle tjenestene over er databehandlere og skal stå i personvernerklæringen (§16).
+
+Grensene må overholdes i piloten. Spesielt e-post: engangskoder går foran varsler, og varsler på e-post samles i ett daglig sammendrag per bruker (prompt 11), så vi holder oss under 100 per dag.
+
+### Kommer senere (koster penger)
+
+| Hva | Kostnad | Når |
+|---|---|---|
+| Innlogging med telefonnummer (engangskode på SMS via Twilio e.l.) | Ca. 0,5–1 kr per SMS | Når det finnes budsjett. Vises som «Kommer senere» i innloggingsdialogen fra prompt 3. |
+| Eget domene, f.eks. `elevradsnett.no` | Ca. 150 kr/år | Ved full lansering, hvis underdomenet av `elev.no` ikke holder. `.no` registreres på Elevorganisasjonens organisasjonsnummer. |
+| Supabase Pro med daglig backup | 25 USD/mnd | Før full lansering. |
+| Mer lagring for video | Inngår i Pro, deretter per GB | Prompt 20. |
+| Apple Developer Program | 99 USD/år | Prompt 18 og 21. Trengs for iOS-appen og push på iOS. |
+| Google Play-konto | 25 USD én gang | Prompt 21. |
+| Større e-postkvote i Resend | 20 USD/mnd | Bare hvis piloten viser at 100 per dag ikke holder. |
 
 ## Mobilapp
 
@@ -52,7 +70,8 @@ Alle tjenestene over er databehandlere og skal stå i personvernerklæringen (§
    - Pilotprosjektet opprettes i Supabase. TypeScript-typer genereres, og RLS-testene kjøres i CI mot lokal Supabase.
    - `docs/RLS_MATRIX.md` oppdateres.
 3. **Innlogging, profiler og offentlig lesing** (§1, §3, §10)
-   - Supabase Auth med e-postkode via Resend.
+   - Supabase Auth med engangskode på e-post, sendt via Resend som SMTP.
+   - Valget «Telefonnummer» i innloggingsdialogen deaktiveres og merkes «Kommer senere», på samme måte som Feide. Telefonnummer kan ikke lagres eller brukes til innlogging i piloten.
    - Innloggingsdialog som sender brukeren tilbake til handlingen de prøvde på (§7).
    - Onboarding: velge skole, navn og dato for neste valg.
    - Profilvisning og -redigering med profilbilde.
@@ -101,6 +120,7 @@ Alle tjenestene over er databehandlere og skal stå i personvernerklæringen (§
     - Slette for egen visning, rapportere innhold valgt av brukeren, blokkere og forlate grupper.
 11. **Varsler og styreoverføring** (§5)
     - Varsler i plattformen og på e-post, med egne innstillinger. Bygget slik at push kan kobles på senere.
+    - Varsler på e-post samles i ett daglig sammendrag per bruker, så Resend sin gratisgrense på 100 e-poster per dag holder.
     - `pg_cron` sender påminnelser 14, 7 og 1 dag før, deretter ukentlig, og eskalerer etter 7 dager.
     - Overføringsveiviseren med aksept av ny rolle, aktiveringsdato og gjenopprettingsprosess.
     - Tester av rolleutløp.
@@ -108,7 +128,7 @@ Alle tjenestene over er databehandlere og skal stå i personvernerklæringen (§
     - Administrasjon av brukere (bytte skole, slette), organisasjoner med deaktivering og reaktivering, og innhold.
     - Modereringskø med alle handlingene i planen, inkludert klage.
     - Medier, placeholders (slette samlet eller enkeltvis), standardbilder med lås, statistikk og revisjonslogg avgrenset til eget område.
-    - MFA kreves for superadministratorer.
+    - MFA med autentiseringsapp (TOTP) kreves for superadministratorer.
 13. **CSV-import og -eksport** (§13)
     - Tom mal, eksport per fylke og forhåndsvisning.
     - Kontroll uten å endre databasen, med visning av nye, endrede og ugyldige rader.
@@ -123,10 +143,11 @@ Alle tjenestene over er databehandlere og skal stå i personvernerklæringen (§
     - Manifest, ikoner og et offline-skall, så appen kan installeres.
 16. **Sikkerhet, tester og klargjøring for piloten** (§17, §19, §22)
     - Begrensning av antall forespørsler, Turnstile og beskyttelse mot opplisting av kontoer.
-    - CSP som `<meta>`-tagg i `index.html`. Når domenet er på plass: Cloudflare-proxy foran GitHub Pages med HSTS, `frame-ancestors`/`X-Frame-Options` og `Permissions-Policy` som headere.
+    - CSP som `<meta>`-tagg i `index.html`. GitHub Pages kan ikke sette egne headere, så HSTS, `frame-ancestors`/`X-Frame-Options` og `Permissions-Policy` kommer med Cloudflare Pages før full lansering (`public/_headers` er klar).
     - Tilgjengelighetstester med axe og Playwright, og ende-til-ende-tester av akseptansekriteriene i §22.
     - Nattlig backup og en dokumentert gjenopprettingstest.
-    - Sentry, produksjonsoppsett på GitHub Pages med eget domene og import av pilotskolene.
+    - Sentry, produksjonsoppsett på GitHub Pages med underdomenet av `elev.no` og import av pilotskolene.
+    - En sjekk av at piloten fortsatt er gratis: ingen tjeneste er på betalt plan, og bruken ligger under grensene i tabellen over.
 
 ### Under piloten
 
@@ -137,12 +158,12 @@ Alle tjenestene over er databehandlere og skal stå i personvernerklæringen (§
 
 ### Etter piloten
 
-18. **Capacitor:** iOS og Android, lenker som åpner appen ved innlogging, oppstartsskjerm og ikoner, kamera og bildevelger, systemets delingsmeny og bygg i CI.
+18. **Capacitor:** krever Apple Developer Program (99 USD/år). iOS og Android, lenker som åpner appen ved innlogging, oppstartsskjerm og ikoner, kamera og bildevelger, systemets delingsmeny og bygg i CI.
 19. **Push-varsler:** lagring av enhetstokens, FCM/APNs via Edge Function og egne innstillinger for push.
 20. **Video og rettinger fra piloten:** videoopplasting med miniatyrbilder og behandlingsstatus (§11), oppgradering av lagringsplan ved behov.
-21. **Lansering i App Store og Play-butikken:** TestFlight, intern testing i Play, personvernopplysninger i butikkene og forberedelse til appgjennomgangen.
+21. **Lansering i App Store og Play-butikken:** krever Google Play-konto (25 USD). TestFlight, intern testing i Play, personvernopplysninger i butikkene og forberedelse til appgjennomgangen.
 
-Feide-innlogging planlegges senere og er ikke med her.
+Feide-innlogging og innlogging med telefonnummer planlegges senere og er ikke med her.
 
 ## Prompt 1
 
