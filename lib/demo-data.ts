@@ -1,5 +1,5 @@
 import type { EventRecord } from '@/lib/domain/events';
-import type { Conversation, CurrentUser, InternalRole, Organization, Post, PostDraft, PostRevision } from '@/lib/domain/types';
+import type { CurrentUser, InternalRole, Organization, Post, PostDraft, PostRevision } from '@/lib/domain/types';
 
 export const currentUser: CurrentUser = { id:'user-ida', name:'Ida Halvorsen', initials:'IH', schoolId:'elvebakken', email:'ida.halvorsen@example.invalid' };
 
@@ -161,17 +161,27 @@ export const demoRegistrations:{ eventId:string; organizationId:string; status:'
   { eventId:'fylkessamling', organizationId:'elvebakken', status:'registered', delegates:[{ person:'Ida Halvorsen', status:'invited', officeTitle:'Elevrådsleder' }] },
 ];
 
-export const conversations: Conversation[] = [
-  { id:'c1', name:'Kuben vgs elevråd', initials:'KU', subtitle:'Elevråd · Oslo', organizationId:'kuben', kind:'group', unread:0, members:9, messages:[
-    { id:'1', from:'Emil', text:'Hei! Vi så innlegget om elevrådsuka. Hvordan fikk dere så mange til å stille som klassekontakt?', time:'09:12' },
-    { id:'2', from:'Ida', mine:true, text:'Hei! Vi hadde stand i kantina hele uka og lot folk skrive seg på der og da. Mye lettere enn å be dem sende e-post.', time:'09:20' },
-    { id:'3', from:'Emil', text:'Smart. Kan vi ta et digitalt møte før fylkessamlinga?', time:'09:24' },
-    { id:'4', from:'Ida', mine:true, text:'Ja, gjerne. Torsdag 16:00?', time:'09:26' }] },
-  { id:'c2', name:'Elevorganisasjonen i Oslo', initials:'OS', subtitle:'Fylkeslag · verifisert', organizationId:'oslo-fylke', kind:'group', unread:2, members:8, messages:[
-    { id:'1', from:'Mathilde', text:'Hei Elvebakken! Har dere valgt de to representantene til fylkessamlinga?', time:'i går' },
-    { id:'2', from:'Ida', mine:true, text:'Vi vedtar det på møtet torsdag, sender navn rett etterpå.', time:'i går' },
-    { id:'3', from:'Mathilde', text:'Perfekt. Frist er 1. oktober, så det holder fint.', time:'08:40' }] },
-  { id:'c3', name:'Trondheim katedralskole elevråd', initials:'TK', subtitle:'Elevråd · Trøndelag', organizationId:'katta', kind:'group', unread:0, members:7, messages:[
-    { id:'1', from:'Vetle', text:'Vi deler gjerne debattopplegget vårt. Skal jeg sende dokumentet?', time:'man' },
-    { id:'2', from:'Ida', mine:true, text:'Ja takk!', time:'man' }] },
+/**
+ * Samtaler i demoen, med personer fra listene over tillitsvalgte. Meldinger går alltid mellom personer:
+ * direktemeldinger, vanlige grupper og systemstyrte grupper som følger vervene (her fylkesstyret i Oslo).
+ * Tidspunktene er minutter før demoen startet. unreadFrom er antallet siste meldinger Ida ikke har lest.
+ */
+export type DemoConversationSeed = {
+  id:string; kind:'direct'|'group'|'managed'; name?:string; organizationId?:string; people:string[]; unreadFrom?:number; muted?:boolean;
+  messages:{ from:string; text:string; minutesAgo:number }[];
+};
+export const conversations: DemoConversationSeed[] = [
+  { id:'c1', kind:'direct', people:['Emil Strand'], messages:[
+    { from:'Emil Strand', text:'Hei! Vi så innlegget om elevrådsuka. Hvordan fikk dere så mange til å stille som klassekontakt?', minutesAgo:200 },
+    { from:'Ida Halvorsen', text:'Hei! Vi hadde stand i kantina hele uka og lot folk skrive seg på der og da. Mye lettere enn å be dem sende e-post.', minutesAgo:192 },
+    { from:'Emil Strand', text:'Smart. Kan vi ta et digitalt møte før fylkessamlinga?', minutesAgo:188 },
+    { from:'Ida Halvorsen', text:'Ja, gjerne. Torsdag 16:00?', minutesAgo:186 }] },
+  { id:'c2', kind:'managed', organizationId:'oslo-fylke', people:[], unreadFrom:2, messages:[
+    { from:'Mathilde Rø', text:'Hei alle! Har dere valgt de to representantene til fylkessamlinga?', minutesAgo:1500 },
+    { from:'Ida Halvorsen', text:'Elvebakken vedtar det på møtet torsdag, jeg sender navn rett etterpå.', minutesAgo:1450 },
+    { from:'Omar Haddad', text:'Kuben har valgt sine, jeg legger dem inn i dag.', minutesAgo:95 },
+    { from:'Mathilde Rø', text:'Perfekt. Frist er 1. oktober, så det holder fint.', minutesAgo:80 }] },
+  { id:'c3', kind:'group', name:'Debattopplegg', people:['Vetle Aunemo','Emil Strand'], messages:[
+    { from:'Vetle Aunemo', text:'Vi deler gjerne debattopplegget vårt. Skal jeg sende dokumentet?', minutesAgo:4400 },
+    { from:'Ida Halvorsen', text:'Ja takk!', minutesAgo:4390 }] },
 ];

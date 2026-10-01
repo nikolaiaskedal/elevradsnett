@@ -1,9 +1,12 @@
+import type { AddMembersInput, CreateGroupInput, ReportMessageInput } from './contracts';
+import { messagingServerMessages } from './messaging-errors';
+import { SupabaseMessaging } from './supabase-messaging';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { presentEvent, toEventCategory } from '@/lib/domain/events';
 import { initialsOf } from '@/lib/domain/labels';
 import { formatDayMonth, formatRelative } from '@/lib/domain/time';
 import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, CurrentUser, DelegateCandidate, DelegateStatus, Event, EventOrganizer, EventParticipation, GrantStatus, Message, MyRole, Organization, OrganizationCvEntry, OrganizationRoleEntry, OrganizationStatus, OrganizationType, PersonCv, Post, RegistrationStatus, PublicOfficer, Representation, SchoolAdminRequest, SchoolHistoryEntry, Session, FriendConnection, PostDraft, PostRevision, SchoolLevelTarget } from '@/lib/domain/types';
-import { assignPublicOfficeSchema, assignRoleSchema, avatarSchema, addDelegateSchema, attendanceSchema, changeSchoolSchema, commentSchema, decideSchoolAdminRequestSchema, delegationResponseSchema, eventImageSchema, eventInputSchema, eventInterestSchema, eventRegistrationSchema, eventStatusChangeSchema, idSchema, isoDate, messageSchema, onboardingSchema, publishPostSchema, requestLoginCodeSchema, schoolAdminRequestSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema, decideFriendRequestSchema, editPostSchema, friendRequestSchema, saveDraftSchema } from '@/lib/domain/validation';
+import { assignPublicOfficeSchema, assignRoleSchema, avatarSchema, addDelegateSchema, attendanceSchema, changeSchoolSchema, commentSchema, decideSchoolAdminRequestSchema, delegationResponseSchema, eventImageSchema, eventInputSchema, eventInterestSchema, eventRegistrationSchema, eventStatusChangeSchema, idSchema, isoDate, onboardingSchema, publishPostSchema, requestLoginCodeSchema, schoolAdminRequestSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema, decideFriendRequestSchema, editPostSchema, friendRequestSchema, saveDraftSchema } from '@/lib/domain/validation';
 import type { Database } from '@/lib/supabase/database.types';
 import { NotImplementedError, type AddCommentInput, type AddDelegateInput, type AttendanceInput, type DelegationResponseInput, type EventInput, type EventInterestInput, type EventRegistrationInput, type EventStatusChangeInput, type AssignPublicOfficeInput, type AssignRoleInput, type ChangeSchoolInput, type DecideSchoolAdminRequestInput, type ElevradsnettService, type OnboardingInput, type SchoolAdminRequestInput, type PublishPostInput, type RequestLoginCodeInput, type SendMessageInput, type UpdateProfileInput, type VerifyLoginCodeInput, type VoteInput, type DecideFriendRequestInput, type EditPostInput, type FriendRequestInput, type SaveDraftInput } from './contracts';
 
@@ -43,6 +46,7 @@ const toDelegate = (d:DelegateJson)=>({ id:d.id, userId:d.user_id, name:d.displa
 /** Feilmeldinger fra databasen og Supabase Auth, oversatt til norsk. Ukjente feil får en generell tekst. */
 const serverMessages:Record<string,string> = {
   'not authorized':'Du har ikke tilgang til å gjøre dette.',
+  ...messagingServerMessages,
   'invalid name':'Navnet må ha mellom 2 og 120 tegn.',
   'school not found':'Fant ikke skolen. Velg en aktiv skole fra listen.',
   'invalid election date':'Velg en dato fra i dag og inntil to år frem.',
@@ -119,7 +123,11 @@ async function run<R extends { data:unknown; error:unknown }>(promise:PromiseLik
  */
 export class SupabaseElevradsnettService implements ElevradsnettService {
   private client:Promise<Client>;
-  constructor(client:SupabaseClient|Promise<SupabaseClient>) { this.client = Promise.resolve(client) as Promise<Client>; }
+  private messaging:SupabaseMessaging;
+  constructor(client:SupabaseClient|Promise<SupabaseClient>) {
+    this.client = Promise.resolve(client) as Promise<Client>;
+    this.messaging = new SupabaseMessaging(this.client,run,()=>this.userId());
+  }
 
   private async userId() {
     const { data } = await (await this.client).auth.getSession();
@@ -206,10 +214,7 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
     if (error) throw toNorwegianError(error,'Kunne ikke hente arrangementene.');
     return (data ?? []).map(r=>toEvent(r,r.image_path?client.storage.from(CONTENT_BUCKET).getPublicUrl(r.image_path).data.publicUrl:undefined));
   }
-  async listConversations():Promise<Conversation[]> {
-    if (!await this.userId()) return [];
-    throw new NotImplementedError('listConversations');
-  }
+  listConversations():Promise<Conversation[]> { return this.messaging.listConversations(); }
   async listPublicOfficers(organizationId:string) {
     const rows = await run((await this.client).rpc('get_public_officers',{ p_organization:organizationId }));
     return rows.map(r=>({ id:r.membership_id, name:r.display_name, publicTitle:r.public_title }) satisfies PublicOfficer);
@@ -504,14 +509,28 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
       userId:r.user_id ?? undefined, name:r.display_name, officeTitle:r.office_title ?? undefined }));
   }
 
-  // Meldinger
-  async openConversation():Promise<Conversation> { throw new NotImplementedError('openConversation'); }
-  async sendMessage(input:SendMessageInput):Promise<Message> {
-    const parsed = messageSchema.parse(input);
-    const row = await run((await this.client).from('messages').insert({ conversation_id:parsed.conversationId, body:parsed.body }).select('id,created_at').single());
-    return { id:row.id, from:'', mine:true, text:parsed.body, time:formatRelative(row.created_at) };
-  }
-  async markConversationRead():Promise<void> { throw new NotImplementedError('markConversationRead'); }
+  // Meldinger (supabase-messaging.ts)
+  listMessages(input:{ conversationId:string; before?:string }) { return this.messaging.listMessages(input); }
+  listConversationMembers(conversationId:string) { return this.messaging.listConversationMembers(conversationId); }
+  searchRecipients(query:string) { return this.messaging.searchRecipients(query); }
+  listOrganizationContacts(organizationId:string) { return this.messaging.listOrganizationContacts(organizationId); }
+  startDirectConversation(userId:string) { return this.messaging.startDirectConversation(userId); }
+  createGroup(input:CreateGroupInput) { return this.messaging.createGroup(input); }
+  createOrganizationGroup(organizationId:string) { return this.messaging.createOrganizationGroup(organizationId); }
+  addConversationMembers(input:AddMembersInput) { return this.messaging.addConversationMembers(input); }
+  leaveConversation(conversationId:string) { return this.messaging.leaveConversation(conversationId); }
+  sendMessage(input:SendMessageInput):Promise<Message> { return this.messaging.sendMessage(input); }
+  markConversationRead(conversationId:string) { return this.messaging.markConversationRead(conversationId); }
+  setConversationMuted(input:{ conversationId:string; muted:boolean }) { return this.messaging.setConversationMuted(input); }
+  hideMessage(messageId:string) { return this.messaging.hideMessage(messageId); }
+  reportMessage(input:ReportMessageInput) { return this.messaging.reportMessage(input); }
+  blockUser(userId:string) { return this.messaging.blockUser(userId); }
+  unblockUser(userId:string) { return this.messaging.unblockUser(userId); }
+  listBlockedUsers() { return this.messaging.listBlockedUsers(); }
+  getMessageSettings() { return this.messaging.getMessageSettings(); }
+  setReadReceipts(enabled:boolean) { return this.messaging.setReadReceipts(enabled); }
+  getAttachmentUrl(path:string) { return this.messaging.getAttachmentUrl(path); }
+  subscribeToMessages(listener:()=>void) { return this.messaging.subscribeToMessages(listener); }
 }
 
 function toOrganization(r:OrganizationRow):Organization {

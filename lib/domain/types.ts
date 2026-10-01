@@ -51,8 +51,7 @@ export type CvInvitation = { delegateId:string; eventId:string; title:string; st
 export type PersonCv = { id:string; name:string; initials:string; avatarUrl?:string; schoolName?:string; active:boolean; offices:CvOffice[]; events:CvEvent[]; stars:number; invitations:CvInvitation[] };
 /** Skolens CV: én rad per person som representerte skolen på et arrangement. userId mangler for deaktiverte personer. */
 export type OrganizationCvEntry = { eventId:string; title:string; startsAt:string; category:EventCategory; organizerName:string; elevtinget:boolean; userId?:string; name:string; officeTitle?:string };
-export type Message = { id:string; from:string; mine?:boolean; text:string; time:string };
-export type Conversation = { id:string; name:string; initials:string; subtitle?:string; organizationId?:string; kind:'direct'|'group'|'managed'; unread:number; muted?:boolean; members:number; messages:Message[] };
+export type { Conversation, Message } from '@/lib/domain/messaging';
 export type CurrentUser = { id:string; name:string; initials:string; schoolId:string|null; email:string; avatarUrl?:string };
 /**
  * Hvem som bruker appen. «onboarding» betyr innlogget uten profil: brukeren må velge skole og navn først.
