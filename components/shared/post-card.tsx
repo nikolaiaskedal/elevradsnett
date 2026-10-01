@@ -17,7 +17,7 @@ export function PostCard({post,plain}:{post:Post;plain?:boolean}) {
   const openOrg=()=>go({ view:'organization', id:post.organizationId });
   return <article className={`post ${plain?'plain':''}`}>
     <div className="post-head">
-      <button className="post-avatar" onClick={openOrg} aria-label={`Åpne ${post.organizationName}`}><Avatar initials={post.initials} size="lg" tone={author?.type==='national'?'coral':'navy'}/></button>
+      <button className="post-avatar" onClick={openOrg} aria-label={`Åpne ${post.organizationName}`}><Avatar initials={post.initials} size="lg" tone={author?.type==='national'?'coral':'navy'} orgType={author?.type}/></button>
       <div className="who">
         <button className="name-link" onClick={openOrg}>{post.organizationName}</button>
         <p className="sub">{post.actorName || 'Tidligere tillitsvalgt'} · {post.createdAt}{post.edited?' · redigert':''}</p>
@@ -42,7 +42,7 @@ export function PostCard({post,plain}:{post:Post;plain?:boolean}) {
     </div>
     {commentsOpen&&<div className="comments">
       {(post.commentItems ?? []).map(c=><div className="comment" key={c.id}>
-        <Avatar size="sm" tone="pale" initials={org(c.organizationId)?.initials ?? initialsOf(c.organizationName)}/>
+        <Avatar size="sm" tone="pale" initials={org(c.organizationId)?.initials ?? initialsOf(c.organizationName)} orgType={org(c.organizationId)?.type}/>
         <div className="comment-bubble"><strong>{c.organizationName}</strong><span className="time"> · {c.createdAt}</span><p>{c.body}</p></div>
       </div>)}
       {activeRep&&currentUser?<form className="comment-form" onSubmit={e=>{ e.preventDefault(); sendComment(post.id); }}>

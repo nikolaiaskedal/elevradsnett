@@ -99,7 +99,7 @@ export function ProfileView() {
       {representations.length?<div className="list" style={{ gap:10 }}>
         {representations.map(rep=>{ const o=org(rep.organizationId); const on=rep.id===activeRep?.id; const inactive=rep.organizationStatus!=='active'; return <div className={`rep-row ${on?'on':''}`} key={rep.id}>
           <button className="rep-main" onClick={()=>go({ view:'organization', id:rep.organizationId })}>
-            <Avatar initials={rep.initials} size="lg" tone={on?'coral':inactive?'pale':'navy'}/>
+            <Avatar initials={rep.initials} size="lg" tone={on?'coral':inactive?'pale':'navy'} orgType={rep.type}/>
             <span className="grow"><span className="rep-name">{rep.name}</span><span className="sub">{rep.publicRole}{o?.contactEmail?` · ${o.contactEmail}`:''}{inactive?' · organisasjonen er deaktivert':rep.canPublish?'':' · kan ikke publisere'}</span></span>
           </button>
           {on?<Status tone="coral">Aktiv</Status>:inactive?<Status tone="gray">Deaktivert</Status>:<button className="btn small" onClick={()=>switchRepresentation(rep)}>Bruk</button>}
