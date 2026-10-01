@@ -132,7 +132,7 @@ Merk: Med Supabase konfigurert laster appen ikke i dag, fordi `getSession`, `lis
 | Fortsett / Tilbake | Går mellom stegene | Fungerer | – | – | ja | §3, §5 |
 | Logg inn med Feide (Ikke tilgjengelig) | Deaktivert | Mangler | – | – | ja | §1 |
 | Navn | Fritekst | Fungerer | – | – | ja | §3, §5 |
-| Telefonnummer / E-post og felt | Velger kontaktmåte; ingen engangskode sendes | Mangler | – | – | ja | §3, §5 |
+| Telefonnummer / E-post og felt | Velger kontaktmåte; ingen engangskode sendes. Telefonnummer merkes «Kommer senere» i prompt 3, siden SMS koster | Mangler | – | – | ja | §3, §5 |
 | Måned for ledervalg | Valgfri måned | Demo | `completeOnboarding` | ja | ja | §5 |
 | Fullfør innlogging / Hopp over | Lagrer onboarding og går til Hjem; ingen ekte innlogging | Demo | `completeOnboarding` | ja | ja | §3, §5 |
 
