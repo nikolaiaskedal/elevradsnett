@@ -1,9 +1,9 @@
 import * as demo from '@/lib/demo-data';
 import { orgSub } from '@/lib/domain/labels';
 import { initialsOf } from '@/lib/domain/labels';
-import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, CurrentUser, Event, GrantStatus, InternalRole, Message, MyRole, Organization, OrganizationRoleEntry, Post, Representation, SchoolAdminRequest, SchoolHistoryEntry, Session } from '@/lib/domain/types';
-import { assignPublicOfficeSchema, assignRoleSchema, avatarSchema, changeSchoolSchema, commentSchema, decideSchoolAdminRequestSchema, eventResponseInputSchema, isoDate, messageSchema, onboardingSchema, publishPostSchema, requestLoginCodeSchema, schoolAdminRequestSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema } from '@/lib/domain/validation';
-import type { AddCommentInput, AssignPublicOfficeInput, AssignRoleInput, ChangeSchoolInput, DecideSchoolAdminRequestInput, ElevradsnettService, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SchoolAdminRequestInput, SendMessageInput, SetEventResponseInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput } from './contracts';
+import type { AdminOrganization, AssignablePerson, Audience, AuditEntry, Comment, Conversation, CurrentUser, Event, FriendConnection, GrantStatus, InternalRole, Message, MyRole, Organization, OrganizationRoleEntry, Post, PostDraft, PostRevision, Representation, SchoolAdminRequest, SchoolHistoryEntry, Session } from '@/lib/domain/types';
+import { assignPublicOfficeSchema, assignRoleSchema, audiencesFor, avatarSchema, changeSchoolSchema, commentSchema, decideFriendRequestSchema, decideSchoolAdminRequestSchema, editPostSchema, eventResponseInputSchema, friendRequestSchema, isoDate, messageSchema, onboardingSchema, publishPostSchema, requestLoginCodeSchema, saveDraftSchema, schoolAdminRequestSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema } from '@/lib/domain/validation';
+import type { AddCommentInput, AssignPublicOfficeInput, AssignRoleInput, ChangeSchoolInput, DecideFriendRequestInput, DecideSchoolAdminRequestInput, EditPostInput, ElevradsnettService, FriendRequestInput, SaveDraftInput, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SchoolAdminRequestInput, SendMessageInput, SetEventResponseInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput } from './contracts';
 
 /** Engangskoden som alltid virker i demoen. Vises i innloggingsdialogen når demotjenesten brukes. */
 export const DEMO_LOGIN_CODE = '123456';
@@ -13,6 +13,8 @@ export const DEMO_EMAIL = demo.currentUser.email;
 type Person = { id:string; name:string; schoolId:string|null; active:boolean };
 type Membership = { id:string; userId:string; organizationId:string; title:string; startDate:string; endDate:string|null; status:GrantStatus; grantedBy?:string };
 type Grant = { id:string; userId:string; organizationId:string; role:InternalRole; startDate:string; endDate:string|null; status:GrantStatus; grantedBy?:string };
+type StoredDraft = PostDraft & { actorId:string };
+type StoredConnection = { id:string; requesterId:string; recipientId:string; status:'pending'|'accepted'|'rejected'|'ended'; createdAt:string; approvedAt?:string };
 type StoredRequest = Omit<SchoolAdminRequest,'userName'|'schoolName'|'mine'|'canDecide'>;
 type Logged = AuditEntry & { organizationId:string; actorId:string; subjectId?:string };
 
@@ -35,7 +37,10 @@ export class DemoElevradsnettService implements ElevradsnettService {
   private pendingEmail = '';
   private listeners = new Set<()=>void>();
   private organizations = structuredClone(demo.organizations);
-  private posts = structuredClone(demo.initialPosts);
+  private posts:Post[] = structuredClone(demo.initialPosts).map(p=>({ ...p, schoolLevel:p.schoolLevel ?? 'both' }));
+  private drafts:StoredDraft[] = structuredClone(demo.demoDrafts);
+  private revisions:Record<string,PostRevision[]> = structuredClone(demo.demoRevisions);
+  private connections:StoredConnection[] = demo.demoFriendConnections.map((c,i)=>({ id:`fc-${i+1}`, ...c }));
   private events = structuredClone(demo.events);
   private conversations = structuredClone(demo.conversations);
   private supported = new Set<string>();
@@ -140,6 +145,46 @@ export class DemoElevradsnettService implements ElevradsnettService {
     this.requireUser();
     if (!this.hasAreaRole(this.user.id,orgId)) throw new Error('Du har ikke tilgang til å gjøre dette.');
   }
+  /** can_view_post: offentlig for alle; ellers medlemmer av avsenderen, fylket, lokallaget eller venneråd. */
+  private canView(p:Post) {
+    if (p.audience==='public') return true;
+    if (this.status!=='active') return false;
+    if (this.memberships.some(m=>m.userId===this.user.id && m.organizationId===p.organizationId && this.live(m))) return true;
+    const school = this.organizations.find(o=>o.id===this.user.schoolId);
+    const author = this.organizations.find(o=>o.id===p.organizationId);
+    if (!school || !author) return false;
+    if (p.audience==='county') return school.county===author.county;
+    if (p.audience==='local') return !!school.localBoard && school.localBoard===author.localBoard;
+    return school.id===author.id || this.connected(school.id,author.id);
+  }
+  private connected(a:string,b:string) {
+    return this.connections.some(c=>c.status==='accepted' && ((c.requesterId===a && c.recipientId===b) || (c.requesterId===b && c.recipientId===a)));
+  }
+  private canManagePost(organizationId:string) {
+    return this.status==='active' && this.hasRole(this.user.id,organizationId,['content_manager','school_admin','board_admin']);
+  }
+  private cards(posts:Post[]) { return structuredClone(posts.map(p=>({ ...p, canManage:this.canManagePost(p.organizationId) }))); }
+  /** check_post_content: målgruppen må passe avsenderen, og et tagget arrangement må være publisert. */
+  private checkContent(organizationId:string,audience:Audience,eventId?:string) {
+    const o = this.organization(organizationId);
+    if (!audiencesFor(o.type,!!o.localBoard).includes(audience)) throw new Error('Denne målgruppen passer ikke for avsenderen.');
+    if (eventId && !this.events.some(e=>e.id===eventId && (e.status==='published' || e.status==='completed'))) throw new Error('Fant ikke arrangementet, eller det er ikke publisert.');
+  }
+  /** Representasjonen må være aktiv og ha publiseringsrett. */
+  private publisher(representationId:string) {
+    this.requireUser();
+    const rep = this.usableRepresentation(representationId);
+    if (!rep.canPublish) throw new Error(`${rep.name} har ikke gitt deg publiseringsrett.`);
+    return rep;
+  }
+  private requireSchoolAdmin(schoolId:string) {
+    this.requireUser();
+    if (!this.hasRole(this.user.id,schoolId,['school_admin'])) throw new Error('Du har ikke tilgang til å gjøre dette.');
+  }
+  private logFriend(action:string,c:StoredConnection) {
+    for (const [org,other] of [[c.requesterId,c.recipientId],[c.recipientId,c.requesterId]]) this.log(org,action,undefined,{ school_id:other, school_name:this.organization(other).name });
+  }
+
   private representations():Representation[] {
     const order = { school:0, local_board:1, county_board:2, national:3 };
     return this.memberships.filter(m=>m.userId===this.user.id && this.live(m)).flatMap(m=>{
@@ -212,12 +257,14 @@ export class DemoElevradsnettService implements ElevradsnettService {
     return o?structuredClone(this.withOfficers(o)):null;
   }
   async listFeed(input:{ representationId:string|null; mode:'recommended'|'chronological' }) {
-    if (input.representationId===null || this.status!=='active') return structuredClone(this.posts.filter(p=>p.audience==='public'));
-    this.representation(input.representationId);
-    return structuredClone(this.posts);
+    if (input.representationId===null || this.status!=='active') return this.cards(this.posts.filter(p=>p.audience==='public'));
+    const rep = this.representation(input.representationId);
+    // Innlegg rettet mot en annen skoleform enn representasjonens vises ikke i feeden (som get_ranked_feed).
+    const level = this.organizations.find(o=>o.id===rep.organizationId)?.schoolLevel;
+    return this.cards(this.posts.filter(p=>this.canView(p) && (!level || !p.schoolLevel || p.schoolLevel==='both' || p.schoolLevel===level)));
   }
   async listOrganizationPosts(organizationId:string) {
-    return structuredClone(this.posts.filter(p=>p.organizationId===organizationId && (this.status==='active' || p.audience==='public')));
+    return this.cards(this.posts.filter(p=>p.organizationId===organizationId && this.canView(p)));
   }
   async listEvents():Promise<Event[]> { return structuredClone(this.events); }
   async listConversations() { return this.status==='active'?structuredClone(this.conversations):[]; }
@@ -431,18 +478,73 @@ export class DemoElevradsnettService implements ElevradsnettService {
   // ---- Innlegg ----
   async publishPost(input:PublishPostInput):Promise<Post> {
     const parsed = publishPostSchema.parse(input);
-    this.requireUser();
-    const rep = this.usableRepresentation(parsed.representationId);
-    if (!rep.canPublish) throw new Error(`${rep.name} har ikke gitt deg publiseringsrett.`);
+    const rep = this.publisher(parsed.representationId);
+    const draft = parsed.draftId?this.drafts.find(d=>d.id===parsed.draftId):undefined;
+    if (parsed.draftId && (!draft || draft.organizationId!==rep.organizationId)) throw new Error('Fant ikke innlegget.');
+    this.checkContent(rep.organizationId,parsed.audience,parsed.eventId);
     const post:Post = {
-      id:this.nextId('post'), organizationId:rep.organizationId, initials:rep.initials, organizationName:rep.name,
-      actorName:this.user.name, actorRole:rep.publicRole, createdAt:'Akkurat nå', body:parsed.body, audience:parsed.audience,
-      likes:0, comments:0, commentItems:[],
+      id:draft?.id ?? this.nextId('post'), organizationId:rep.organizationId, initials:rep.initials, organizationName:rep.name,
+      actorName:this.user.name, actorRole:rep.publicRole, createdAt:'Akkurat nå', body:parsed.body, audience:parsed.audience, schoolLevel:parsed.schoolLevel,
+      eventId:parsed.eventId, likes:0, comments:0, commentItems:[],
       media:parsed.withImage?[{ id:this.nextId('m'), type:'image', alt:'foto: lastet opp av elevrådet' }]:undefined,
       poll:parsed.poll?{ question:parsed.body.split('\n')[0], closesAt:'om 14 dager', resultsVisibility:'after_vote', options:parsed.poll.options.map((label,i)=>({ id:String(i), label, votes:0 })) }:undefined,
     };
-    if (parsed.status==='published') this.posts.unshift(post);
-    return structuredClone(post);
+    if (draft) this.drafts = this.drafts.filter(d=>d!==draft);
+    this.posts.unshift(post);
+    this.log(rep.organizationId,draft?'post.published':'post.created');
+    return this.cards([post])[0];
+  }
+  async saveDraft(input:SaveDraftInput):Promise<PostDraft> {
+    const parsed = saveDraftSchema.parse(input);
+    const rep = this.publisher(parsed.representationId);
+    this.checkContent(rep.organizationId,parsed.audience,parsed.eventId);
+    const content = { body:parsed.body, audience:parsed.audience, schoolLevel:parsed.schoolLevel, eventId:parsed.eventId, updatedAt:new Date().toISOString() };
+    let draft = parsed.draftId?this.drafts.find(d=>d.id===parsed.draftId):undefined;
+    if (parsed.draftId && (!draft || draft.organizationId!==rep.organizationId)) throw new Error('Fant ikke innlegget.');
+    if (draft) Object.assign(draft,content);
+    else {
+      draft = { id:this.nextId('draft'), organizationId:rep.organizationId, actorId:this.user.id, actorName:this.user.name, ...content };
+      this.drafts.unshift(draft);
+      this.log(rep.organizationId,'post.drafted');
+    }
+    const { actorId:_, ...result } = draft;
+    return structuredClone(result);
+  }
+  async listDrafts(representationId:string):Promise<PostDraft[]> {
+    this.requireUser();
+    const rep = this.representation(representationId);
+    if (!this.canManagePost(rep.organizationId)) throw new Error('Du har ikke tilgang til å gjøre dette.');
+    return structuredClone(this.drafts.filter(d=>d.organizationId===rep.organizationId).map(({ actorId:_, ...d })=>d));
+  }
+  async editPost(input:EditPostInput):Promise<Post> {
+    const parsed = editPostSchema.parse(input);
+    this.requireUser();
+    const post = this.post(parsed.postId);
+    if (!this.canManagePost(post.organizationId)) throw new Error('Du har ikke tilgang til å gjøre dette.');
+    this.checkContent(post.organizationId,parsed.audience,parsed.eventId);
+    // Som triggeren record_post_revision: forrige versjon lagres bare når tekst, målgruppe eller skoleform endres.
+    if (post.body!==parsed.body || post.audience!==parsed.audience || (post.schoolLevel ?? 'both')!==parsed.schoolLevel) {
+      this.revisions[post.id] = [{ id:this.nextId('rev'), body:post.body, audience:post.audience, schoolLevel:post.schoolLevel ?? 'both', editedByName:this.user.name, createdAt:new Date().toISOString() },
+        ...this.revisions[post.id] ?? []];
+      post.edited = true;
+    }
+    Object.assign(post,{ body:parsed.body, audience:parsed.audience, schoolLevel:parsed.schoolLevel, eventId:parsed.eventId });
+    this.log(post.organizationId,'post.edited');
+    return this.cards([post])[0];
+  }
+  async deletePost(postId:string) {
+    this.requireUser();
+    const draft = this.drafts.find(d=>d.id===postId);
+    const organizationId = draft?.organizationId ?? this.post(postId).organizationId;
+    if (!this.canManagePost(organizationId)) throw new Error('Du har ikke tilgang til å gjøre dette.');
+    if (draft) this.drafts = this.drafts.filter(d=>d!==draft);
+    else this.posts = this.posts.filter(p=>p.id!==postId);
+    this.log(organizationId,draft?'post.draft_deleted':'post.deleted');
+  }
+  async listPostHistory(postId:string):Promise<PostRevision[]> {
+    this.requireUser();
+    if (!this.canManagePost(this.post(postId).organizationId)) throw new Error('Du har ikke tilgang til å gjøre dette.');
+    return structuredClone(this.revisions[postId] ?? []);
   }
   async addComment(input:AddCommentInput):Promise<Comment> {
     const parsed = commentSchema.parse(input);
@@ -476,6 +578,55 @@ export class DemoElevradsnettService implements ElevradsnettService {
     this.votes.set(key,option.id);
   }
   async reportPost(input:{ postId:string }) { this.requireUser(); this.reported.add(this.post(input.postId).id); }
+
+  // ---- Venneråd ----
+  async listFriendConnections(schoolId:string):Promise<FriendConnection[]> {
+    this.requireSchoolAdmin(schoolId);
+    return structuredClone(this.connections.filter(c=>(c.requesterId===schoolId || c.recipientId===schoolId) && (c.status==='pending' || c.status==='accepted'))
+      .sort((a,b)=>Number(a.status==='accepted')-Number(b.status==='accepted') || b.createdAt.localeCompare(a.createdAt))
+      .map(c=>{
+        const other = this.organization(c.requesterId===schoolId?c.recipientId:c.requesterId);
+        return { id:c.id, schoolId:other.id, schoolName:other.name, county:other.county, status:c.status as FriendConnection['status'],
+          direction:c.requesterId===schoolId?'outgoing' as const:'incoming' as const, createdAt:c.createdAt, approvedAt:c.approvedAt, canDecide:c.status==='pending' && c.recipientId===schoolId };
+      }));
+  }
+  async requestFriendSchool(input:FriendRequestInput) {
+    const parsed = friendRequestSchema.parse(input);
+    this.requireSchoolAdmin(parsed.schoolId);
+    const target = this.organizations.find(o=>o.id===parsed.targetSchoolId && o.type==='school' && o.status==='active');
+    if (!target || target.id===parsed.schoolId) throw new Error('Fant ikke skolen. Velg en aktiv skole fra listen.');
+    const existing = this.connections.find(c=>(c.requesterId===parsed.schoolId && c.recipientId===target.id) || (c.requesterId===target.id && c.recipientId===parsed.schoolId));
+    if (existing?.status==='accepted') throw new Error('Skolene er allerede venneråd.');
+    if (existing?.status==='pending' && existing.requesterId===parsed.schoolId) throw new Error('Dere har allerede sendt en forespørsel til denne skolen.');
+    const now = new Date().toISOString();
+    if (existing?.status==='pending') {
+      Object.assign(existing,{ status:'accepted', approvedAt:now });
+      this.logFriend('friend.accepted',existing);
+      return;
+    }
+    const connection = existing ?? { id:this.nextId('fc'), requesterId:parsed.schoolId, recipientId:target.id, status:'pending' as const, createdAt:now };
+    if (existing) Object.assign(existing,{ requesterId:parsed.schoolId, recipientId:target.id, status:'pending', createdAt:now, approvedAt:undefined });
+    else this.connections.push(connection);
+    this.logFriend('friend.requested',connection);
+  }
+  async decideFriendRequest(input:DecideFriendRequestInput) {
+    const parsed = decideFriendRequestSchema.parse(input);
+    this.requireUser();
+    const c = this.connections.find(x=>x.id===parsed.connectionId && x.status==='pending');
+    if (!c) throw new Error('Forespørselen er allerede behandlet.');
+    this.requireSchoolAdmin(c.recipientId);
+    Object.assign(c,{ status:parsed.accept?'accepted':'rejected', approvedAt:new Date().toISOString() });
+    this.logFriend(parsed.accept?'friend.accepted':'friend.rejected',c);
+  }
+  async endFriendConnection(connectionId:string) {
+    this.requireUser();
+    const c = this.connections.find(x=>x.id===connectionId && (x.status==='pending' || x.status==='accepted'));
+    if (!c) throw new Error('Vennerådet er allerede avsluttet.');
+    const allowed = c.status==='pending'?[c.requesterId]:[c.requesterId,c.recipientId];
+    if (!allowed.some(id=>this.hasRole(this.user.id,id,['school_admin']))) throw new Error('Du har ikke tilgang til å gjøre dette.');
+    c.status = 'ended';
+    this.logFriend('friend.ended',c);
+  }
 
   async setFollow(input:{ organizationId:string; following:boolean }) {
     this.requireUser();

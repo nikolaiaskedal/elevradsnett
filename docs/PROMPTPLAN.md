@@ -9,10 +9,23 @@ Planen deler `docs/KRAVSPEC.md` inn i prompter som sendes én om gangen, hver i 
 | 1. Fundament | Ferdig | PR #3, #4 |
 | 2. Datamodell og Supabase-prosjekt | Ferdig, med to manuelle steg (se under) | PR #7, #10 |
 | 3. Innlogging, profiler og offentlig lesing | Ferdig, med manuelle steg (se *Før prompt 4*) | PR #13 |
-| 4. Medlemskap, roller og aktiv representasjon | Ferdig | se git-loggen |
-| 5. Innlegg | Neste | – |
+| 4. Medlemskap, roller og aktiv representasjon | Ferdig | PR #14 |
+| 5. Innlegg | Ferdig, migrasjonen må kjøres i pilotprosjektet (se under) | se git-loggen |
+| 6. Bilder | Neste | – |
 
-Neste prompt som skal sendes er **prompt 5**. Sjekk først at stegene 3–6 under *Før prompt 4* er gjort (e-postmal, OTP-innstillinger og GitHub-variablene).
+Neste prompt som skal sendes er **prompt 6**. Kjør først `supabase/migrations/202610040001_innlegg.sql` i SQL Editor i pilotprosjektet, og sjekk at stegene 3–6 under *Før prompt 4* er gjort (e-postmal, OTP-innstillinger og GitHub-variablene).
+
+## Utgangspunkt etter prompt 5 (1. oktober 2026)
+
+- Publiseringsdialogen viser avsenderen og har utkast (lagre, fortsette, slette), forhåndsvisning, tagging av arrangement, målgruppe og skoleform. Målgruppene som tilbys passer avsenderen, og serveren avviser andre (`audience_fits_organization`).
+- Innleggskortet har Rediger, Vis endringshistorikk og Slett for dem serveren sier kan endre innlegget (`can_manage` i `list_post_cards`). Redigerte innlegg merkes «redigert», og forrige versjon lagres. Menyen vises nå også på organisasjonssider.
+- XSS-rensing: tekst i innlegg og kommentarer renses for HTML, styretegn og usynlige retningstegn i klienten (`cleanText`) og i databasen (`clean_text`). Tekst vises fortsatt bare som ren tekst.
+- Venneråd: Administrasjon → Venneråd for skoler. Skoleadministrator ber om, godtar, avslår og avslutter. Tabellen kan ikke lenger skrives direkte, så ingen side kan godkjenne alene. Elevene ved vennerådene ser innlegg til «Venneråd».
+- Synlighet rettet: lokallagets innlegg til «lokallaget» nådde ingen, og elevene ved avsenderskolen så ikke skolens vennerådsinnlegg.
+- Poll og bilde i nye innlegg virker fortsatt bare i demoen (prompt 6 og 7).
+- Demoen: Elvebakken og Kuben er venneråd, Hartvig Nissen har spurt Elvebakken, Elvebakken har ett utkast, og innlegg 4 er redigert med historikk.
+- Migrasjonen `202610040001_innlegg.sql` har ingen `drop`, men er **ikke kjørt i pilotprosjektet** ennå. Til den er kjørt, feiler innleggene i appen mot Supabase (`list_post_cards` finnes ikke). Kjør hele filen i SQL Editor.
+- Databasetestene for prompt 5 ligger i `supabase/tests/innlegg.sql`.
 
 ## Utgangspunkt etter prompt 4 (1. oktober 2026)
 
@@ -152,7 +165,7 @@ Gjør stegene i denne rekkefølgen. Settes variablene i steg 5 før migrasjonen 
    - Regelen om fylkesstyre og lokallag, og sperre mot å fjerne siste administrator.
    - Deaktivert bruker og skole vises tydelig.
    - Revisjonslogg for alle endringer.
-5. **Innlegg** (§7)
+5. ✅ **Innlegg** (§7). Ferdig.
    - Publiseringsdialogen viser avsenderorganisasjonen.
    - Målgruppe: offentlig, fylke, lokallag eller venneråd. I tillegg skoleform: vgs, ungdomsskole eller begge.
    - Utkast, forhåndsvisning, redigering merket «redigert» med historikk for administratorer, sletting og tagging av arrangementer.
