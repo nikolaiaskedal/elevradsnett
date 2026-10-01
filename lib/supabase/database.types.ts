@@ -150,13 +150,13 @@ isOneToOne: false
                   ]
                 },"conversations": {
                   Row: {
-                    "created_at": string,"created_by": string,"id": string,"kind": string,"managed_organization_id": string | null,"name": string | null
+                    "created_at": string,"created_by": string | null,"direct_key": string | null,"id": string,"kind": string,"managed_organization_id": string | null,"name": string | null
                   }
                   Insert: {
-                    "created_at"?: string,"created_by": string,"id"?: string,"kind": string,"managed_organization_id"?: string | null,"name"?: string | null
+                    "created_at"?: string,"created_by"?: string | null,"direct_key"?: string | null,"id"?: string,"kind": string,"managed_organization_id"?: string | null,"name"?: string | null
                   }
                   Update: {
-                    "created_at"?: string,"created_by"?: string,"id"?: string,"kind"?: string,"managed_organization_id"?: string | null,"name"?: string | null
+                    "created_at"?: string,"created_by"?: string | null,"direct_key"?: string | null,"id"?: string,"kind"?: string,"managed_organization_id"?: string | null,"name"?: string | null
                   }
                   Relationships: [
                     {
@@ -650,13 +650,13 @@ isOneToOne: false
                   ]
                 },"message_attachments": {
                   Row: {
-                    "byte_size": number,"created_at": string,"id": string,"message_id": string,"mime_type": string,"storage_path": string
+                    "byte_size": number,"created_at": string,"file_name": string,"id": string,"message_id": string,"mime_type": string,"storage_path": string
                   }
                   Insert: {
-                    "byte_size": number,"created_at"?: string,"id"?: string,"message_id": string,"mime_type": string,"storage_path": string
+                    "byte_size": number,"created_at"?: string,"file_name"?: string,"id"?: string,"message_id": string,"mime_type": string,"storage_path": string
                   }
                   Update: {
-                    "byte_size"?: number,"created_at"?: string,"id"?: string,"message_id"?: string,"mime_type"?: string,"storage_path"?: string
+                    "byte_size"?: number,"created_at"?: string,"file_name"?: string,"id"?: string,"message_id"?: string,"mime_type"?: string,"storage_path"?: string
                   }
                   Relationships: [
                     {
@@ -664,6 +664,62 @@ isOneToOne: false
       columns: ["message_id"]
 isOneToOne: false
       referencedRelation: "messages"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"message_hidden": {
+                  Row: {
+                    "created_at": string,"message_id": string,"user_id": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"message_id": string,"user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"message_id"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "message_hidden_message_id_fkey"
+      columns: ["message_id"]
+isOneToOne: false
+      referencedRelation: "messages"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "message_hidden_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "message_hidden_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "public_profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"message_settings": {
+                  Row: {
+                    "read_receipts": boolean,"updated_at": string,"user_id": string
+                  }
+                  Insert: {
+                    "read_receipts"?: boolean,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "read_receipts"?: boolean,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "message_settings_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: true
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "message_settings_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: true
+      referencedRelation: "public_profiles"
       referencedColumns: ["id"]
     }
                   ]
@@ -1405,6 +1461,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"add_conversation_members":
+{ Args: { "p_conversation": string,"p_members": (string)[] }; Returns: undefined
+                           },
 "add_event_delegate":
 { Args: { "p_registration": string,"p_user": string }; Returns: string
                            },
@@ -1423,6 +1482,9 @@ isOneToOne: false
 "audience_fits_organization":
 { Args: { "p_audience": Database["public"]['Enums']["audience_type"],"p_org": string }; Returns: boolean
                            },
+"block_user":
+{ Args: { "p_user": string }; Returns: undefined
+                           },
 "can_be_delegate":
 { Args: { "p_org": string,"p_user": string }; Returns: boolean
                            },
@@ -1438,6 +1500,9 @@ isOneToOne: false
 "can_register_for":
 { Args: { "p_org": string }; Returns: boolean
                            },
+"can_view_message":
+{ Args: { "p_message": string,"p_user"?: string }; Returns: boolean
+                           },
 "can_view_post":
 { Args: { "p": Database["public"]['Tables']["posts"]['Row'],"p_user"?: string }; Returns: boolean
                            },
@@ -1449,6 +1514,9 @@ isOneToOne: false
                            },
 "change_school":
 { Args: { "p_school": string }; Returns: undefined
+                           },
+"check_conversation_rate_limit":
+{ Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "check_post_content":
 { Args: { "p_audience": Database["public"]['Enums']["audience_type"],"p_body": string,"p_event": string,"p_org": string,"p_school_level": string }; Returns: undefined
@@ -1467,6 +1535,12 @@ isOneToOne: false
                            },
 "confirm_event_attendance":
 { Args: { "p_attended": boolean,"p_delegate": string }; Returns: undefined
+                           },
+"create_group_conversation":
+{ Args: { "p_members": (string)[],"p_name": string }; Returns: string
+                           },
+"create_organization_group":
+{ Args: { "p_org": string }; Returns: string
                            },
 "create_post":
 { Args: { "p_audience": Database["public"]['Enums']["audience_type"],"p_body": string,"p_event"?: string,"p_organization": string,"p_publish"?: boolean,"p_school_level"?: string }; Returns: {
@@ -1539,6 +1613,11 @@ isOneToOne: false
 "event_audience_allows":
 { Args: { "p_event": string,"p_org": string }; Returns: boolean
                            },
+"get_conversation_messages":
+{ Args: { "p_before"?: string,"p_conversation": string,"p_limit"?: number }; Returns: {
+              "attachments": Json,"body": string,"created_at": string,"id": string,"mine": boolean,"read_by": number,"sender_name": string,"sender_user_id": string
+            }[]
+                           },
 "get_event_engagement":
 { Args: { "p_event": string }; Returns: {
               "interested": number,"registered": number
@@ -1546,6 +1625,11 @@ isOneToOne: false
                            },
 "get_event_participation":
 { Args: { "p_event": string }; Returns: Json
+                           },
+"get_message_settings":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "read_receipts": boolean
+            }[]
                            },
 "get_my_roles":
 { Args: Record<PropertyKey, never>; Returns: {
@@ -1602,6 +1686,9 @@ isOneToOne: false
 "has_role":
 { Args: { "p_org": string,"p_roles": (Database["public"]['Enums']["admin_role"])[],"p_user"?: string }; Returns: boolean
                            },
+"hide_message":
+{ Args: { "p_message": string }; Returns: undefined
+                           },
 "is_active_user":
 { Args: { "p_user"?: string }; Returns: boolean
                            },
@@ -1617,6 +1704,9 @@ isOneToOne: false
 "is_event_participant":
 { Args: { "p_event": string }; Returns: boolean
                            },
+"leave_conversation":
+{ Args: { "p_conversation": string }; Returns: undefined
+                           },
 "list_assignable_people":
 { Args: { "p_org": string,"p_query"?: string }; Returns: {
               "display_name": string,"id": string,"school_name": string
@@ -1625,6 +1715,11 @@ isOneToOne: false
 "list_audit_log":
 { Args: { "p_limit"?: number,"p_org": string }; Returns: {
               "action": string,"actor_name": string,"created_at": string,"details": Json,"id": number,"subject_name": string
+            }[]
+                           },
+"list_conversation_members":
+{ Args: { "p_conversation": string }; Returns: {
+              "display_name": string,"is_admin": boolean,"me": boolean,"school_name": string,"user_id": string
             }[]
                            },
 "list_delegate_candidates":
@@ -1647,9 +1742,24 @@ isOneToOne: false
               "county": string,"grantable_roles": (Database["public"]['Enums']["admin_role"])[],"id": string,"my_role": Database["public"]['Enums']["admin_role"],"name": string,"school_name": string,"status": Database["public"]['Enums']["organization_status"],"type": Database["public"]['Enums']["organization_type"]
             }[]
                            },
+"list_my_blocks":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "created_at": string,"display_name": string,"user_id": string
+            }[]
+                           },
+"list_my_conversations":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "created_at": string,"id": string,"is_admin": boolean,"kind": string,"last_message_at": string,"last_message_body": string,"last_message_has_attachment": boolean,"last_message_mine": boolean,"member_count": number,"muted": boolean,"name": string,"organization_id": string,"other_user_id": string,"unread_count": number
+            }[]
+                           },
 "list_my_event_organizers":
 { Args: Record<PropertyKey, never>; Returns: {
               "county": string,"id": string,"name": string,"type": Database["public"]['Enums']["organization_type"]
+            }[]
+                           },
+"list_organization_contacts":
+{ Args: { "p_org": string }; Returns: {
+              "display_name": string,"me": boolean,"public_title": string,"user_id": string
             }[]
                            },
 "list_organization_roles":
@@ -1685,6 +1795,9 @@ isOneToOne: false
 "log_friend_event":
 { Args: { "p_action": string,"p_connection": Database["public"]['Tables']["organization_connections"]['Row'] }; Returns: undefined
                            },
+"mark_conversation_read":
+{ Args: { "p_conversation": string }; Returns: undefined
+                           },
 "publish_post":
 { Args: { "p_audience": Database["public"]['Enums']["audience_type"],"p_body": string,"p_organization_id": string,"p_school_level_target"?: string,"p_status": Database["public"]['Enums']["content_status"] }; Returns: {
               "actor_user_id": string,
@@ -1715,6 +1828,9 @@ isOneToOne: false
                            },
 "remove_event_delegate":
 { Args: { "p_delegate": string }; Returns: undefined
+                           },
+"report_message":
+{ Args: { "p_category": string,"p_description"?: string,"p_message": string }; Returns: string
                            },
 "request_friend_school":
 { Args: { "p_school": string,"p_target": string }; Returns: string
@@ -1747,14 +1863,27 @@ isOneToOne: false
               "id": string,"kind": string,"organization_id": string,"rank": number,"subtitle": string,"title": string
             }[]
                            },
+"search_message_recipients":
+{ Args: { "p_query": string }; Returns: {
+              "detail": string,"id": string,"kind": string,"name": string,"organization_type": Database["public"]['Enums']["organization_type"]
+            }[]
+                           },
 "search_tsquery":
 { Args: { "p_config": unknown,"p_query": string }; Returns: unknown
+                           },
+"send_message":
+{ Args: { "p_attachments"?: Json,"p_body": string,"p_conversation": string }; Returns: {
+              "created_at": string,"id": string
+            }[]
                            },
 "set_active_representation":
 { Args: { "p_membership_id": string }; Returns: undefined
                            },
 "set_avatar":
 { Args: { "p_path"?: string }; Returns: string
+                           },
+"set_conversation_muted":
+{ Args: { "p_conversation": string,"p_muted": boolean }; Returns: undefined
                            },
 "set_event_image":
 { Args: { "p_event": string,"p_path"?: string }; Returns: string
@@ -1767,6 +1896,21 @@ isOneToOne: false
                            },
 "set_event_status":
 { Args: { "p_event": string,"p_status": Database["public"]['Enums']["event_status"] }; Returns: undefined
+                           },
+"set_read_receipts":
+{ Args: { "p_enabled": boolean }; Returns: undefined
+                           },
+"start_direct_conversation":
+{ Args: { "p_user": string }; Returns: string
+                           },
+"sync_managed_conversation":
+{ Args: { "p_org": string }; Returns: undefined
+                           },
+"sync_my_managed_conversations":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"unblock_user":
+{ Args: { "p_user": string }; Returns: undefined
                            },
 "update_post":
 { Args: { "p_audience": Database["public"]['Enums']["audience_type"],"p_body": string,"p_event"?: string,"p_post": string,"p_publish"?: boolean,"p_school_level"?: string }; Returns: {

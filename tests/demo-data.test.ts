@@ -17,6 +17,7 @@ describe('demo data',()=>{
     for (const grant of demoGrants) expect(ids.has(grant.organizationId)).toBe(true);
     for (const request of demoSchoolAdminRequests) expect(ids.has(request.schoolId)).toBe(true);
     for (const conversation of conversations) if (conversation.organizationId) expect(ids.has(conversation.organizationId)).toBe(true);
+    for (const conversation of conversations) expect(conversation.kind==='managed').toBe(!!conversation.organizationId);
     expect(ids.has(currentUser.schoolId ?? '')).toBe(true);
   });
   it('keeps comment counts in sync with loaded comments',()=>{

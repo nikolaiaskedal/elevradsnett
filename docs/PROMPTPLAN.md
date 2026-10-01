@@ -10,7 +10,7 @@ Planen deler `docs/KRAVSPEC.md` inn i prompter som sendes én om gangen, hver i 
 | 2. Datamodell og Supabase-prosjekt | Ferdig, med to manuelle steg (se under) | PR #7, #10 |
 | 3. Innlogging, profiler og offentlig lesing | Ferdig, med manuelle steg (se *Før prompt 4*) | PR #13 |
 | 4. Medlemskap, roller og aktiv representasjon | Ferdig | PR #14 |
-| 5. Innlegg | Ferdig, migrasjonen er kjørt i pilotprosjektet | se git-loggen |
+| 5. Innlegg | Ferdig | PR #16 |
 | 6. Bilder | Neste | – |
 | 9. Arrangementer og CV | Ferdig, med ett manuelt steg (se *Før neste prompt*) | se git-loggen |
 
@@ -98,6 +98,19 @@ Migrasjonene fra prompt 5 og 9 er kjørt i pilotprosjektet, bortsett fra tre fun
 - Supabase-verdiene er ikke lagt inn som GitHub Actions-variabler. Det gjøres i prompt 3, når appen kan hente innlogging og data fra Supabase. Før det ville GitHub Pages-siden sluttet å virke.
 - Kjent hull, egen oppgave: `has_role` og `can_view_post` ligger fortsatt i `public` og kan kalles uten innlogging, fordi RLS for offentlig lesing trenger dem. Hjelperne bør flyttes til et skjema som API-et ikke viser.
 - Funksjonen for å kombinere skoler finnes ikke i koden.
+
+## Utgangspunkt etter prompt 10 (1. oktober 2026)
+
+Prompt 10 ble laget parallelt med prompt 5–9, i egne filer der det gikk (`supabase-messaging.ts`, `demo-messaging.ts`, `lib/domain/messaging.ts`, `messaging-errors.ts`), så det kan merges uavhengig av dem.
+
+- Meldinger er alltid mellom personer: direktemeldinger, vanlige grupper og systemstyrte grupper for skoler og styrer som følger de aktive vervene. Det finnes ingen organisasjonsinnboks. «Kontakt» på en organisasjonsside viser kontaktpersonene og tilbud om en gruppe med dem.
+- Søk i Meldinger finner personer (navn og skole) og organisasjoner.
+- Uleste meldinger, valgfri lest-status (av som standard, vises bare mellom personer som begge har den på), demping, vedlegg (bilder kodes om i nettleseren, PDF) via tidsbegrensede lenker, sletting for egen visning, rapportering av én konkret melding, blokkering og å forlate vanlige grupper.
+- Sanntid: samtalelisten, antall uleste i menyen og den åpne samtalen oppdateres når det kommer nye meldinger.
+- Meldinger kan ikke lenger skrives direkte i tabellen (`messages_member_insert` er fjernet); alt går via `send_message`. Grenser: 30 meldinger i minuttet og 30 nye samtaler i døgnet per bruker.
+- Varsler for nye meldinger kommer i prompt 11. De skal ikke sendes for dempede samtaler (`conversation_members.muted_until`).
+- Migrasjonen `202610100001_meldinger.sql` har noen `drop policy`, og må kjøres i SQL Editor i pilotprosjektet (Supabase-koblingen krever en bekreftelse for `drop` som ikke kan gis fra en Claude-økt). Den kan kjøres når som helst etter prompt 4.
+- Databasetestene for prompt 10 ligger i `supabase/tests/meldinger.sql`.
 
 ## Hosting og tjenester
 
@@ -217,7 +230,7 @@ Gjør stegene i denne rekkefølgen. Settes variablene i steg 5 før migrasjonen 
    - Interesse, skolepåmelding, delegater og bekreftet deltakelse holdes adskilt. Delegatene varsles og bekrefter selv.
    - CV for personer, med verv, arrangementer og stjerner for Elevtinget.
    - CV for skoler.
-10. **Meldinger** (§9)
+10. ✅ **Meldinger** (§9). Ferdig, se *Utgangspunkt etter prompt 10*.
     - Direktemeldinger, grupper og systemstyrte organisasjonsgrupper som synkroniseres fra vervene. Nye medlemmer ser bare meldinger fra de ble med.
     - Søk etter organisasjon viser kontaktpersoner og tilbud om å opprette en gruppe.
     - Sanntid, uleste meldinger, valgfri lest-status, demping og vedlegg via tidsbegrensede lenker.

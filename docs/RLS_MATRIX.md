@@ -21,13 +21,14 @@
 | Prioriterte saker | Aktive organisasjoners saker | Som anonym | Opprette/endre for egen organisasjon (innholdsansvarlig og opp) | Alle |
 | Offentlige tillitsvalgte | Navn og offentlig verv via `get_public_officers` | Som anonym | Som anonym; verv endres via medlemskap | Alle |
 | Valgplan | Ingen | Kan foreslå dato for neste valg én gang via `complete_onboarding`; overskriver aldri en eksisterende plan | Endre egen organisasjons plan | Alle |
-| Samtaler/meldinger | Ingen | Kun aktivt medlemskap og egen historikkgrense. Meldinger fra blokkerte skjules, og direktemeldinger kan ikke sendes når en part har blokkert | Ingen ekstra lesetilgang | Ingen ekstra lesetilgang |
-| Blokkeringer (`user_blocks`) | Ingen | Lese, opprette og fjerne egne. Den blokkerte ser ingenting | Ingen ekstra tilgang | Ingen ekstra tilgang |
+| Samtaler/meldinger | Ingen | Kun aktivt medlemskap og egen historikkgrense (`is_conversation_member`, `can_view_message`). I systemstyrte grupper kreves i tillegg aktivt verv i en aktiv organisasjon. Meldinger fra blokkerte og meldinger slettet for egen visning skjules. Lesing via `list_my_conversations`, `get_conversation_messages` og `list_conversation_members`. Ingen direkte skriving i tabellene: alt går via RPC-ene under | Ingen ekstra lesetilgang, heller ikke i den systemstyrte gruppen uten eget verv | Ingen ekstra lesetilgang |
+| Blokkeringer (`user_blocks`) | Ingen | Lese, opprette og fjerne egne, også via `block_user`, `unblock_user` og `list_my_blocks`. Den blokkerte ser ingenting | Ingen ekstra tilgang | Ingen ekstra tilgang |
+| Skjulte meldinger (`message_hidden`), meldingsinnstillinger (`message_settings`) | Ingen | Lese egne. Skrives bare via `hide_message` og `set_read_receipts` | Ingen ekstra tilgang | Ingen ekstra tilgang |
 | Forespørsel om skoleadministrator | Ingen | Egne, via `request_school_admin` for egen skole, `cancel_school_admin_request` og `list_school_admin_requests` | Styreadministrator i området (`is_area_board_admin`) ser ventende forespørsler i `list_school_admin_requests` og avgjør via `decide_school_admin_request`. Søkeren kan ikke godkjenne seg selv. Godkjenning krever at søkeren fortsatt går på skolen og at skolen er aktiv; avslag går alltid | Alle |
 | Eksport/sletting av egne data | Ingen | Lese egne, opprette via `request_personal_data` (én åpen per type) | Ingen ekstra tilgang | Lese og behandle alle |
 | Søk (`search`) | Aktive organisasjoner, aktive personer (bare navn og offentlige verv), publiserte arrangementer og lesbare innlegg | Som anonym, pluss innlegg brukeren kan lese | Som bruker | Som bruker |
-| Private vedlegg | Ingen | Signed URL for aktivt samtalemedlem | Ingen ekstra tilgang | Ingen ekstra tilgang |
-| Moderering | Ingen | Egne rapporter | Konkrete saker i området | Alle saker |
+| Private vedlegg | Ingen | Laste opp til `private-message-attachments/<samtale>/<egen id>/` som aktivt medlem. Lese (signed URL) bare når meldingen vedlegget hører til kan leses, så nye medlemmer ikke ser vedlegg fra før de ble med | Ingen ekstra tilgang | Ingen ekstra tilgang |
+| Moderering | Ingen | Egne rapporter. Rapport om en melding via `report_message`: bare den ene meldingen lagres i rapporten (`shared_message_excerpt`) | Konkrete saker i området | Alle saker |
 | Revisjonslogg/import | Ingen | Ingen | `list_audit_log` for egen organisasjon og skolene i området, med navn på den som endret og den det gjaldt / egen import | Alle |
 | Varsler/samtykker | Ingen | Egne | Ingen ekstra tilgang | Ingen ekstra tilgang |
 
@@ -64,7 +65,7 @@ Arrangementer har ingen skrive-policy: alt går via `security definer`-funksjone
 
 ## Funksjonstilgang
 
-Supabase gir i utgangspunktet alle roller tilgang til å kalle funksjonene i `public`. Migrasjonen `202610010002_function_grants.sql` tar den tilgangen fra `anon`. Ikke-innloggede kan bare kalle `get_public_officers`, `get_event_engagement`, `resolve_organization_images`, `search`, `list_public_organizations`, `get_post_cards`, `list_public_events` og `get_my_session` (som da bare svarer «anonymous»), pluss `can_view_post` og `has_role`, som RLS-reglene for offentlig lesing trenger. Nye funksjoner må få `grant execute` eksplisitt. Fra prompt 4 kan anon også kalle `get_public_organization`, og fra prompt 5 `list_post_cards`; alle de andre nye funksjonene krever innlogging. `is_blocked_between` svarer bare for partene selv.
+Supabase gir i utgangspunktet alle roller tilgang til å kalle funksjonene i `public`. Migrasjonen `202610010002_function_grants.sql` tar den tilgangen fra `anon`. Ikke-innloggede kan bare kalle `get_public_officers`, `get_event_engagement`, `resolve_organization_images`, `search`, `list_public_organizations`, `get_post_cards`, `list_public_events` og `get_my_session` (som da bare svarer «anonymous»), pluss `can_view_post` og `has_role`, som RLS-reglene for offentlig lesing trenger. Nye funksjoner må få `grant execute` eksplisitt. Fra prompt 4 kan anon også kalle `get_public_organization`, og fra prompt 5 `list_post_cards`; alle de andre nye funksjonene krever innlogging. `is_blocked_between` svarer bare for partene selv. Meldingsfunksjonene fra prompt 10 krever innlogging, og `sync_managed_conversation`, `sync_my_managed_conversations` og `check_conversation_rate_limit` kan bare kalles av andre databasefunksjoner.
 
 ## Innlegg (prompt 5)
 
@@ -73,6 +74,26 @@ Supabase gir i utgangspunktet alle roller tilgang til å kalle funksjonene i `pu
 - Sletting er myk (`status='deleted'`, `deleted_at`). `can_view_post` viser ikke slettede innlegg, og de kan ikke endres. Logges som `post.deleted` med utdrag.
 - Synlighet: «Lokallaget» fra et lokallag når skolene i lokallaget. «Venneråd» når elevene ved avsenderskolen og ved skoler med godkjent venneråd.
 - `check_post_content` og `log_friend_event` er interne og kan ikke kalles av `anon` eller `authenticated`. Anon kan kalle `list_post_cards`; resten krever innlogging.
+
+## Meldinger (prompt 10)
+
+Meldinger går alltid mellom personer, og ingen administrator kan lese en samtale uten å være med i den (§9, §17).
+
+| RPC | Hvem | Regler |
+|---|---|---|
+| `start_direct_conversation` | Aktiv bruker | Én direktesamtale per par (`direct_key`). Ikke med seg selv, deaktiverte eller når en av partene har blokkert den andre |
+| `create_group_conversation` | Aktiv bruker | 1–80 tegn i navnet, 1–99 andre aktive personer som ikke er blokkert. Oppretteren blir gruppeadministrator |
+| `create_organization_group` | Aktiv bruker | Vanlig gruppe med personene med aktivt, offentlig verv i en aktiv organisasjon (`list_organization_contacts`). Ingen organisasjonsinnboks |
+| `add_conversation_members` | Gruppeadministrator i en vanlig gruppe | Nye medlemmer får historikkgrense fra nå. Maks 100 medlemmer |
+| `leave_conversation` | Medlem av en vanlig gruppe | Systemstyrte grupper og direktesamtaler kan ikke forlates. Forlater siste administrator, blir den som har vært med lengst administrator |
+| `send_message` | Aktivt medlem | Tekst (maks 5000 tegn) og/eller inntil fem vedlegg som ligger i egen mappe i samtalen. Stoppes ved blokkering i direktesamtaler. Maks 30 meldinger i minuttet |
+| `mark_conversation_read`, `set_conversation_muted`, `hide_message` | Aktivt medlem | Gjelder bare brukerens egen visning |
+| `report_message` | Aktiv bruker som kan se meldingen | Ikke egne meldinger, én åpen rapport per melding |
+| `search_message_recipients` | Aktiv bruker | Personer (bare navn og skole) og aktive organisasjoner, fra to tegn. Blokkerte personer vises ikke |
+
+Nye samtaler er begrenset til 30 per bruker per døgn (`check_conversation_rate_limit`).
+
+**Systemstyrte grupper.** Hver organisasjon med aktive verv får én gruppe (`kind='managed'`). `sync_managed_conversation` kjøres av en trigger på `memberships` og når samtalelisten hentes: nye medlemmer legges til med historikkgrense fra da, og den som ikke lenger har aktivt verv, tas ut. `is_conversation_member` krever i tillegg aktivt verv, så tilgangen forsvinner samme dag som vervet slutter. Synkroniseringsfunksjonene kan ikke kalles av brukere.
 
 ## Innlogging og profilbilder
 
@@ -83,7 +104,7 @@ Supabase gir i utgangspunktet alle roller tilgang til å kalle funksjonene i `pu
 
 ## Sanntid
 
-`messages`, `conversation_members` og `notifications` er med i publikasjonen `supabase_realtime`. Sanntid følger de samme RLS-reglene som vanlig lesing.
+`messages`, `conversation_members` og `notifications` er med i publikasjonen `supabase_realtime`. Sanntid følger de samme RLS-reglene som vanlig lesing. Appen lytter på nye meldinger og egne samtalemedlemskap, og henter samtalelisten på nytt via RPC når noe endres.
 
 ## Tester
 
