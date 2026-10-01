@@ -29,7 +29,7 @@ Neste prompt som skal sendes er **prompt 3**.
 - Ingen av funksjonene over har knapper i grensesnittet ennå. `docs/FUNKSJONSKART.md` viser hvilken prompt som kobler dem til.
 - Tester: `npm run test:db` kjører RLS- og databasetestene i `supabase/tests/`. CI kjører dem mot lokal Supabase på alle PR-er og sjekker at `lib/supabase/database.types.ts` er oppdatert.
 - Pilotprosjektet i Supabase finnes: `elevradsnett-pilot` (ref `ibipqyombdmtfvgthugz`, eu-north-1). Migrasjonene er kjørt, og 15 fylkesstyrer, 471 skoler, EO nasjonalt og de fem lokallagene er lastet inn.
-- Gjenstår fra prompt 2, gjøres manuelt i SQL Editor i Supabase: den nye versjonen av `publish_post` (med skoleform) og `set_event_response`. Supabase-koblingen krever en bekreftelse for SQL med `drop`/`delete` som ikke kan gis fra en Claude-økt.
+- Gjenstår fra prompt 2, gjøres manuelt i SQL Editor i Supabase: den nye versjonen av `publish_post` (med skoleform) og `set_event_response`. Lim inn hele `supabase/manual/gjenstar_fra_prompt2.sql` og kjør den. Supabase-koblingen krever en bekreftelse for SQL med `drop`/`delete` som ikke kan gis fra en Claude-økt.
 - Supabase-verdiene er ikke lagt inn som GitHub Actions-variabler. Det gjøres i prompt 3, når appen kan hente innlogging og data fra Supabase. Før det ville GitHub Pages-siden sluttet å virke.
 - Kjent hull, egen oppgave: `has_role` og `can_view_post` ligger fortsatt i `public` og kan kalles uten innlogging, fordi RLS for offentlig lesing trenger dem. Hjelperne bør flyttes til et skjema som API-et ikke viser.
 - Funksjonen for å kombinere skoler finnes ikke i koden.
@@ -43,8 +43,8 @@ Neste prompt som skal sendes er **prompt 3**.
 | Frontend | GitHub Pages | Gratis | Allerede satt opp med `.github/workflows/static.yml`. Publiseres ved hver merge til `main`. Krever offentlig repo, og har ingen egne HTTP-headere eller testversjon per PR. Før full lansering byttes det til Cloudflare Pages (også gratis), siden GitHub sine vilkår ikke er ment for å drive en tjeneste. |
 | Backend | Supabase Free, region eu-north-1 | Gratis | 500 MB database, 1 GB lagring, 50 000 aktive brukere per måned, ingen automatisk backup og pause etter en uke uten bruk. Den nattlige backupen holder prosjektet aktivt. Utvikling kjøres lokalt med Supabase CLI. |
 | Innlogging | Supabase Auth med engangskode på e-post | Gratis | Innlogging med telefonnummer krever SMS, som koster per melding. Den kommer senere. |
-| E-post | Resend | Gratis | 100 e-poster per dag og 3000 per måned. Krever et domene vi kan legge inn DNS-poster på. Brukes som SMTP for Supabase Auth, siden Supabase sin innebygde e-post bare er til testing. |
-| Domene | Underdomene av `elev.no`, f.eks. `nett.elev.no` | Gratis | Elevorganisasjonen eier allerede `elev.no`. Den som har tilgang til DNS-en legger inn en CNAME til GitHub Pages og postene Resend trenger (SPF, DKIM). Må være på plass før prompt 3. Går ikke det, kjører piloten på `nikolaiaskedal.github.io/elevradsnett`, men e-postkoder krever fortsatt et domene for Resend. |
+| E-post | Gmail SMTP fra en egen Gmail-konto for tjenesten | Gratis | Krever ikke eget domene. Ca. 500 e-poster per døgn. Brukes som SMTP for Supabase Auth, siden Supabase sin innebygde e-post bare sender til medlemmer av Supabase-organisasjonen. Avsender blir Gmail-adressen. Har Elevorganisasjonen e-post på Google Workspace, kan en eksisterende `@elev.no`-postkasse brukes på samme måte, også uten DNS-endringer. Byttes til Resend med eget domene før full lansering. Oppsett: se *Før prompt 3* under. |
+| Domene | Ingen i piloten: `nikolaiaskedal.github.io/elevradsnett` | Gratis | Innlogging, Turnstile og GitHub Pages fungerer uten eget domene. Underdomenet av `elev.no` (f.eks. `nett.elev.no`) settes opp før full lansering, sammen med Resend og Cloudflare Pages. |
 | Spambeskyttelse | Cloudflare Turnstile | Gratis | Fungerer på alle vertsnavn, også `github.io`. |
 | Feillogging | Sentry | Gratis | 5000 feil per måned. |
 | Analyse | PostHog Cloud EU (Frankfurt) | Gratis opptil 1 mill. hendelser/mnd | Aktiveres først etter samtykke (§16), se prompt 17. |
@@ -53,7 +53,17 @@ Neste prompt som skal sendes er **prompt 3**.
 
 Alle tjenestene over er databehandlere og skal stå i personvernerklæringen (§16).
 
-Grensene må overholdes i piloten. Spesielt e-post: engangskoder går foran varsler, og varsler på e-post samles i ett daglig sammendrag per bruker (prompt 11), så vi holder oss under 100 per dag.
+Grensene må overholdes i piloten. Spesielt e-post: engangskoder går foran varsler, og varsler på e-post samles i ett daglig sammendrag per bruker (prompt 11), så vi holder oss godt under grensen på ca. 500 per dag i Gmail (og 100 per dag i Resend etter piloten).
+
+### Før prompt 3 (manuelt, ca. 15 minutter)
+
+1. Kjør `supabase/manual/gjenstar_fra_prompt2.sql` i SQL Editor i Supabase.
+2. Opprett en egen Gmail-konto for tjenesten, f.eks. `elevradsnett.pilot@gmail.com`. Bruk ikke en privat konto.
+3. Slå på totrinnsbekreftelse på kontoen, og lag et appassord under *Google-konto → Sikkerhet → Appassord*.
+4. I Supabase: *Authentication → Emails → SMTP Settings*. Slå på «Custom SMTP» og fyll inn vert `smtp.gmail.com`, port `465`, brukernavn = hele Gmail-adressen, passord = appassordet, avsendernavn `Elevrådsnett`.
+5. I Supabase: *Authentication → URL Configuration*. Sett Site URL til `https://nikolaiaskedal.github.io/elevradsnett/` og legg samme adresse til under Redirect URLs.
+
+Appassordet legges bare inn i Supabase, aldri i repoet eller i en `VITE_`-variabel.
 
 ### Kommer senere (koster penger)
 
@@ -61,6 +71,7 @@ Grensene må overholdes i piloten. Spesielt e-post: engangskoder går foran vars
 |---|---|---|
 | Innlogging med telefonnummer (engangskode på SMS via Twilio e.l.) | Ca. 0,5–1 kr per SMS | Når det finnes budsjett. Vises som «Kommer senere» i innloggingsdialogen fra prompt 3. |
 | Eget domene, f.eks. `elevradsnett.no` | Ca. 150 kr/år | Ved full lansering, hvis underdomenet av `elev.no` ikke holder. `.no` registreres på Elevorganisasjonens organisasjonsnummer. |
+| Resend med eget domene | Gratis opptil 100 per dag | Før full lansering, når underdomenet av `elev.no` er på plass. Erstatter Gmail SMTP fra piloten. |
 | Supabase Pro med daglig backup | 25 USD/mnd | Før full lansering. |
 | Mer lagring for video | Inngår i Pro, deretter per GB | Prompt 20. |
 | Apple Developer Program | 99 USD/år | Prompt 18 og 21. Trengs for iOS-appen og push på iOS. |
@@ -87,7 +98,7 @@ Grensene må overholdes i piloten. Spesielt e-post: engangskoder går foran vars
    - Pilotprosjektet opprettes i Supabase. TypeScript-typer genereres, og RLS-testene kjøres i CI mot lokal Supabase.
    - `docs/RLS_MATRIX.md` oppdateres.
 3. **Innlogging, profiler og offentlig lesing** (§1, §3, §10)
-   - Supabase Auth med engangskode på e-post, sendt via Resend som SMTP.
+   - Supabase Auth med engangskode på e-post, sendt via Gmail SMTP (se *Før prompt 3*). E-postmalen viser en sekssifret kode (`{{ .Token }}`) som skrives inn i appen, ikke bare en lenke, så innloggingen ikke er avhengig av domene eller omdirigering.
    - Valget «Telefonnummer» i innloggingsdialogen deaktiveres og merkes «Kommer senere», på samme måte som Feide. Telefonnummer kan ikke lagres eller brukes til innlogging i piloten.
    - Innloggingsdialog som sender brukeren tilbake til handlingen de prøvde på (§7).
    - Onboarding: velge skole, navn og dato for neste valg.
@@ -137,7 +148,7 @@ Grensene må overholdes i piloten. Spesielt e-post: engangskoder går foran vars
     - Slette for egen visning, rapportere innhold valgt av brukeren, blokkere og forlate grupper.
 11. **Varsler og styreoverføring** (§5)
     - Varsler i plattformen og på e-post, med egne innstillinger. Bygget slik at push kan kobles på senere.
-    - Varsler på e-post samles i ett daglig sammendrag per bruker, så Resend sin gratisgrense på 100 e-poster per dag holder.
+    - Varsler på e-post samles i ett daglig sammendrag per bruker, så gratisgrensen for e-post holder (ca. 500 per dag i Gmail, 100 per dag i Resend etter piloten).
     - `pg_cron` sender påminnelser 14, 7 og 1 dag før, deretter ukentlig, og eskalerer etter 7 dager.
     - Overføringsveiviseren med aksept av ny rolle, aktiveringsdato og gjenopprettingsprosess.
     - Tester av rolleutløp.
@@ -163,7 +174,7 @@ Grensene må overholdes i piloten. Spesielt e-post: engangskoder går foran vars
     - CSP som `<meta>`-tagg i `index.html`. GitHub Pages kan ikke sette egne headere, så HSTS, `frame-ancestors`/`X-Frame-Options` og `Permissions-Policy` kommer med Cloudflare Pages før full lansering (`public/_headers` er klar).
     - Tilgjengelighetstester med axe og Playwright, og ende-til-ende-tester av akseptansekriteriene i §22.
     - Nattlig backup og en dokumentert gjenopprettingstest.
-    - Sentry, produksjonsoppsett på GitHub Pages med underdomenet av `elev.no` og import av pilotskolene.
+    - Sentry, produksjonsoppsett på GitHub Pages (`nikolaiaskedal.github.io/elevradsnett`) og import av pilotskolene.
     - En sjekk av at piloten fortsatt er gratis: ingen tjeneste er på betalt plan, og bruken ligger under grensene i tabellen over.
 
 ### Under piloten
