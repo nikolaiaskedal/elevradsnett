@@ -1,6 +1,9 @@
+import type { BlockedUser, ConversationMember, MessageSettings, OrganizationContact, RecipientSearchResult } from '@/lib/domain/messaging';
+import type { AddMembersInput, CreateGroupInput, ReportMessageInput } from '@/lib/domain/validation';
 import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, Event, Message, MyRole, Organization, OrganizationRoleEntry, Post, PublicOfficer, SchoolAdminRequest, SchoolHistoryEntry, Session } from '@/lib/domain/types';
 import type { AddCommentInput, AssignPublicOfficeInput, AssignRoleInput, ChangeSchoolInput, DecideSchoolAdminRequestInput, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SchoolAdminRequestInput, SendMessageInput, SetEventResponseInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput } from '@/lib/domain/validation';
 
+export type { AddMembersInput, CreateGroupInput, ReportMessageInput };
 export type { AddCommentInput, AssignPublicOfficeInput, AssignRoleInput, ChangeSchoolInput, DecideSchoolAdminRequestInput, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SchoolAdminRequestInput, SendMessageInput, SetEventResponseInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput };
 
 /**
@@ -71,10 +74,37 @@ export interface ElevradsnettService {
   setFollow(input:{ organizationId:string; following:boolean }):Promise<void>;
   setEventResponse(input:SetEventResponseInput):Promise<void>;
 
-  // Meldinger
-  openConversation(input:{ organizationId:string }):Promise<Conversation>;
+  // Meldinger (§9). Alltid mellom personer; serveren avgjør hvem som er med i hvilke samtaler.
+  /** Meldingene i en samtale, eldste først. before (ISO-tid) henter eldre meldinger. */
+  listMessages(input:{ conversationId:string; before?:string }):Promise<Message[]>;
+  listConversationMembers(conversationId:string):Promise<ConversationMember[]>;
+  /** Personer (navn og skole) og organisasjoner. Krever minst to tegn. */
+  searchRecipients(query:string):Promise<RecipientSearchResult[]>;
+  /** Offentlige kontaktpersoner i en organisasjon. Organisasjonen selv har ingen innboks. */
+  listOrganizationContacts(organizationId:string):Promise<OrganizationContact[]>;
+  /** Åpner direktesamtalen med personen, eller oppretter den. Returnerer samtalens id. */
+  startDirectConversation(userId:string):Promise<string>;
+  createGroup(input:CreateGroupInput):Promise<string>;
+  /** Vanlig gruppe med organisasjonens kontaktpersoner. */
+  createOrganizationGroup(organizationId:string):Promise<string>;
+  addConversationMembers(input:AddMembersInput):Promise<void>;
+  leaveConversation(conversationId:string):Promise<void>;
   sendMessage(input:SendMessageInput):Promise<Message>;
   markConversationRead(conversationId:string):Promise<void>;
+  setConversationMuted(input:{ conversationId:string; muted:boolean }):Promise<void>;
+  /** Sletter meldingen for egen visning. De andre ser den fortsatt. */
+  hideMessage(messageId:string):Promise<void>;
+  /** Rapporterer én konkret melding. Bare den meldingen deles med moderator. */
+  reportMessage(input:ReportMessageInput):Promise<void>;
+  blockUser(userId:string):Promise<void>;
+  unblockUser(userId:string):Promise<void>;
+  listBlockedUsers():Promise<BlockedUser[]>;
+  getMessageSettings():Promise<MessageSettings>;
+  setReadReceipts(enabled:boolean):Promise<void>;
+  /** Tidsbegrenset lenke til et vedlegg. */
+  getAttachmentUrl(path:string):Promise<string>;
+  /** Kalles når det kommer nye meldinger eller endringer i samtalene. Returnerer en funksjon som avslutter lyttingen. */
+  subscribeToMessages(listener:()=>void):()=>void;
 }
 
 /** Kastes av adaptere for operasjoner som ennå ikke har en RPC på serveren. */

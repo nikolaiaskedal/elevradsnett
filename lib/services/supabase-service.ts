@@ -1,8 +1,11 @@
+import type { AddMembersInput, CreateGroupInput, ReportMessageInput } from './contracts';
+import { messagingServerMessages } from './messaging-errors';
+import { SupabaseMessaging } from './supabase-messaging';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { audienceLabel, initialsOf } from '@/lib/domain/labels';
 import { formatDayMonth, formatEventSpan, formatRelative } from '@/lib/domain/time';
 import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, CurrentUser, Event, EventCategory, GrantStatus, Message, MyRole, Organization, OrganizationRoleEntry, OrganizationStatus, OrganizationType, Post, PublicOfficer, Representation, SchoolAdminRequest, SchoolHistoryEntry, Session } from '@/lib/domain/types';
-import { assignPublicOfficeSchema, assignRoleSchema, avatarSchema, changeSchoolSchema, commentSchema, decideSchoolAdminRequestSchema, eventResponseInputSchema, idSchema, isoDate, messageSchema, onboardingSchema, publishPostSchema, requestLoginCodeSchema, schoolAdminRequestSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema } from '@/lib/domain/validation';
+import { assignPublicOfficeSchema, assignRoleSchema, avatarSchema, changeSchoolSchema, commentSchema, decideSchoolAdminRequestSchema, eventResponseInputSchema, idSchema, isoDate, onboardingSchema, publishPostSchema, requestLoginCodeSchema, schoolAdminRequestSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema } from '@/lib/domain/validation';
 import type { Database } from '@/lib/supabase/database.types';
 import { NotImplementedError, type AddCommentInput, type AssignPublicOfficeInput, type AssignRoleInput, type ChangeSchoolInput, type DecideSchoolAdminRequestInput, type ElevradsnettService, type OnboardingInput, type SchoolAdminRequestInput, type PublishPostInput, type RequestLoginCodeInput, type SendMessageInput, type SetEventResponseInput, type UpdateProfileInput, type VerifyLoginCodeInput, type VoteInput } from './contracts';
 
@@ -23,6 +26,7 @@ const AVATAR_BUCKET = 'public-avatars';
 /** Feilmeldinger fra databasen og Supabase Auth, oversatt til norsk. Ukjente feil får en generell tekst. */
 const serverMessages:Record<string,string> = {
   'not authorized':'Du har ikke tilgang til å gjøre dette.',
+  ...messagingServerMessages,
   'invalid name':'Navnet må ha mellom 2 og 120 tegn.',
   'school not found':'Fant ikke skolen. Velg en aktiv skole fra listen.',
   'invalid election date':'Velg en dato fra i dag og inntil to år frem.',
@@ -75,7 +79,11 @@ async function run<R extends { data:unknown; error:unknown }>(promise:PromiseLik
  */
 export class SupabaseElevradsnettService implements ElevradsnettService {
   private client:Promise<Client>;
-  constructor(client:SupabaseClient|Promise<SupabaseClient>) { this.client = Promise.resolve(client) as Promise<Client>; }
+  private messaging:SupabaseMessaging;
+  constructor(client:SupabaseClient|Promise<SupabaseClient>) {
+    this.client = Promise.resolve(client) as Promise<Client>;
+    this.messaging = new SupabaseMessaging(this.client,run,()=>this.userId());
+  }
 
   private async userId() {
     const { data } = await (await this.client).auth.getSession();
@@ -155,10 +163,7 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
     const rows = await run((await this.client).rpc('list_public_events'),'Kunne ikke hente arrangementene.');
     return rows.map(toEvent);
   }
-  async listConversations():Promise<Conversation[]> {
-    if (!await this.userId()) return [];
-    throw new NotImplementedError('listConversations');
-  }
+  listConversations():Promise<Conversation[]> { return this.messaging.listConversations(); }
   async listPublicOfficers(organizationId:string) {
     const rows = await run((await this.client).rpc('get_public_officers',{ p_organization:organizationId }));
     return rows.map(r=>({ id:r.membership_id, name:r.display_name, publicTitle:r.public_title }) satisfies PublicOfficer);
@@ -300,14 +305,28 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
     await run((await this.client).rpc('set_event_response',{ p_event:parsed.eventId, p_organization:parsed.organizationId, p_response:parsed.response ?? 'none' }));
   }
 
-  // Meldinger
-  async openConversation():Promise<Conversation> { throw new NotImplementedError('openConversation'); }
-  async sendMessage(input:SendMessageInput):Promise<Message> {
-    const parsed = messageSchema.parse(input);
-    const row = await run((await this.client).from('messages').insert({ conversation_id:parsed.conversationId, body:parsed.body }).select('id,created_at').single());
-    return { id:row.id, from:'', mine:true, text:parsed.body, time:formatRelative(row.created_at) };
-  }
-  async markConversationRead():Promise<void> { throw new NotImplementedError('markConversationRead'); }
+  // Meldinger (supabase-messaging.ts)
+  listMessages(input:{ conversationId:string; before?:string }) { return this.messaging.listMessages(input); }
+  listConversationMembers(conversationId:string) { return this.messaging.listConversationMembers(conversationId); }
+  searchRecipients(query:string) { return this.messaging.searchRecipients(query); }
+  listOrganizationContacts(organizationId:string) { return this.messaging.listOrganizationContacts(organizationId); }
+  startDirectConversation(userId:string) { return this.messaging.startDirectConversation(userId); }
+  createGroup(input:CreateGroupInput) { return this.messaging.createGroup(input); }
+  createOrganizationGroup(organizationId:string) { return this.messaging.createOrganizationGroup(organizationId); }
+  addConversationMembers(input:AddMembersInput) { return this.messaging.addConversationMembers(input); }
+  leaveConversation(conversationId:string) { return this.messaging.leaveConversation(conversationId); }
+  sendMessage(input:SendMessageInput):Promise<Message> { return this.messaging.sendMessage(input); }
+  markConversationRead(conversationId:string) { return this.messaging.markConversationRead(conversationId); }
+  setConversationMuted(input:{ conversationId:string; muted:boolean }) { return this.messaging.setConversationMuted(input); }
+  hideMessage(messageId:string) { return this.messaging.hideMessage(messageId); }
+  reportMessage(input:ReportMessageInput) { return this.messaging.reportMessage(input); }
+  blockUser(userId:string) { return this.messaging.blockUser(userId); }
+  unblockUser(userId:string) { return this.messaging.unblockUser(userId); }
+  listBlockedUsers() { return this.messaging.listBlockedUsers(); }
+  getMessageSettings() { return this.messaging.getMessageSettings(); }
+  setReadReceipts(enabled:boolean) { return this.messaging.setReadReceipts(enabled); }
+  getAttachmentUrl(path:string) { return this.messaging.getAttachmentUrl(path); }
+  subscribeToMessages(listener:()=>void) { return this.messaging.subscribeToMessages(listener); }
 }
 
 function toOrganization(r:OrganizationRow):Organization {

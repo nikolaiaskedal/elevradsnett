@@ -53,6 +53,7 @@ export default function ElevradsnettApp() {
   const [conversations,setConversations] = useState<Conversation[]>([]);
   const [conversationsError,setConversationsError] = useState('');
   const [conversationId,setConversationId] = useState('');
+  const [contactOrganizationId,setContactOrganizationId] = useState<string|null>(null);
   const [composerOpen,setComposerOpen] = useState(false);
   const [login,setLogin] = useState<LoginRequest|null>(null);
   const [toast,setToast] = useState('');
@@ -80,13 +81,12 @@ export default function ElevradsnettApp() {
       setPosts(feed);
       setLiked(feed.filter(p=>p.supported).map(p=>p.id));
       setResponses({}); setVotes({});
-      setConversations([]); setConversationsError(''); setConversationId('');
+      setConversations([]); setConversationsError(''); setConversationId(''); setContactOrganizationId(null);
       setLoadedKey(reloadKey);
       if (signedIn) {
         service.listConversations().then(convos=>{
           if (cancelled) return;
           setConversations(convos);
-          setConversationId(convos[0]?.id ?? '');
         }).catch(error=>{ if (!cancelled) setConversationsError(errorMessage(error)); });
       }
     })().catch(error=>{ if (!cancelled) setLoadError(errorMessage(error)); });
@@ -94,6 +94,12 @@ export default function ElevradsnettApp() {
   },[service,reloadKey]);
 
   const reload = useCallback(()=>setReloadKey(k=>k+1),[]);
+  const clearContact = useCallback(()=>setContactOrganizationId(null),[]);
+  const refreshConversations = useCallback(async ()=>{
+    const convos = await service.listConversations();
+    setConversations(convos); setConversationsError('');
+    return convos;
+  },[service]);
 
   // Innlogging eller utlogging i en annen fane, eller en økt som har utløpt.
   useEffect(()=>service.onSessionChange(()=>{
@@ -102,6 +108,16 @@ export default function ElevradsnettApp() {
 
   const session = loaded?.session ?? null;
   const signedIn = session?.status==='active';
+  // Sanntid: nye meldinger oppdaterer samtalelisten og antall uleste, uansett hvilken side brukeren er på.
+  useEffect(()=>{
+    if (!signedIn) return;
+    let timer = 0;
+    const stop = service.subscribeToMessages(()=>{
+      window.clearTimeout(timer);
+      timer = window.setTimeout(()=>{ refreshConversations().catch(()=>{}); },300);
+    });
+    return ()=>{ window.clearTimeout(timer); stop(); };
+  },[service,signedIn,refreshConversations]);
   const user = session&&(session.status==='active'||session.status==='deactivated')?session:null;
   const representations = user?.representations ?? [];
   const activeRep = signedIn?representations.find(r=>r.id===activeRepId) ?? null:null;
@@ -145,7 +161,8 @@ export default function ElevradsnettApp() {
     return ()=>lifecycle.abort();
   },[activeRep,go]);
 
-  const unread = conversations.reduce((n,c)=>n+c.unread,0);
+  // Dempede samtaler teller ikke med i menyen.
+  const unread = conversations.reduce((n,c)=>n+(c.muted?0:c.unread),0);
   const nav:{ label:string; route:Route; on:boolean; count?:number }[] = [
     { label:'Hjem', route:{ view:'feed' }, on:route.view==='feed' },
     { label:'Arrangementer', route:{ view:'events' }, on:route.view==='events'||route.view==='event' },
@@ -247,13 +264,11 @@ export default function ElevradsnettApp() {
         if (needRep('publisere innlegg')) setComposerOpen(true);
       },
     };
+    /** Organisasjoner har ingen innboks (§9): Meldinger viser kontaktpersonene og tilbud om en gruppe. */
     const openConversationWith = (o:Organization)=>{
-      if (needLogin(`Logg inn for å kontakte ${o.name}.`,()=>openConversationWith(o))) return;
-      service.openConversation({ organizationId:o.id }).then(conversation=>{
-        setConversations(all=>all.some(c=>c.id===conversation.id)?all:[conversation,...all]);
-        setConversationId(conversation.id);
-        go({ view:'messages' });
-      }).catch(fail);
+      const show = ()=>{ setContactOrganizationId(o.id); go({ view:'messages' }); };
+      if (needLogin(`Logg inn for å kontakte ${o.name}.`,show)) return;
+      show();
     };
     const gate = gated[route.view];
     if (session.status==='onboarding' && route.view!=='legal') {
@@ -267,7 +282,8 @@ export default function ElevradsnettApp() {
       case 'events': page=<EventsView/>; break;
       case 'event': page=<EventDetailView id={route.id}/>; break;
       case 'organization': page=<OrganizationView id={route.id} onContact={openConversationWith}/>; break;
-      case 'messages': page=<MessagesView conversations={conversations} setConversations={setConversations} selectedId={conversationId} onSelect={setConversationId} error={conversationsError}/>; break;
+      case 'messages': page=<MessagesView conversations={conversations} setConversations={setConversations} refresh={refreshConversations} selectedId={conversationId} onSelect={setConversationId} error={conversationsError}
+        contactOrganizationId={contactOrganizationId} onContactHandled={clearContact}/>; break;
       case 'profile': page=<ProfileView/>; break;
       case 'login': page=<LoginView onDone={next=>{ signedInDone(next); go(returnTo.current.view==='login'?{ view:'feed' }:returnTo.current); }}/>; break;
       case 'admin': page=<AdminView/>; break;

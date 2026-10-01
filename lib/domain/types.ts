@@ -12,8 +12,7 @@ export type Comment = { id:string; organizationId:string; organizationName:strin
 export type PostMedia = { id:string; type:'image'|'video'; alt:string; url?:string };
 export type Post = { id:string; organizationId:string; initials:string; organizationName:string; actorName:string; actorRole:string; createdAt:string; body:string; audience:Audience; priority?:boolean; edited?:boolean; likes:number; supported?:boolean; comments:number; commentItems?:Comment[]; tags?:string[]; media?:PostMedia[]; poll?:{ question:string; options:{ id:string; label:string; votes:number }[]; closesAt:string; resultsVisibility?:'after_vote'|'after_close'|'always' }; eventId?:string };
 export type Event = { id:string; hostId:string; host:string; title:string; summary:string; description:string; category:EventCategory; startsAt:string; start:string; end:string; place:string; digital?:boolean; deadline?:string; price?:string; seatsPerOrganization?:number; capacity:number; registered:number; interested:number; imageAlt?:string; status:'draft'|'published'|'cancelled'|'completed'; audience:string };
-export type Message = { id:string; from:string; mine?:boolean; text:string; time:string };
-export type Conversation = { id:string; name:string; initials:string; subtitle?:string; organizationId?:string; kind:'direct'|'group'|'managed'; unread:number; muted?:boolean; members:number; messages:Message[] };
+export type { Conversation, Message } from '@/lib/domain/messaging';
 export type CurrentUser = { id:string; name:string; initials:string; schoolId:string|null; email:string; avatarUrl?:string };
 /**
  * Hvem som bruker appen. «onboarding» betyr innlogget uten profil: brukeren må velge skole og navn først.

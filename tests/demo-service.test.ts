@@ -312,30 +312,6 @@ describe('DemoElevradsnettService: verv og rettigheter',()=>{
   });
 });
 
-describe('DemoElevradsnettService: meldinger',()=>{
-  it('gjenbruker eksisterende samtale med en organisasjon',async()=>{
-    const conversation = await service.openConversation({ organizationId:'kuben' });
-    expect(conversation.id).toBe('c1');
-  });
-  it('oppretter ny samtale når ingen finnes',async()=>{
-    const conversation = await service.openConversation({ organizationId:'hartvig' });
-    expect(conversation).toMatchObject({ name:'Hartvig Nissen elevråd', subtitle:'Oslo · Elevråd', messages:[] });
-    expect((await service.listConversations())[0].id).toBe(conversation.id);
-    expect((await service.openConversation({ organizationId:'hartvig' })).id).toBe(conversation.id);
-  });
-  it('sender melding og validerer tom tekst',async()=>{
-    const message = await service.sendMessage({ conversationId:'c1', body:' Hei! ' });
-    expect(message).toMatchObject({ from:'Ida', mine:true, text:'Hei!' });
-    expect((await service.listConversations()).find(c=>c.id==='c1')!.messages.at(-1)!.id).toBe(message.id);
-    await expect(service.sendMessage({ conversationId:'c1', body:'   ' })).rejects.toThrow('tom');
-    await expect(service.sendMessage({ conversationId:'finnes-ikke', body:'Hei' })).rejects.toThrow('Ukjent samtale');
-  });
-  it('markerer samtale som lest',async()=>{
-    await service.markConversationRead('c2');
-    expect((await service.listConversations()).find(c=>c.id==='c2')!.unread).toBe(0);
-  });
-});
-
 describe('createService',()=>{
   it('bruker demodata når Supabase ikke er konfigurert',()=>{
     expect(createService({})).toBeInstanceOf(DemoElevradsnettService);

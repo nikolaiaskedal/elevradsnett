@@ -34,11 +34,39 @@ export const commentSchema = z.object({
 });
 export type AddCommentInput = z.input<typeof commentSchema>;
 
+/** Vedlegg i meldinger: bilder (kodes om i nettleseren, så EXIF og GPS forsvinner) og PDF. Bøtta tar maks 25 MB. */
+export const MESSAGE_ATTACHMENT_MAX_BYTES = 25*1024*1024;
+export const MESSAGE_ATTACHMENT_MAX_COUNT = 5;
+export const MESSAGE_ATTACHMENT_TYPES = ['image/jpeg','image/png','image/webp','application/pdf'] as const;
+export const messageAttachmentSchema = z.object({
+  name:z.string().trim().min(1, 'Vedlegget mangler filnavn.').max(200, 'Filnavnet kan ha maks 200 tegn.'),
+  type:z.enum(MESSAGE_ATTACHMENT_TYPES, 'Vedlegg må være et bilde (JPEG, PNG eller WebP) eller en PDF.'),
+  size:z.number().int().positive('Vedlegget er tomt.').max(MESSAGE_ATTACHMENT_MAX_BYTES, 'Vedlegg kan være maks 25 MB.'),
+});
 export const messageSchema = z.object({
   conversationId:idSchema,
-  body:z.string().trim().min(1, 'Meldingen er tom.').max(MESSAGE_MAX_LENGTH),
+  body:z.string().trim().max(MESSAGE_MAX_LENGTH, `Meldingen kan ha maks ${MESSAGE_MAX_LENGTH} tegn.`),
+  attachments:z.array(messageAttachmentSchema).max(MESSAGE_ATTACHMENT_MAX_COUNT, `Du kan legge ved maks ${MESSAGE_ATTACHMENT_MAX_COUNT} filer.`).default([]),
+}).refine(m=>m.body.length>0 || m.attachments.length>0, 'Meldingen er tom.');
+/** Filene lastes opp av tjenesten; skjemaet sjekker navn, type og størrelse. */
+export type SendMessageInput = Omit<z.input<typeof messageSchema>,'attachments'> & { attachments?:File[] };
+
+export const GROUP_NAME_MAX_LENGTH = 80;
+export const GROUP_MAX_MEMBERS = 100;
+export const createGroupSchema = z.object({
+  name:z.string().trim().min(1, 'Gi gruppen et navn.').max(GROUP_NAME_MAX_LENGTH, `Gruppenavnet kan ha maks ${GROUP_NAME_MAX_LENGTH} tegn.`),
+  memberIds:z.array(idSchema).min(1, 'Velg minst én person.').max(GROUP_MAX_MEMBERS-1, `En gruppe kan ha maks ${GROUP_MAX_MEMBERS} medlemmer.`),
 });
-export type SendMessageInput = z.input<typeof messageSchema>;
+export type CreateGroupInput = z.input<typeof createGroupSchema>;
+export const addMembersSchema = z.object({ conversationId:idSchema, userIds:z.array(idSchema).min(1, 'Velg minst én person.').max(GROUP_MAX_MEMBERS-1) });
+export type AddMembersInput = z.input<typeof addMembersSchema>;
+export const REPORT_TEXT_MAX_LENGTH = 1000;
+export const reportMessageSchema = z.object({
+  messageId:idSchema,
+  category:z.enum(['harassment','spam','inappropriate','other'], 'Velg hva rapporten gjelder.'),
+  description:z.string().trim().max(REPORT_TEXT_MAX_LENGTH, `Beskrivelsen kan ha maks ${REPORT_TEXT_MAX_LENGTH} tegn.`).optional(),
+});
+export type ReportMessageInput = z.input<typeof reportMessageSchema>;
 
 export const voteSchema = z.object({ postId:idSchema, optionId:idSchema, organizationId:idSchema });
 export type VoteInput = z.input<typeof voteSchema>;

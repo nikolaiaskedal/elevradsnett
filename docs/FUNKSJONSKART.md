@@ -8,7 +8,7 @@ Alle synlige knapper og kontroller i appen, per side, sammenholdt med designet i
 - **Demo**: går gjennom `ElevradsnettService` og virker mot `DemoElevradsnettService`, men er ikke ferdig mot Supabase. Kolonnen *Supabase* viser om metoden har en RPC eller tabelltilgang (`ja`) eller kaster `NotImplementedError` (`nei`).
 - **Mangler**: knappen vises, men gjør ingenting reelt (bare en melding, deaktivert eller statiske data).
 
-Fra prompt 3 laster appen mot Supabase: økt, organisasjoner, innlegg, arrangementer og tillitsvalgte hentes via RPC-er som også virker uten innlogging (§1). `listConversations` mangler fortsatt RPC for innloggede (prompt 10); Meldinger viser da en feilmelding i stedet for at appen stopper.
+Fra prompt 3 laster appen mot Supabase: økt, organisasjoner, innlegg, arrangementer og tillitsvalgte hentes via RPC-er som også virker uten innlogging (§1). Fra prompt 10 er Meldinger koblet til Supabase (`supabase-messaging.ts`, migrasjonen `202610100001_meldinger.sql`).
 
 **Uten innlogging** kan alt offentlig leses. Kontroller som endrer noe (støtte, kommentere, følge, stemme, svare på arrangementer, nytt innlegg, rapportere, kontakte) åpner innloggingsdialogen, og handlingen gjøres når brukeren er logget inn. Meldinger, Profil og Administrasjon viser innloggingen i stedet for siden.
 
@@ -23,7 +23,7 @@ Fra prompt 3 laster appen mot Supabase: økt, organisasjoner, innlegg, arrangeme
 | Logo | Går til Hjem | Fungerer | – | – | ja | §19 |
 | Meny: Hjem, Arrangementer, Profil | Navigasjon | Fungerer | – | – | ja | §19 |
 | Meny: Logg inn | Vises bare uten innlogging | Fungerer | `getSession` | ja | ja | §1, §3 |
-| Meny: Meldinger med antall uleste | Navigasjon; tallet summerer uleste samtaler | Demo | `listConversations` | nei | ja | §9 |
+| Meny: Meldinger med antall uleste | Navigasjon; tallet summerer uleste meldinger i samtaler som ikke er dempet. Oppdateres i sanntid | Fungerer | `listConversations`, `subscribeToMessages` | ja (`list_my_conversations`, sanntid på `messages`) | ja | §9 |
 | Velger for aktiv representasjon (toppmeny) | Viser hvem brukeren representerer og alle tilknytninger med verv og om de kan publisere. Bytter aktiv representasjon; feeden hentes på nytt for den. Verv i deaktiverte organisasjoner vises merket og kan ikke velges. På mobil vises bare initialene | Fungerer | `switchRepresentation`, `listFeed` | ja (`set_active_representation`) | app | §3, §22 |
 | Nytt innlegg (toppmeny) | Åpner innleggsdialogen. Uten innlogging: innloggingsdialogen først. Uten verv: melding om at verv trengs | Fungerer | – | – | ja | §7 |
 | Innloggingsdialog | Åpnes av handlinger som krever innlogging, og fullfører handlingen etterpå. Lukk (×) avbryter | Fungerer | `requestLoginCode`, `verifyLoginCode` | ja | app | §1, §7 |
@@ -108,20 +108,37 @@ Fra prompt 3 laster appen mot Supabase: økt, organisasjoner, innlegg, arrangeme
 |---|---|---|---|---|---|---|
 | Nytt innlegg som … | Åpner innleggsdialogen (egen organisasjon med publiseringsrett). Skjules for deaktiverte organisasjoner | Fungerer | – | – | ja | §2, §6 |
 | Deaktivert-merke og forklaring | Deaktiverte organisasjoner kan åpnes fra gamle innlegg og lenker. Historikken vises, men ikke kontakt- eller publiseringsknapper | Fungerer | `getOrganization` | ja (`get_public_organization`) | app | §1, §2 |
-| Kontakt EO / fylkesstyret / lokallaget, Foreslå samarbeid | Åpner eller oppretter samtale og går til Meldinger | Demo | `openConversation` | nei | ja | §9 |
+| Kontakt EO / fylkesstyret / lokallaget, Foreslå samarbeid | Går til Meldinger og viser organisasjonens kontaktpersoner og tilbud om en gruppe. Det opprettes ingen organisasjonsinnboks. Uten innlogging: innloggingen først | Fungerer | `listOrganizationContacts` | ja (`list_organization_contacts`) | ja | §9 |
 | Prioriterte saker, tillitsvalgte, statistikk | Visning, også uten innlogging | Fungerer | `listOrganizations`, `listPublicOfficers` | ja (`list_public_organizations`, `get_public_officers`) | ja | §1, §2, §4 |
 | Kommende arrangementer | Åpner arrangementet | Fungerer | – | – | ja | §8 |
 | Innlegg | Innleggskort uten meny (se over). Hentes for siden, også når de ikke er i feeden | Fungerer | `listOrganizationPosts` | ja (`get_post_cards`) | ja | §1, §7 |
 
 ## Meldinger (`#/meldinger`)
 
+Meldinger er alltid mellom personer (§9): direktemeldinger, vanlige grupper og systemstyrte grupper for skoler og styrer som følger de aktive vervene. Uten innlogging vises innloggingen i stedet for siden. På mobil vises enten samtalelisten eller samtalen, med «← Alle samtaler» tilbake.
+
 | Kontroll | Hva den gjør | Status | Tjenestemetode | Supabase | I designet | Kravpunkt |
 |---|---|---|---|---|---|---|
-| Søk i samtaler | Filtrerer samtalelisten | Fungerer | – | – | ja | §9 |
-| Samtale i listen | Åpner samtalen og markerer den som lest | Demo | `markConversationRead` | nei | ja | §9 |
-| Navn i samtalehodet | Åpner organisasjonssiden | Fungerer | – | – | ja | §9 |
-| Meldingsfelt og Send | Sender melding | Demo | `sendMessage` | ja (tabell) | ja | §9 |
-| Samtaleliste | Viser samtaler. Uten innlogging: innloggingen vises i stedet | Demo | `listConversations` | nei (innlogget) | ja | §9 |
+| Samtaleliste | Viser samtalene med siste melding, antall uleste og «Dempet». Direktesamtaler har navnet til den andre personen, systemstyrte grupper navnet til organisasjonen | Fungerer | `listConversations` | ja (`list_my_conversations`) | ja | §9 |
+| Søk (person, elevråd eller fylkeslag) | Filtrerer egne samtaler, og søker etter personer (navn og skole) og organisasjoner fra to tegn | Fungerer | `searchRecipients` | ja (`search_message_recipients`) | ja | §9 |
+| Person i søket | Åpner direktesamtalen, eller oppretter den | Fungerer | `startDirectConversation` | ja (`start_direct_conversation`) | app | §9 |
+| Organisasjon i søket | Viser offentlige kontaktpersoner med «Send melding», og «Opprett gruppe med alle kontaktpersonene». Ingen organisasjonsinnboks | Fungerer | `listOrganizationContacts`, `createOrganizationGroup` | ja (`list_organization_contacts`, `create_organization_group`) | app | §9 |
+| Ny gruppe | Navn og medlemmer (personsøk). Den som oppretter, blir gruppeadministrator | Fungerer | `createGroup` | ja (`create_group_conversation`) | app | §9 |
+| Innstillinger: Lest-status | Av som standard. Lest-status vises bare mellom personer som begge har slått den på | Fungerer | `getMessageSettings`, `setReadReceipts` | ja (`get_message_settings`, `set_read_receipts`) | app | §9 |
+| Innstillinger: Blokkerte personer, Opphev blokkering | Lister og opphever egne blokkeringer | Fungerer | `listBlockedUsers`, `unblockUser` | ja (`list_my_blocks`, `unblock_user`) | app | §9 |
+| Samtale i listen | Åpner samtalen og markerer den som lest | Fungerer | `listMessages`, `markConversationRead` | ja (`get_conversation_messages`, `mark_conversation_read`) | ja | §9 |
+| Navn i samtalehodet | Åpner organisasjonssiden (systemstyrte grupper) | Fungerer | – | – | ja | §9 |
+| Demp / Slå på varsler | Demper samtalen. Dempede samtaler teller ikke i menyen, og skal ikke gi varsler (prompt 11) | Fungerer | `setConversationMuted` | ja (`set_conversation_muted`) | app | §9 |
+| Medlemmer | Viser medlemmene. Gruppeadministrator kan legge til personer; nye medlemmer ser bare meldinger fra de ble lagt til | Fungerer | `listConversationMembers`, `addConversationMembers` | ja (`list_conversation_members`, `add_conversation_members`) | app | §9 |
+| Forlat (vanlige grupper) | Spør først, og tar brukeren ut av gruppen. Systemstyrte grupper kan ikke forlates | Fungerer | `leaveConversation` | ja (`leave_conversation`) | app | §9 |
+| Blokker (direktesamtaler) | Spør først. Stopper direktemeldinger begge veier og skjuler meldingene fra personen, også i grupper | Fungerer | `blockUser` | ja (`block_user`) | app | §9 |
+| ⋯ på en melding: Slett for meg | Skjuler meldingen bare for brukeren selv | Fungerer | `hideMessage` | ja (`hide_message`) | app | §9 |
+| ⋯ på en melding: Rapporter | Kategori og valgfri beskrivelse. Bare den ene meldingen deles med moderator. Ikke for egne meldinger | Fungerer | `reportMessage` | ja (`report_message`) | app | §9, §15 |
+| Lest / Lest av N | Vises på egne meldinger når lest-status er slått på | Fungerer | `listMessages` | ja | app | §9 |
+| + (Legg ved bilde eller PDF) | Inntil fem filer på maks 25 MB. Bilder kodes om i nettleseren (fjerner EXIF og GPS) | Fungerer | `sendMessage` | ja (`private-message-attachments`, `send_message`) | app | §9, §11 |
+| Vedlegg i en melding | Åpnes med en tidsbegrenset lenke (ti minutter) | Fungerer | `getAttachmentUrl` | ja (signed URL) | app | §9 |
+| Meldingsfelt og Send | Sender melding med tekst og/eller vedlegg | Fungerer | `sendMessage` | ja (`send_message`) | ja | §9 |
+| Nye meldinger | Samtalelisten og den åpne samtalen oppdateres i sanntid | Fungerer | `subscribeToMessages` | ja (sanntid) | app | §9 |
 
 ## Profil (`#/profil`)
 
@@ -215,6 +232,5 @@ Finnes i databasen (prompt 2), men er ikke koblet til en knapp. Kolonnen *Prompt
 | `search` | Fulltekstsøk på norsk etter skoler, styrer, personer, arrangementer og innlegg, med filter for tidligere tillitsvalgte | Mangler kontroll | 8 | §6 |
 | `edit_post`, `post_revisions` | Redigerer innlegg, merker det redigert og lagrer historikk for administratorer | Mangler kontroll | 5 | §7 |
 | `publish_post(…, p_school_level_target)` | Målgruppe etter skoleform (vgs, ungdomsskole eller begge) | Mangler kontroll | 5 | §7 |
-| `user_blocks` | Blokkering i meldinger | Mangler kontroll | 10 | §9 |
 | `request_personal_data` | Forespørsel om eksport eller sletting av egne data | Mangler kontroll | 14 | §10, §16 |
 | `resolve_organization_images` | Bildehierarkiet eget → lokallag → fylke → global, med lås og kilde | Mangler kontroll | 6, 12 | §14 |

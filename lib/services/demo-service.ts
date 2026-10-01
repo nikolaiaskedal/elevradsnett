@@ -1,8 +1,9 @@
+import type { AddMembersInput, CreateGroupInput, ReportMessageInput } from './contracts';
+import { DemoMessaging, type DemoMessagingHost } from './demo-messaging';
 import * as demo from '@/lib/demo-data';
-import { orgSub } from '@/lib/domain/labels';
 import { initialsOf } from '@/lib/domain/labels';
 import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, CurrentUser, Event, GrantStatus, InternalRole, Message, MyRole, Organization, OrganizationRoleEntry, Post, Representation, SchoolAdminRequest, SchoolHistoryEntry, Session } from '@/lib/domain/types';
-import { assignPublicOfficeSchema, assignRoleSchema, avatarSchema, changeSchoolSchema, commentSchema, decideSchoolAdminRequestSchema, eventResponseInputSchema, isoDate, messageSchema, onboardingSchema, publishPostSchema, requestLoginCodeSchema, schoolAdminRequestSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema } from '@/lib/domain/validation';
+import { assignPublicOfficeSchema, assignRoleSchema, avatarSchema, changeSchoolSchema, commentSchema, decideSchoolAdminRequestSchema, eventResponseInputSchema, isoDate, onboardingSchema, publishPostSchema, requestLoginCodeSchema, schoolAdminRequestSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema } from '@/lib/domain/validation';
 import type { AddCommentInput, AssignPublicOfficeInput, AssignRoleInput, ChangeSchoolInput, DecideSchoolAdminRequestInput, ElevradsnettService, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SchoolAdminRequestInput, SendMessageInput, SetEventResponseInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput } from './contracts';
 
 /** Engangskoden som alltid virker i demoen. Vises i innloggingsdialogen når demotjenesten brukes. */
@@ -37,7 +38,6 @@ export class DemoElevradsnettService implements ElevradsnettService {
   private organizations = structuredClone(demo.organizations);
   private posts = structuredClone(demo.initialPosts);
   private events = structuredClone(demo.events);
-  private conversations = structuredClone(demo.conversations);
   private supported = new Set<string>();
   private votes = new Map<string,string>();
   private eventResponses = new Map<string,'going'|'interested'>();
@@ -97,11 +97,6 @@ export class DemoElevradsnettService implements ElevradsnettService {
     const p = this.posts.find(x=>x.id===id);
     if (!p) throw new Error('Ukjent innlegg.');
     return p;
-  }
-  private conversation(id:string):Conversation {
-    const c = this.conversations.find(x=>x.id===id);
-    if (!c) throw new Error('Ukjent samtale.');
-    return c;
   }
   private log(organizationId:string,action:string,subjectId?:string,details:Record<string,unknown> = {}) {
     this.audit.unshift({ id:this.nextId('a'), createdAt:new Date().toISOString(), actorId:this.user.id, actorName:this.user.name, action, organizationId, subjectId, details });
@@ -220,7 +215,7 @@ export class DemoElevradsnettService implements ElevradsnettService {
     return structuredClone(this.posts.filter(p=>p.organizationId===organizationId && (this.status==='active' || p.audience==='public')));
   }
   async listEvents():Promise<Event[]> { return structuredClone(this.events); }
-  async listConversations() { return this.status==='active'?structuredClone(this.conversations):[]; }
+  listConversations():Promise<Conversation[]> { return this.messaging.listConversations(); }
   async listPublicOfficers(organizationId:string) { return structuredClone(this.officersOf(this.organization(organizationId))); }
 
   async completeOnboarding(input:OnboardingInput) {
@@ -498,22 +493,48 @@ export class DemoElevradsnettService implements ElevradsnettService {
     if (parsed.response) this.eventResponses.set(key,parsed.response); else this.eventResponses.delete(key);
   }
 
-  async openConversation(input:{ organizationId:string }):Promise<Conversation> {
-    this.requireUser();
-    const existing = this.conversations.find(c=>c.organizationId===input.organizationId);
-    if (existing) return structuredClone(existing);
-    const o = this.organization(input.organizationId);
-    const created:Conversation = { id:`c-${o.id}`, name:o.name, initials:o.initials, subtitle:orgSub(o), organizationId:o.id, kind:'group', unread:0, members:this.officersOf(o).length+1, messages:[] };
-    this.conversations.unshift(created);
-    return structuredClone(created);
+  // Meldinger (demo-messaging.ts). Opprettes først når de brukes, etter at personer og verv er lagt inn.
+  private messagingState?:DemoMessaging;
+  private get messaging() { return this.messagingState ??= new DemoMessaging(this.messagingHost()); }
+  private messagingHost():DemoMessagingHost {
+    const describe = (p:Person)=>{
+      const me = p.id===this.user.id;
+      const school = this.organizations.find(o=>o.id===(me?this.user.schoolId:p.schoolId));
+      return { id:p.id, name:me?this.user.name:p.name, schoolName:school?.schoolName ?? school?.name, active:me?this.status!=='deactivated':p.active };
+    };
+    return {
+      requireUser:()=>this.requireUser(),
+      isSignedIn:()=>this.status==='active',
+      personId,
+      person:id=>{ const p = this.people.get(id); return p?describe(p):undefined; },
+      people:()=>[...this.people.values()].map(describe),
+      organization:id=>this.organizations.find(o=>o.id===id),
+      activeOrganizations:()=>this.organizations.filter(o=>o.status==='active'),
+      liveMembers:organizationId=>this.organizations.some(o=>o.id===organizationId && o.status==='active')
+        ? this.memberships.filter(m=>m.organizationId===organizationId && this.live(m) && this.people.get(m.userId)?.active).map(m=>({ userId:m.userId, title:m.title }))
+        : [],
+      nextId:prefix=>this.nextId(prefix),
+    };
   }
-  async sendMessage(input:SendMessageInput):Promise<Message> {
-    const parsed = messageSchema.parse(input);
-    this.requireUser();
-    const conversation = this.conversation(parsed.conversationId);
-    const message:Message = { id:this.nextId('m'), from:this.user.name.split(' ')[0], mine:true, text:parsed.body, time:'nå' };
-    conversation.messages.push(message);
-    return structuredClone(message);
-  }
-  async markConversationRead(conversationId:string) { this.requireUser(); this.conversation(conversationId).unread = 0; }
+  listMessages(input:{ conversationId:string; before?:string }) { return this.messaging.listMessages(input); }
+  listConversationMembers(conversationId:string) { return this.messaging.listConversationMembers(conversationId); }
+  searchRecipients(query:string) { return this.messaging.searchRecipients(query); }
+  listOrganizationContacts(organizationId:string) { return this.messaging.listOrganizationContacts(organizationId); }
+  startDirectConversation(userId:string) { return this.messaging.startDirectConversation(userId); }
+  createGroup(input:CreateGroupInput) { return this.messaging.createGroup(input); }
+  createOrganizationGroup(organizationId:string) { return this.messaging.createOrganizationGroup(organizationId); }
+  addConversationMembers(input:AddMembersInput) { return this.messaging.addConversationMembers(input); }
+  leaveConversation(conversationId:string) { return this.messaging.leaveConversation(conversationId); }
+  sendMessage(input:SendMessageInput):Promise<Message> { return this.messaging.sendMessage(input); }
+  markConversationRead(conversationId:string) { return this.messaging.markConversationRead(conversationId); }
+  setConversationMuted(input:{ conversationId:string; muted:boolean }) { return this.messaging.setConversationMuted(input); }
+  hideMessage(messageId:string) { return this.messaging.hideMessage(messageId); }
+  reportMessage(input:ReportMessageInput) { return this.messaging.reportMessage(input); }
+  blockUser(userId:string) { return this.messaging.blockUser(userId); }
+  unblockUser(userId:string) { return this.messaging.unblockUser(userId); }
+  listBlockedUsers() { return this.messaging.listBlockedUsers(); }
+  getMessageSettings() { return this.messaging.getMessageSettings(); }
+  setReadReceipts(enabled:boolean) { return this.messaging.setReadReceipts(enabled); }
+  getAttachmentUrl(path:string) { return this.messaging.getAttachmentUrl(path); }
+  subscribeToMessages(listener:()=>void) { return this.messaging.subscribeToMessages(listener); }
 }
