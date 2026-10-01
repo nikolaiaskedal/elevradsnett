@@ -4,15 +4,15 @@ import { useService } from '@/components/service-provider';
 import { Avatar, ConfirmButton, Status } from '@/components/shared/ui';
 import { auditActionLabel, initialsOf, kindLabel, officeSuggestions, roleLabel } from '@/lib/domain/labels';
 import { formatDate, formatRelative } from '@/lib/domain/time';
-import type { AdminOrganization, AssignablePerson, AuditEntry, InternalRole, OrganizationRoleEntry, SchoolAdminRequest } from '@/lib/domain/types';
+import type { AdminOrganization, AssignablePerson, AuditEntry, FriendConnection, InternalRole, OrganizationRoleEntry, SchoolAdminRequest } from '@/lib/domain/types';
 import { errorMessage, OFFICE_TITLE_MAX_LENGTH, REQUEST_TEXT_MAX_LENGTH } from '@/lib/domain/validation';
 
 // Administrasjonen viser bare det serveren svarer: hvilke organisasjoner brukeren administrerer, og hvilke
-// rettigheter som kan tildeles der. Oversikt, Roller og verv og Forespørsler er koblet til tjenestelaget.
+// rettigheter som kan tildeles der. Oversikt, Roller og verv, Forespørsler og Venneråd er koblet til tjenestelaget.
 // Styreoverføring, Skoler, Moderering og CSV er fortsatt statiske demoer (prompt 11, 12 og 13).
 
 type Notify = (text:string)=>void;
-const adminTabs = [['overview','Oversikt'],['roles','Roller og verv'],['requests','Forespørsler'],['handover','Styreoverføring'],['schools','Skoler'],['moderation','Moderering'],['import','CSV']] as const;
+const adminTabs = [['overview','Oversikt'],['roles','Roller og verv'],['requests','Forespørsler'],['friends','Venneråd'],['handover','Styreoverføring'],['schools','Skoler'],['moderation','Moderering'],['import','CSV']] as const;
 type AdminTab = typeof adminTabs[number][0];
 
 /** Henter data på nytt når nøkkelen endres. Feil vises i stedet for dataene. */
@@ -47,6 +47,9 @@ export function AdminView(){
   </div>;
   const org = orgs.data.find(o=>o.id===orgId) ?? orgs.data[0];
   const decidable = (requests.data ?? []).filter(r=>r.canDecide);
+  // Venneråd styres av skoleadministrator (eller superadministrator), slik serveren har oppgitt rollen.
+  const tabs = adminTabs.filter(([id])=>id!=='friends' || (org.type==='school' && org.myRole!=='board_admin'));
+  const shownTab:AdminTab = tabs.some(([id])=>id===tab)?tab:'overview';
   return <div className="page">
     <div className="page-head split">
       <div className="grow"><h1>Administrasjon</h1><p className="muted">Rettigheter kontrolleres på nytt for hver serveroperasjon.</p></div>
@@ -55,15 +58,16 @@ export function AdminView(){
     <OrganizationPicker orgs={orgs.data} value={org.id} onChange={setOrgId}/>
     {org.status!=='active'&&<p className="warn-box">{org.name} er deaktivert. Verv, innlegg og historikk er bevart, men ingen kan opptre på vegne av organisasjonen.</p>}
     <div className="segmented wide" role="tablist" aria-label="Administrasjon">
-      {adminTabs.map(([id,label])=><button key={id} role="tab" id={`tab-${id}`} aria-selected={tab===id} aria-controls={`panel-${id}`} className={tab===id?'on':''} onClick={()=>setTab(id)}>
+      {tabs.map(([id,label])=><button key={id} role="tab" id={`tab-${id}`} aria-selected={shownTab===id} aria-controls={`panel-${id}`} className={shownTab===id?'on':''} onClick={()=>setTab(id)}>
         {label}{id==='requests'&&decidable.length?<span className="nav-count" aria-label={`${decidable.length} venter`}>{decidable.length}</span>:null}
       </button>)}
     </div>
-    <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="stack">
-      {tab==='overview'?<Overview key={org.id} org={org} pending={decidable.length} onTab={setTab}/>
-      :tab==='roles'?<Roles key={org.id} org={org} onNotify={notify}/>
-      :tab==='requests'?<Requests requests={requests.data} error={requests.error} onChanged={()=>{ requests.refresh(); orgs.refresh(); }} onNotify={notify}/>
-      :tab==='handover'?<Handover onNotify={notify}/>:tab==='schools'?<Schools onNotify={notify}/>:tab==='moderation'?<Moderation onNotify={notify}/>:<CsvImport onNotify={notify}/>}
+    <div role="tabpanel" id={`panel-${shownTab}`} aria-labelledby={`tab-${shownTab}`} className="stack">
+      {shownTab==='overview'?<Overview key={org.id} org={org} pending={decidable.length} onTab={setTab}/>
+      :shownTab==='roles'?<Roles key={org.id} org={org} onNotify={notify}/>
+      :shownTab==='requests'?<Requests requests={requests.data} error={requests.error} onChanged={()=>{ requests.refresh(); orgs.refresh(); }} onNotify={notify}/>
+      :shownTab==='friends'?<Friends key={org.id} org={org} onNotify={notify}/>
+      :shownTab==='handover'?<Handover onNotify={notify}/>:shownTab==='schools'?<Schools onNotify={notify}/>:shownTab==='moderation'?<Moderation onNotify={notify}/>:<CsvImport onNotify={notify}/>}
     </div>
   </div>;
 }
@@ -101,7 +105,7 @@ function Overview({org,pending,onTab}:{org:AdminOrganization;pending:number;onTa
     <div className="metric-grid">{metrics.map(([n,l,s])=><div className="card metric" key={l}><strong>{n}</strong><span>{l}</span><small>{s}</small></div>)}</div>
     {!!pending&&<div className="row-card"><Status tone="coral">Viktig</Status><span className="grow"><strong>{pending===1?'Én forespørsel':`${pending} forespørsler`} om å bli skoleadministrator</strong><small>Skolene i området venter på svar</small></span><button className="btn small" onClick={()=>onTab('requests')}>Behandle</button></div>}
     <section className="card">
-      <div className="card-head"><div><h2>Revisjonslogg</h2><p className="muted">Alle endringer av verv, rettigheter og forespørsler i {org.name}.</p></div></div>
+      <div className="card-head"><div><h2>Revisjonslogg</h2><p className="muted">Alle endringer av verv, rettigheter, forespørsler, innlegg og venneråd i {org.name}.</p></div></div>
       {audit.error&&<p className="form-error" role="alert">{audit.error}</p>}
       {!audit.data&&!audit.error&&<p className="muted">Henter …</p>}
       {audit.data&&!audit.data.length&&<p className="empty-note">Ingen endringer registrert ennå.</p>}
@@ -111,7 +115,8 @@ function Overview({org,pending,onTab}:{org:AdminOrganization;pending:number;onTa
 }
 
 function AuditRow({entry}:{entry:AuditEntry}){
-  const detail = typeof entry.details.title==='string'?entry.details.title:typeof entry.details.role==='string'?roleLabel[entry.details.role as InternalRole] ?? entry.details.role:'';
+  const detail = typeof entry.details.title==='string'?entry.details.title:typeof entry.details.role==='string'?roleLabel[entry.details.role as InternalRole] ?? entry.details.role
+    :typeof entry.details.school_name==='string'?entry.details.school_name:typeof entry.details.excerpt==='string'?entry.details.excerpt:'';
   return <div className="audit-row"><span aria-hidden="true"/><div>
     <strong>{entry.actorName || 'Systemet'} {auditActionLabel[entry.action] ?? entry.action}{detail?` «${detail}»`:''}{entry.subjectName&&entry.subjectName!==entry.actorName?` · ${entry.subjectName}`:''}</strong>
     <small>{formatRelative(entry.createdAt)}</small>
@@ -256,6 +261,63 @@ function Requests({requests,error,onChanged,onNotify}:{requests:SchoolAdminReque
       <div className="actions"><button className="btn primary" disabled={busy} onClick={()=>void decide(r,true)}>Godkjenn</button><button className="btn" disabled={busy} onClick={()=>void decide(r,false)}>Avslå</button></div>
     </div>)}</div>
   </section>;
+}
+
+/** Venneråd (§7): gjensidig godkjente forbindelser mellom skoler. Innlegg til «Venneråd» når elevene ved vennerådene. */
+function Friends({org,onNotify}:{org:AdminOrganization;onNotify:Notify}){
+  const service = useService();
+  const { organizations } = useApp();
+  const connections = useLoad(()=>service.listFriendConnections(org.id),`friends:${org.id}`);
+  const [query,setQuery] = useState('');
+  const [busy,setBusy] = useState(false);
+  const [error,setError] = useState('');
+  const act = async(work:()=>Promise<unknown>,done:string)=>{
+    setBusy(true); setError('');
+    try { await work(); onNotify(done); connections.refresh(); }
+    catch (e) { setError(errorMessage(e)); }
+    finally { setBusy(false); }
+  };
+  const list = connections.data ?? [];
+  const incoming = list.filter(c=>c.status==='pending' && c.direction==='incoming');
+  const outgoing = list.filter(c=>c.status==='pending' && c.direction==='outgoing');
+  const accepted = list.filter(c=>c.status==='accepted');
+  const taken = new Set(list.map(c=>c.schoolId));
+  const q = query.trim().toLowerCase();
+  const hits = q.length<2?[]:organizations.filter(o=>o.type==='school' && o.status==='active' && o.id!==org.id && !taken.has(o.id)
+    && `${o.name} ${o.schoolName ?? ''} ${o.county}`.toLowerCase().includes(q)).slice(0,8);
+  const row = (c:FriendConnection,actions:React.ReactNode)=><div className="row-card" key={c.id}>
+    <Avatar size="sm" tone="pale" initials={initialsOf(c.schoolName)}/>
+    <span className="grow"><strong>{c.schoolName}</strong><small>{c.county} · {c.status==='accepted'?`venneråd siden ${formatDate(c.approvedAt ?? c.createdAt)}`:`sendt ${formatRelative(c.createdAt)}`}</small></span>
+    {actions}
+  </div>;
+  return <>
+    <section className="card">
+      <div className="card-head"><div><h2>Venneråd</h2><p className="muted">Venneråd er en forbindelse begge skolene har godkjent. Innlegg {org.name} sender til «Venneråd», vises for elevene ved disse skolene.</p></div></div>
+      {(connections.error || error)&&<p className="form-error" role="alert">{connections.error || error}</p>}
+      {!connections.data&&!connections.error&&<p className="muted">Henter …</p>}
+      {!!incoming.length&&<><h3 className="sub-head">Forespørsler til {org.name}</h3><div className="list">{incoming.map(c=>row(c,c.canDecide&&<span className="actions">
+        <button className="btn small primary" disabled={busy} onClick={()=>void act(()=>service.decideFriendRequest({ connectionId:c.id, accept:true }),`${c.schoolName} er nå venneråd`)}>Godta</button>
+        <button className="btn small" disabled={busy} onClick={()=>void act(()=>service.decideFriendRequest({ connectionId:c.id, accept:false }),'Forespørselen er avslått')}>Avslå</button>
+      </span>))}</div></>}
+      {connections.data&&(accepted.length?<div className="list">{accepted.map(c=>row(c,<ConfirmButton label="Avslutt" question={`Avslutte venneråd med ${c.schoolName}?`} confirmLabel="Avslutt venneråd" disabled={busy}
+        onConfirm={()=>void act(()=>service.endFriendConnection(c.id),'Vennerådet er avsluttet')}/>))}</div>
+        :<p className="empty-note">{org.name} har ingen venneråd ennå.</p>)}
+      {!!outgoing.length&&<><h3 className="sub-head">Sendte forespørsler</h3><div className="list">{outgoing.map(c=>row(c,<button className="btn small" disabled={busy}
+        onClick={()=>void act(()=>service.endFriendConnection(c.id),'Forespørselen er trukket tilbake')}>Trekk tilbake</button>))}</div></>}
+    </section>
+    {org.status==='active'&&<section className="card">
+      <div className="card-head"><div><h2>Be om venneråd</h2><p className="muted">Skolen dere spør må godta før forbindelsen gjelder.</p></div></div>
+      <label className="field"><span>Søk etter skole</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Navn eller fylke" autoComplete="off"/></label>
+      <div className="friend-hits">
+        {hits.map(o=><div className="row-card" key={o.id}>
+          <Avatar size="sm" tone="pale" initials={o.initials}/>
+          <span className="grow"><strong>{o.name}</strong><small>{o.county}</small></span>
+          <button className="btn small" disabled={busy} onClick={()=>void act(()=>service.requestFriendSchool({ schoolId:org.id, targetSchoolId:o.id }),`Forespørselen er sendt til ${o.name}`).then(()=>setQuery(''))}>Send forespørsel</button>
+        </div>)}
+        {q.length>=2&&!hits.length&&<p className="empty-note">Fant ingen skoler som kan bli venneråd.</p>}
+      </div>
+    </section>}
+  </>;
 }
 
 function Handover({onNotify}:{onNotify:Notify}){

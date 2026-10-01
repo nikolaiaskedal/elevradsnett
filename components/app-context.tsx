@@ -20,6 +20,9 @@ export type App = {
   toggleFollow:(id:string)=>void; toggleLike:(id:string)=>void; toggleComments:(id:string)=>void;
   setDraft:(id:string,text:string)=>void; sendComment:(id:string)=>void; vote:(postId:string,optionId:string)=>void;
   respond:(eventId:string,response:EventResponse)=>void; share:(post:Post)=>void; report:(post:Post)=>void; openComposer:()=>void;
+  /** Åpner publiseringsdialogen for et publisert innlegg. Vises bare når serveren sier at brukeren kan redigere det (post.canManage). */
+  editPost:(post:Post)=>void;
+  deletePost:(post:Post)=>void;
 };
 
 export const AppContext = createContext<App|null>(null);

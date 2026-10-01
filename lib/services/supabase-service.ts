@@ -1,14 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { audienceLabel, initialsOf } from '@/lib/domain/labels';
 import { formatDayMonth, formatEventSpan, formatRelative } from '@/lib/domain/time';
-import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, CurrentUser, Event, EventCategory, GrantStatus, Message, MyRole, Organization, OrganizationRoleEntry, OrganizationStatus, OrganizationType, Post, PublicOfficer, Representation, SchoolAdminRequest, SchoolHistoryEntry, Session } from '@/lib/domain/types';
-import { assignPublicOfficeSchema, assignRoleSchema, avatarSchema, changeSchoolSchema, commentSchema, decideSchoolAdminRequestSchema, eventResponseInputSchema, idSchema, isoDate, messageSchema, onboardingSchema, publishPostSchema, requestLoginCodeSchema, schoolAdminRequestSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema } from '@/lib/domain/validation';
+import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, CurrentUser, Event, EventCategory, FriendConnection, GrantStatus, Message, MyRole, Organization, OrganizationRoleEntry, OrganizationStatus, OrganizationType, Post, PostDraft, PostRevision, PublicOfficer, Representation, SchoolAdminRequest, SchoolHistoryEntry, SchoolLevelTarget, Session } from '@/lib/domain/types';
+import { assignPublicOfficeSchema, assignRoleSchema, avatarSchema, changeSchoolSchema, commentSchema, decideFriendRequestSchema, decideSchoolAdminRequestSchema, editPostSchema, eventResponseInputSchema, friendRequestSchema, idSchema, isoDate, messageSchema, onboardingSchema, publishPostSchema, requestLoginCodeSchema, saveDraftSchema, schoolAdminRequestSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema } from '@/lib/domain/validation';
 import type { Database } from '@/lib/supabase/database.types';
-import { NotImplementedError, type AddCommentInput, type AssignPublicOfficeInput, type AssignRoleInput, type ChangeSchoolInput, type DecideSchoolAdminRequestInput, type ElevradsnettService, type OnboardingInput, type SchoolAdminRequestInput, type PublishPostInput, type RequestLoginCodeInput, type SendMessageInput, type SetEventResponseInput, type UpdateProfileInput, type VerifyLoginCodeInput, type VoteInput } from './contracts';
+import { NotImplementedError, type AddCommentInput, type AssignPublicOfficeInput, type AssignRoleInput, type ChangeSchoolInput, type DecideFriendRequestInput, type DecideSchoolAdminRequestInput, type EditPostInput, type ElevradsnettService, type FriendRequestInput, type SaveDraftInput, type OnboardingInput, type SchoolAdminRequestInput, type PublishPostInput, type RequestLoginCodeInput, type SendMessageInput, type SetEventResponseInput, type UpdateProfileInput, type VerifyLoginCodeInput, type VoteInput } from './contracts';
 
 type Client = SupabaseClient<Database>;
 type Rpc<Name extends keyof Database['public']['Functions']> = Database['public']['Functions'][Name]['Returns'];
-type PostCardRow = Rpc<'get_post_cards'>[number];
+type PostCardRow = Rpc<'list_post_cards'>[number];
+type DraftRow = Rpc<'list_post_drafts'>[number];
 type OrganizationRow = Rpc<'list_public_organizations'>[number];
 type EventRow = Rpc<'list_public_events'>[number];
 type SessionRow =
@@ -51,6 +52,15 @@ const serverMessages:Record<string,string> = {
   'request outdated':'Søkeren går ikke lenger på skolen, eller skolen er deaktivert. Forespørselen kan bare avslås.',
   'only for own school':'Du kan bare be om å bli administrator for din egen skole.',
   'already administrator':'Du er allerede skoleadministrator.',
+  'invalid post':'Innlegget må ha mellom 1 og 6000 tegn.',
+  'invalid comment':'Kommentaren må ha mellom 1 og 3000 tegn.',
+  'invalid audience':'Denne målgruppen passer ikke for avsenderen.',
+  'invalid school level':'Ugyldig skoleform.',
+  'event not found':'Fant ikke arrangementet, eller det er ikke publisert.',
+
+  'already connected':'Skolene er allerede venneråd.',
+  'request already sent':'Dere har allerede sendt en forespørsel til denne skolen.',
+  'connection not active':'Vennerådet er allerede avsluttet.',
 };
 export function toNorwegianError(error:unknown, fallback = 'Noe gikk galt. Prøv igjen.'):Error {
   if (error instanceof NotImplementedError) return error;
@@ -144,11 +154,11 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
     return rows[0]?toOrganization(rows[0]):null;
   }
   async listFeed(input:{ representationId:string|null; mode:'recommended'|'chronological' }) {
-    const rows = await run((await this.client).rpc('get_post_cards',{ p_representation_id:input.representationId ?? undefined, p_mode:input.mode }),'Kunne ikke hente innleggene.');
+    const rows = await run((await this.client).rpc('list_post_cards',{ p_representation_id:input.representationId ?? undefined, p_mode:input.mode }),'Kunne ikke hente innleggene.');
     return rows.map(toPost);
   }
   async listOrganizationPosts(organizationId:string) {
-    const rows = await run((await this.client).rpc('get_post_cards',{ p_organization:organizationId }),'Kunne ikke hente innleggene.');
+    const rows = await run((await this.client).rpc('list_post_cards',{ p_organization:organizationId }),'Kunne ikke hente innleggene.');
     return rows.map(toPost);
   }
   async listEvents():Promise<Event[]> {
@@ -270,20 +280,60 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
   }
 
   // Innlegg
+  /** Innleggskortet slik serveren viser det etter en endring. */
+  private async card(organizationId:string,postId:string) {
+    const card = (await this.listOrganizationPosts(organizationId)).find(p=>p.id===postId);
+    if (!card) throw new Error('Innlegget er lagret, men kunne ikke vises.');
+    return card;
+  }
+  private async draft(organizationId:string,draftId:string) {
+    const draft = (await this.listDraftsFor(organizationId)).find(d=>d.id===draftId);
+    if (!draft) throw new Error('Utkastet er lagret, men kunne ikke vises.');
+    return draft;
+  }
+  private async listDraftsFor(organizationId:string):Promise<PostDraft[]> {
+    const rows = await run((await this.client).rpc('list_post_drafts',{ p_org:organizationId }),'Kunne ikke hente utkastene.');
+    return rows.map(toDraft);
+  }
   async publishPost(input:PublishPostInput) {
     const parsed = publishPostSchema.parse(input);
     if (parsed.poll || parsed.withImage) throw new NotImplementedError('publishPost med avstemning eller bilde');
-    const organizationId = await this.organizationOf(parsed.representationId);
-    const created = await run((await this.client).rpc('publish_post',{ p_organization_id:organizationId, p_body:parsed.body, p_audience:parsed.audience, p_status:parsed.status }));
-    const card = (await this.listOrganizationPosts(organizationId)).find(p=>p.id===created.id);
-    if (!card) throw new Error('Innlegget er lagret, men kunne ikke vises.');
-    return card;
+    const client = await this.client;
+    const content = { p_body:parsed.body, p_audience:parsed.audience, p_school_level:parsed.schoolLevel, p_event:parsed.eventId, p_publish:true };
+    const saved = parsed.draftId
+      ? await run(client.rpc('update_post',{ p_post:parsed.draftId, ...content }),'Kunne ikke publisere utkastet.')
+      : await run(client.rpc('create_post',{ p_organization:await this.organizationOf(parsed.representationId), ...content }),'Kunne ikke publisere innlegget.');
+    return this.card(saved.organization_id,saved.id);
+  }
+  async saveDraft(input:SaveDraftInput) {
+    const parsed = saveDraftSchema.parse(input);
+    const client = await this.client;
+    const content = { p_body:parsed.body, p_audience:parsed.audience, p_school_level:parsed.schoolLevel, p_event:parsed.eventId, p_publish:false };
+    const saved = parsed.draftId
+      ? await run(client.rpc('update_post',{ p_post:parsed.draftId, ...content }),'Kunne ikke lagre utkastet.')
+      : await run(client.rpc('create_post',{ p_organization:await this.organizationOf(parsed.representationId), ...content }),'Kunne ikke lagre utkastet.');
+    return this.draft(saved.organization_id,saved.id);
+  }
+  async listDrafts(representationId:string) {
+    return this.listDraftsFor(await this.organizationOf(idSchema.parse(representationId)));
+  }
+  async editPost(input:EditPostInput) {
+    const parsed = editPostSchema.parse(input);
+    const saved = await run((await this.client).rpc('update_post',{ p_post:parsed.postId, p_body:parsed.body, p_audience:parsed.audience, p_school_level:parsed.schoolLevel, p_event:parsed.eventId }),'Kunne ikke lagre endringene.');
+    return this.card(saved.organization_id,saved.id);
+  }
+  async deletePost(postId:string) {
+    await run((await this.client).rpc('delete_post',{ p_post:idSchema.parse(postId) }),'Kunne ikke slette innlegget.');
+  }
+  async listPostHistory(postId:string):Promise<PostRevision[]> {
+    const rows = await run((await this.client).rpc('get_post_history',{ p_post:idSchema.parse(postId) }),'Kunne ikke hente endringshistorikken.');
+    return rows.map(r=>({ id:r.id, body:r.body, audience:r.audience, schoolLevel:r.school_level as SchoolLevelTarget, editedByName:r.edited_by_name ?? '', createdAt:r.created_at }));
   }
   async addComment(input:AddCommentInput):Promise<Comment> {
     const parsed = commentSchema.parse(input);
     const organizationId = await this.organizationOf(parsed.representationId);
     const row = await run((await this.client).rpc('add_comment',{ p_post:parsed.postId, p_organization:organizationId, p_body:parsed.body }));
-    return { id:row.id, organizationId, organizationName:'', actorName:'', createdAt:formatRelative(row.created_at), body:parsed.body };
+    return { id:row.id, organizationId, organizationName:'', actorName:'', createdAt:formatRelative(row.created_at), body:row.body };
   }
   async setPostSupport():Promise<void> { throw new NotImplementedError('setPostSupport'); }
   async vote(input:VoteInput) {
@@ -292,6 +342,24 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
     await run((await this.client).rpc('cast_organization_vote',{ p_poll_id:poll.id, p_option_id:parsed.optionId, p_organization_id:parsed.organizationId }));
   }
   async reportPost():Promise<void> { throw new NotImplementedError('reportPost'); }
+
+  // Venneråd
+  async listFriendConnections(schoolId:string):Promise<FriendConnection[]> {
+    const rows = await run((await this.client).rpc('list_friend_connections',{ p_school:idSchema.parse(schoolId) }),'Kunne ikke hente vennerådene.');
+    return rows.map(r=>({ id:r.id, schoolId:r.school_id, schoolName:r.school_name, county:r.county, status:r.status as FriendConnection['status'],
+      direction:r.direction as FriendConnection['direction'], createdAt:r.created_at, approvedAt:r.approved_at ?? undefined, canDecide:r.can_decide }));
+  }
+  async requestFriendSchool(input:FriendRequestInput) {
+    const parsed = friendRequestSchema.parse(input);
+    await run((await this.client).rpc('request_friend_school',{ p_school:parsed.schoolId, p_target:parsed.targetSchoolId }),'Kunne ikke sende forespørselen.');
+  }
+  async decideFriendRequest(input:DecideFriendRequestInput) {
+    const parsed = decideFriendRequestSchema.parse(input);
+    await run((await this.client).rpc('decide_friend_request',{ p_connection:parsed.connectionId, p_accept:parsed.accept }),'Kunne ikke svare på forespørselen.');
+  }
+  async endFriendConnection(connectionId:string) {
+    await run((await this.client).rpc('end_friend_connection',{ p_connection:idSchema.parse(connectionId) }),'Kunne ikke avslutte vennerådet.');
+  }
 
   // Organisasjoner og arrangementer
   async setFollow():Promise<void> { throw new NotImplementedError('setFollow'); }
@@ -327,12 +395,18 @@ function toPost(r:PostCardRow):Post {
   return {
     id:r.id, organizationId:r.organization_id, organizationName:r.organization_name, initials:initialsOf(r.organization_name),
     actorName:r.actor_name ?? '', actorRole:r.actor_title ?? '', createdAt:formatRelative(r.published_at), body:r.body, audience:r.audience,
+    schoolLevel:r.school_level as SchoolLevelTarget, eventId:r.event_id ?? undefined, canManage:r.can_manage,
     priority:r.priority, edited:r.edited,
     // Kortet legger til egen støtte selv, så tallet her er de andres.
     likes:r.support_count-(r.supported?1:0), supported:r.supported, comments:r.comment_count,
     commentItems:comments.map(c=>({ id:c.id, organizationId:c.organization_id, organizationName:c.organization_name, actorName:'', createdAt:formatRelative(c.created_at), body:c.body })),
     poll:poll?{ question:poll.question, closesAt:poll.closes_at?formatDayMonth(poll.closes_at):'ingen frist', resultsVisibility:poll.results_visibility, options:poll.options ?? [] }:undefined,
   };
+}
+
+function toDraft(r:DraftRow):PostDraft {
+  return { id:r.id, organizationId:r.organization_id, body:r.body, audience:r.audience, schoolLevel:r.school_level as SchoolLevelTarget, eventId:r.event_id ?? undefined,
+    updatedAt:r.updated_at, actorName:r.actor_name ?? '' };
 }
 
 const categories:EventCategory[] = ['landsmote','kurs','samling','mote','digitalt','annet'];

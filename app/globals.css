@@ -600,3 +600,25 @@ p { margin: 0; }
   .rep-switch-button { padding-right: 6px; gap: 6px; }
 }
 .card .card-head h2 + .muted { margin-top: 3px; }
+
+/* ---------- Innlegg: utkast, forhåndsvisning og historikk ---------- */
+.publisher .grow { min-width: 0; }
+.composer-note { line-height: 1.5; }
+.composer-preview { border: 1px dashed var(--navy-200); border-radius: 9px; padding: 8px; background: var(--soft); }
+.composer-preview .post { margin: 0; }
+.composer-buttons { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+.draft-row { flex-wrap: wrap; }
+.draft-row .grow { min-width: 0; flex: 1 1 180px; }
+.draft-row .grow strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu button.danger-item { color: var(--accent); }
+.revision { border: 1px solid var(--navy-100); border-radius: 9px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.revision-meta { color: var(--navy-300); line-height: 1.5; }
+.revision-meta strong { color: var(--navy); font-weight: 600; }
+.revision-body { white-space: pre-wrap; line-height: 1.6; overflow-wrap: anywhere; }
+.friend-hits { display: flex; flex-direction: column; gap: 6px; }
+.sub-head { font-size: inherit; font-weight: 600; margin: 6px 0 0; }
+.friend-hits .row-card, .card .list .row-card { flex-wrap: wrap; }
+@media (max-width: 480px) {
+  .composer-buttons { width: 100%; }
+  .composer-buttons .btn { flex: 1 1 auto; }
+}

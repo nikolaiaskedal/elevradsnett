@@ -56,33 +56,76 @@ describe('DemoElevradsnettService: lesing',()=>{
 
 describe('DemoElevradsnettService: innlegg',()=>{
   it('publiserer innlegg øverst i feeden som aktiv representasjon',async()=>{
-    const post = await service.publishPost({ representationId:'rep-school', body:'  Hei fra elevrådet  ', audience:'public', status:'published' });
+    const post = await service.publishPost({ representationId:'rep-school', body:'  Hei fra elevrådet  ', audience:'public' });
     expect(post).toMatchObject({ organizationId:'elvebakken', organizationName:'Elvebakken vgs elevråd', actorName:'Ida Halvorsen', body:'Hei fra elevrådet', likes:0, comments:0 });
     const feed = await service.listFeed({ representationId:'rep-school', mode:'chronological' });
     expect(feed[0].id).toBe(post.id);
   });
   it('lager avstemning og bilde når det er valgt',async()=>{
-    const post = await service.publishPost({ representationId:'rep-school', body:'Hva mener dere?\nMer tekst', audience:'county', status:'published', poll:{ options:['Ja','Nei'] }, withImage:true });
+    const post = await service.publishPost({ representationId:'rep-school', body:'Hva mener dere?\nMer tekst', audience:'county', poll:{ options:['Ja','Nei'] }, withImage:true });
     expect(post.poll?.question).toBe('Hva mener dere?');
     expect(post.poll?.options.map(o=>o.label)).toEqual(['Ja','Nei']);
     expect(post.media).toHaveLength(1);
   });
-  it('legger ikke utkast i feeden',async()=>{
+  it('lagrer utkast utenfor feeden, og publiserer dem senere',async()=>{
     const before = (await service.listFeed({ representationId:'rep-school', mode:'chronological' })).length;
-    await service.publishPost({ representationId:'rep-school', body:'Utkast', audience:'public', status:'draft' });
+    const draft = await service.saveDraft({ representationId:'rep-school', body:'Utkast <b>her</b>', audience:'friends' });
+    expect(draft).toMatchObject({ organizationId:'elvebakken', body:'Utkast her', audience:'friends', schoolLevel:'both', actorName:'Ida Halvorsen' });
     expect(await service.listFeed({ representationId:'rep-school', mode:'chronological' })).toHaveLength(before);
+    expect((await service.listDrafts('rep-school')).map(d=>d.id)).toContain(draft.id);
+    const updated = await service.saveDraft({ representationId:'rep-school', draftId:draft.id, body:'Utkast to', audience:'friends' });
+    expect(updated.id).toBe(draft.id);
+    const post = await service.publishPost({ representationId:'rep-school', draftId:draft.id, body:'Ferdig', audience:'friends', schoolLevel:'upper_secondary', eventId:'fylkessamling' });
+    expect(post).toMatchObject({ id:draft.id, body:'Ferdig', audience:'friends', schoolLevel:'upper_secondary', eventId:'fylkessamling', canManage:true });
+    expect((await service.listDrafts('rep-school')).map(d=>d.id)).not.toContain(draft.id);
+    await expect(service.listDrafts('rep-county')).resolves.toBeDefined();
+  });
+  it('sjekker målgruppe og arrangement som serveren',async()=>{
+    await expect(service.publishPost({ representationId:'rep-county', body:'Hei', audience:'friends' })).rejects.toThrow('målgruppen passer ikke');
+    await expect(service.publishPost({ representationId:'rep-school', body:'Hei', audience:'public', eventId:'finnes-ikke' })).rejects.toThrow('arrangementet');
+  });
+  it('renser HTML og styretegn før lagring',async()=>{
+    const post = await service.publishPost({ representationId:'rep-school', body:'<script>alert(1)</script>Hei\u0007 <b>alle</b>', audience:'public' });
+    expect(post.body).toBe('alert(1)Hei alle');
+    await expect(service.publishPost({ representationId:'rep-school', body:'<b></b>', audience:'public' })).rejects.toThrow('Skriv noe');
+  });
+  it('redigerer med historikk og merker innlegget som redigert',async()=>{
+    const post = await service.publishPost({ representationId:'rep-school', body:'Første versjon', audience:'public' });
+    const edited = await service.editPost({ postId:post.id, body:'Andre versjon', audience:'county' });
+    expect(edited).toMatchObject({ body:'Andre versjon', audience:'county', edited:true });
+    expect(await service.listPostHistory(post.id)).toMatchObject([{ body:'Første versjon', audience:'public', editedByName:'Ida Halvorsen' }]);
+    expect((await service.listPostHistory('post-4'))[0].body).toContain('60 elever');
+  });
+  it('lar bare dem med publiseringsrett redigere, slette og se historikk',async()=>{
+    const feed = await service.listFeed({ representationId:'rep-school', mode:'chronological' });
+    expect(feed.find(p=>p.id==='post-4')?.canManage).toBe(true);
+    expect(feed.find(p=>p.id==='post-1')?.canManage).toBe(false);
+    await expect(service.editPost({ postId:'post-1', body:'Kapret', audience:'public' })).rejects.toThrow('tilgang');
+    await expect(service.deletePost('post-1')).rejects.toThrow('tilgang');
+    await expect(service.listPostHistory('post-1')).rejects.toThrow('tilgang');
+    await service.deletePost('post-4');
+    expect((await service.listFeed({ representationId:'rep-school', mode:'chronological' })).some(p=>p.id==='post-4')).toBe(false);
+  });
+  it('viser venneråd-innlegg bare for vennerådene, og avgrenser målgrupper',async()=>{
+    // Kuben og Elvebakken er venneråd i demoen.
+    expect((await service.listFeed({ representationId:'rep-school', mode:'chronological' })).some(p=>p.id==='post-8')).toBe(true);
+    const connection = (await service.listFriendConnections('elvebakken')).find(c=>c.schoolId==='kuben')!;
+    await service.endFriendConnection(connection.id);
+    expect((await service.listFeed({ representationId:'rep-school', mode:'chronological' })).some(p=>p.id==='post-8')).toBe(false);
+    const anon = new DemoElevradsnettService({ signedIn:false });
+    expect((await anon.listOrganizationPosts('kuben')).some(p=>p.id==='post-8')).toBe(false);
   });
   it('validerer innlegg med de delte skjemaene',async()=>{
-    await expect(service.publishPost({ representationId:'rep-school', body:'   ', audience:'public', status:'published' })).rejects.toThrow('Skriv noe før du publiserer');
-    await expect(service.publishPost({ representationId:'rep-school', body:'x'.repeat(6001), audience:'public', status:'published' })).rejects.toThrow();
-    await expect(service.publishPost({ representationId:'rep-school', body:'Poll', audience:'public', status:'published', poll:{ options:['Bare én'] } })).rejects.toThrow('minst to svaralternativer');
+    await expect(service.publishPost({ representationId:'rep-school', body:'   ', audience:'public' })).rejects.toThrow('Skriv noe før du publiserer');
+    await expect(service.publishPost({ representationId:'rep-school', body:'x'.repeat(6001), audience:'public' })).rejects.toThrow();
+    await expect(service.publishPost({ representationId:'rep-school', body:'Poll', audience:'public', poll:{ options:['Bare én'] } })).rejects.toThrow('minst to svaralternativer');
   });
   it('avviser publisering fra representasjon uten publiseringsrett',async()=>{
     // Lokallaget gir bare rett via fylkesstyreregelen, som faller bort når Ida bytter til en skole i et annet lokallag.
     await service.assignRole({ organizationId:'elvebakken', userId:await personId('Sivert'), role:'school_admin' });
     await service.changeSchool({ schoolId:'kuben' });
     expect(signedIn(await service.getSession()).representations.find(r=>r.id==='rep-local')?.canPublish).toBe(false);
-    await expect(service.publishPost({ representationId:'rep-local', body:'Hei', audience:'public', status:'published' })).rejects.toThrow('publiseringsrett');
+    await expect(service.publishPost({ representationId:'rep-local', body:'Hei', audience:'public' })).rejects.toThrow('publiseringsrett');
   });
   it('legger til kommentar og øker telleren',async()=>{
     const comment = await service.addComment({ postId:'post-7', representationId:'rep-county', body:'Bra jobba!' });
@@ -115,6 +158,29 @@ describe('DemoElevradsnettService: innlegg',()=>{
   it('tar imot rapport på kjente innlegg',async()=>{
     await expect(service.reportPost({ postId:'post-2' })).resolves.toBeUndefined();
     await expect(service.reportPost({ postId:'finnes-ikke' })).rejects.toThrow('Ukjent innlegg');
+  });
+});
+
+describe('DemoElevradsnettService: venneråd',()=>{
+  it('viser forespørsler og godkjente venneråd sett fra skolen',async()=>{
+    const list = await service.listFriendConnections('elvebakken');
+    expect(list.map(c=>[c.schoolId,c.status,c.direction,c.canDecide])).toEqual([['hartvig','pending','incoming',true],['kuben','accepted','incoming',false]]);
+  });
+  it('godtar, avslår og ber om venneråd, og logger det',async()=>{
+    const pending = (await service.listFriendConnections('elvebakken')).find(c=>c.status==='pending')!;
+    await service.decideFriendRequest({ connectionId:pending.id, accept:true });
+    await expect(service.decideFriendRequest({ connectionId:pending.id, accept:true })).rejects.toThrow('allerede behandlet');
+    await service.requestFriendSchool({ schoolId:'elvebakken', targetSchoolId:'ohg' });
+    await expect(service.requestFriendSchool({ schoolId:'elvebakken', targetSchoolId:'ohg' })).rejects.toThrow('allerede sendt');
+    await expect(service.requestFriendSchool({ schoolId:'elvebakken', targetSchoolId:'kuben' })).rejects.toThrow('allerede venneråd');
+    await expect(service.requestFriendSchool({ schoolId:'elvebakken', targetSchoolId:'elvebakken' })).rejects.toThrow('Fant ikke skolen');
+    const list = await service.listFriendConnections('elvebakken');
+    expect(list.find(c=>c.schoolId==='ohg')).toMatchObject({ status:'pending', direction:'outgoing', canDecide:false });
+    expect((await service.listAuditLog('elvebakken')).map(a=>a.action)).toEqual(expect.arrayContaining(['friend.accepted','friend.requested']));
+  });
+  it('krever skoleadministrator for skolen',async()=>{
+    await expect(service.listFriendConnections('kuben')).rejects.toThrow('tilgang');
+    await expect(service.requestFriendSchool({ schoolId:'kuben', targetSchoolId:'ohg' })).rejects.toThrow('tilgang');
   });
 });
 

@@ -53,7 +53,7 @@ export default function ElevradsnettApp() {
   const [conversations,setConversations] = useState<Conversation[]>([]);
   const [conversationsError,setConversationsError] = useState('');
   const [conversationId,setConversationId] = useState('');
-  const [composerOpen,setComposerOpen] = useState(false);
+  const [composer,setComposer] = useState<{ open:boolean; editing:Post|null }>({ open:false, editing:null });
   const [login,setLogin] = useState<LoginRequest|null>(null);
   const [toast,setToast] = useState('');
   const pending = useRef<((app:App)=>void)|null>(null);
@@ -139,7 +139,7 @@ export default function ElevradsnettApp() {
       await context.registerTool({ name:'navigate_elevradsnett', title:'Åpne side', description:'Åpner en hovedside i Elevrådsnett.', inputSchema:{ type:'object', properties:{ view:{ type:'string', enum:Object.keys(views) } }, required:['view'], additionalProperties:false }, annotations:{ readOnlyHint:true, untrustedContentHint:false },
         execute:input=>{ const value=(input as { view?:string }).view ?? ''; if (!views[value]) throw new Error('Ugyldig side'); go(views[value]); return { view:value }; } },{ signal:lifecycle.signal });
       if (activeRep) await context.registerTool({ name:'start_post_creation', title:'Start nytt innlegg', description:'Åpner publiseringsdialogen for aktiv representasjon.', inputSchema:{ type:'object', properties:{}, additionalProperties:false }, annotations:{ readOnlyHint:false, untrustedContentHint:false },
-        execute:()=>{ if (!activeRep.canPublish) throw new Error('Aktiv representasjon har ikke publiseringsrett'); setComposerOpen(true); return { organization:activeRep.name, status:'composer_open' }; } },{ signal:lifecycle.signal });
+        execute:()=>{ if (!activeRep.canPublish) throw new Error('Aktiv representasjon har ikke publiseringsrett'); setComposer({ open:true, editing:null }); return { organization:activeRep.name, status:'composer_open' }; } },{ signal:lifecycle.signal });
     };
     void run().catch(()=>{});
     return ()=>lifecycle.abort();
@@ -244,7 +244,11 @@ export default function ElevradsnettApp() {
       },
       openComposer:()=>{
         if (needLogin('Logg inn for å publisere for elevrådet ditt.',a=>a.openComposer())) return;
-        if (needRep('publisere innlegg')) setComposerOpen(true);
+        if (needRep('publisere innlegg')) setComposer({ open:true, editing:null });
+      },
+      editPost:post=>setComposer({ open:true, editing:post }),
+      deletePost:post=>{
+        service.deletePost(post.id).then(()=>{ setPosts(all=>all.filter(p=>p.id!==post.id)); notify('Innlegget er slettet'); }).catch(fail);
       },
     };
     const openConversationWith = (o:Organization)=>{
@@ -286,7 +290,9 @@ export default function ElevradsnettApp() {
     then(appRef.current);
   });
 
-  const publish = (post:Post)=>{ setPosts(all=>[post,...all]); setComposerOpen(false); go({ view:'feed' }); notify(`Publisert som ${activeRep?.name ?? ''}`); };
+  const closeComposer = ()=>setComposer(c=>({ ...c, open:false }));
+  const publish = (post:Post)=>{ setPosts(all=>[post,...all.filter(p=>p.id!==post.id)]); closeComposer(); go({ view:'feed' }); notify(`Publisert som ${post.organizationName}`); };
+  const edited = (post:Post)=>{ setPosts(all=>all.map(p=>p.id===post.id?post:p)); setComposer({ open:false, editing:null }); notify('Endringene er lagret'); };
 
   return <AppContext.Provider value={app}>
     <div className="app-shell">
@@ -314,7 +320,7 @@ export default function ElevradsnettApp() {
           <span>© 2026 Elevorganisasjonen</span>
         </div>
       </footer>
-      {app&&activeRep&&<Composer open={composerOpen} onClose={()=>setComposerOpen(false)} onPublish={publish}/>}
+      {app&&(activeRep||composer.editing)&&<Composer key={composer.editing?.id ?? 'nytt'} open={composer.open} editing={composer.editing} onClose={closeComposer} onPublished={publish} onEdited={edited}/>}
       <LoginDialog open={!!login} reason={login?.reason} schools={schools} onClose={()=>{ setLogin(null); pending.current=null; reload(); }} onDone={signedInDone}/>
       {toast&&<div className="toast" role="status">{toast}</div>}
     </div>

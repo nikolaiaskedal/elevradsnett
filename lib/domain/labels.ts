@@ -1,4 +1,4 @@
-import type { Audience, InternalRole, Organization, OrganizationType } from './types';
+import type { Audience, InternalRole, Organization, OrganizationType, SchoolLevelTarget } from './types';
 
 // Norske visningsnavn som deles av web og mobil.
 export const kindLabel:Record<OrganizationType,string> = { national:'Nasjonalt', county_board:'Fylkeslag', local_board:'Lokallag', school:'Elevråd' };
@@ -8,6 +8,8 @@ export const orgSub = (o:Organization)=>o.type==='national'?'Nasjonalt':`${o.cou
 export const initialsOf = (name:string)=>name.trim().split(/\s+/).slice(0,2).map(w=>w[0]?.toUpperCase() ?? '').join('');
 
 export const audienceLabel:Record<Audience,string> = { public:'Alle elevråd', county:'Elevråd i fylket', local:'Elevråd i lokallaget', friends:'Venneråd' };
+
+export const schoolLevelLabel:Record<SchoolLevelTarget,string> = { both:'Vgs og ungdomsskole', upper_secondary:'Videregående', lower_secondary:'Ungdomsskole' };
 
 export const roleLabel:Record<InternalRole,string> = { super_admin:'Superadministrator', board_admin:'Styreadministrator', school_admin:'Skoleadministrator', content_manager:'Innholdsansvarlig' };
 
@@ -26,6 +28,8 @@ export const auditActionLabel:Record<string,string> = {
   'school_admin.requested':'ba om å bli skoleadministrator', 'school_admin.approved':'godkjente skoleadministrator',
   'school_admin.rejected':'avslo skoleadministrator', 'school_admin.cancelled':'trakk forespørsel om skoleadministrator',
   'profile.onboarded':'ble med i Elevrådsnett', 'profile.school_changed':'byttet skole',
-  'post.created':'publiserte innlegg', 'post.edited':'redigerte innlegg',
+  'post.created':'publiserte innlegg', 'post.edited':'redigerte innlegg', 'post.published':'publiserte et utkast', 'post.drafted':'lagret et utkast',
+  'post.deleted':'slettet innlegg', 'post.draft_deleted':'slettet et utkast',
+  'friend.requested':'ba om venneråd med', 'friend.accepted':'godkjente venneråd med', 'friend.rejected':'avslo venneråd med', 'friend.ended':'avsluttet venneråd med',
   'event.response':'svarte på arrangement', 'school.deactivated':'deaktiverte skolen',
 };
