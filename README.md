@@ -4,31 +4,64 @@ Elevrådsnett er en sosial plattform for skoler, fylkesstyrer, lokallagsstyrer o
 
 ## Arkitektur
 
-- `app/` og `components/`: tilgjengelig og responsivt webgrensesnitt.
-- `lib/domain/`: delte typer, autorisasjonsregler og dokumentert feedrangering.
-- `lib/services/`: API-kontrakt som kan gjenbrukes av iOS og Android.
+Appen er en ren Vite + React SPA med hash-routing (`#/utforsk`, `#/org/<id>` osv.), så den kan serveres som statiske filer uten omskrivinger på serveren.
+
+- `index.html` og `app/`: inngangspunkt (`app/main.tsx`), globale stiler (`app/globals.css`) og fonter (`app/fonts/`).
+- `components/elevradsnett-app.tsx`: appskallet (meny, routing, felles tilstand).
+- `components/views/`: én fil per visning (hjem, utforsk, arrangementer, organisasjon, meldinger, profil, innlogging, administrasjon, informasjon).
+- `components/shared/`: felles komponenter (innleggskort, innleggsdialog, knapper, ikoner, modal).
+- `components/service-provider.tsx`: `ServiceProvider` og `useService()`. Komponenter henter og endrer data bare gjennom tjenesten.
+- `lib/domain/`: delte typer, valideringsskjemaer (zod), visningsnavn, autorisasjonsregler og dokumentert feedrangering. Kan gjenbrukes av iOS og Android.
+- `lib/services/`: tjenestekontrakten `ElevradsnettService`, `DemoElevradsnettService` (minnedata fra `lib/demo-data.ts`) og `SupabaseElevradsnettService`.
 - `lib/supabase/`: vanlig Supabase-klient. Ingen hemmelige nøkler sendes til nettleseren.
 - `supabase/migrations/`: versjonert PostgreSQL-modell, RLS, Storage-regler og transaksjonssikre funksjoner.
 - `supabase/functions/`: serverfunksjoner for filvalidering og videre mediebehandling.
 - `supabase/tests/`: sikkerhets- og invariantsjekker.
 
-Designet grensesnittet følger ligger i `docs/design/elevradsnett.dc.html`. Kravspesifikasjonen ligger i `docs/KRAVSPEC.md`, og rekkefølgen arbeidet gjøres i står i `docs/PROMPTPLAN.md`.
+Designet grensesnittet følger ligger i `docs/design/elevradsnett.dc.html`. Kravspesifikasjonen ligger i `docs/KRAVSPEC.md`, rekkefølgen arbeidet gjøres i står i `docs/PROMPTPLAN.md`, og `docs/FUNKSJONSKART.md` viser status for hver knapp og kontroll.
 
-Demoen i grensesnittet bruker minnedata (`lib/demo-data.ts`, typet mot `lib/domain/types.ts`) slik at alle flyter kan prøves uten en tilkoblet Supabase-instans. Produksjonsadapteren ligger bak samme tjenestekontrakt.
+### Demo eller Supabase
+
+`createService()` velger `SupabaseElevradsnettService` når både `VITE_SUPABASE_URL` og `VITE_SUPABASE_ANON_KEY` er satt, og ellers `DemoElevradsnettService`. Demoen bruker minnedata, slik at alle flyter kan prøves uten en tilkoblet Supabase-instans. Metoder som ennå ikke har en RPC i Supabase kaster `NotImplementedError` med navnet på operasjonen.
 
 ## Lokalt oppsett
 
 1. Installer Node.js 22.13 eller nyere og kjør `npm install`.
-2. Kopier `.env.example` til `.env.local` og fyll inn prosjektets offentlige Supabase URL og anon-nøkkel. Service role-nøkkelen skal bare finnes i servermiljøet.
-3. Knytt Supabase CLI til et eget prosjekt og kjør `supabase db push`.
-4. Last demodata med `supabase db reset` bare i lokalt miljø.
-5. Start med `npm run dev`.
+2. Start demoen med `npm run dev`. Uten miljøvariabler brukes demodata.
+3. For Supabase: kopier `.env.example` til `.env.local` og fyll inn prosjektets offentlige `VITE_SUPABASE_URL` og `VITE_SUPABASE_ANON_KEY`. Service role-nøkkelen skal bare finnes i servermiljøet og skal aldri ha `VITE_`-prefiks.
+4. Knytt Supabase CLI til et eget prosjekt og kjør `supabase db push`.
+5. Last demodata med `supabase db reset` bare i lokalt miljø.
 
-## Prototype på GitHub Pages
+| Kommando | Hva den gjør |
+| --- | --- |
+| `npm run dev` | Utviklingsserver med hot reload |
+| `npm run build` | Produksjonsbygg til `dist/` |
+| `npm run preview` | Server `dist/` lokalt |
+| `npm run lint` | oxlint |
+| `npm run typecheck` | TypeScript uten utdata |
+| `npm test` | Vitest |
 
-`npm run build:pages` bygger appen som en statisk side til `dist-pages/` (se `vite.pages.config.ts` og `github-pages/`). Navigasjon bruker `#/`-lenker, så siden trenger ingen serveroppsett. Workflowen `.github/workflows/static.yml` bygger og publiserer ved push til `main`. I repoets innstillinger må *Settings → Pages → Source* være satt til *GitHub Actions*.
+CI (`.github/workflows/ci.yml`) kjører lint, typecheck, test og bygg på alle pull requests.
 
-Prøv lokalt med `npm run build:pages && npm run preview:pages`.
+## Publisering
+
+### GitHub Pages (piloten)
+
+Workflowen `.github/workflows/static.yml` kjører test og `npm run build` og publiserer `dist/` til GitHub Pages ved hver merge til `main`. I repoets innstillinger må *Settings → Pages → Source* være satt til *GitHub Actions*. Når Supabase-prosjektet finnes, legges `VITE_SUPABASE_URL` og `VITE_SUPABASE_ANON_KEY` inn som Actions-variabler (*Settings → Secrets and variables → Actions → Variables*); uten dem bygges demoen. Navigasjonen skjer i `#/`-delen av adressen, så siden trenger ingen omskrivinger på serveren.
+
+GitHub Pages kan ikke sette egne HTTP-headere. Når domenet er på plass, legges Cloudflare sin gratis proxy foran for sikkerhetsheadere (se `docs/PROMPTPLAN.md`).
+
+### Cloudflare Pages (før full lansering)
+
+`public/_headers` er klargjort for Cloudflare Pages og gir sikkerhetsheadere (CSP, `X-Frame-Options`, `Referrer-Policy` m.m.), `no-cache` på `index.html` og lang cache på hashede filer i `/assets/`. GitHub Pages ignorerer filen. Slik kobles repoet til når det er aktuelt:
+
+1. I Cloudflare-dashbordet: *Workers & Pages → Create → Pages → Connect to Git*, og velg `nikolaiaskedal/elevradsnett`.
+2. Produksjonsgren: `main`.
+3. Byggeinnstillinger: *Framework preset* `None` (eller `Vite`), *Build command* `npm run build`, *Build output directory* `dist`.
+4. Under *Settings → Variables and Secrets*: sett `NODE_VERSION` til `22`, og legg til `VITE_SUPABASE_URL` og `VITE_SUPABASE_ANON_KEY`. Variablene bakes inn ved bygg.
+5. Hver pull request får da en forhåndsvisning på en egen `*.pages.dev`-adresse.
+
+Uten `404.html` svarer Cloudflare Pages med `index.html` på ukjente stier. Legges en ny ekstern tjeneste til, må `Content-Security-Policy` i `_headers` utvides.
 
 ## Produksjonsoppsett
 

@@ -1,14 +1,46 @@
-import type { Audience, Comment, EventResponse, Post, PublicOfficer, Representation } from '@/lib/domain/types';
+import type { Comment, Conversation, Event, Message, Organization, Post, PublicOfficer, Session } from '@/lib/domain/types';
+import type { AddCommentInput, OnboardingInput, PublishPostInput, SendMessageInput, SetEventResponseInput, VoteInput } from '@/lib/domain/validation';
 
-export type PublishPostInput = { representation:Representation; body:string; audience:Audience; status:'draft'|'published'; actorUserId:string };
+export type { AddCommentInput, OnboardingInput, PublishPostInput, SendMessageInput, SetEventResponseInput, VoteInput };
+
+/**
+ * Alt grensesnittet leser og gjør. Samme kontrakt skal kunne brukes av iOS og Android.
+ * Tilgang avgjøres alltid på serveren (RLS og RPC-er), aldri i klienten.
+ */
 export interface ElevradsnettService {
+  // Lesing
+  getSession():Promise<Session>;
+  listOrganizations():Promise<Organization[]>;
   listFeed(input:{ representationId:string; mode:'recommended'|'chronological' }):Promise<Post[]>;
-  publishPost(input:PublishPostInput):Promise<Post>;
-  switchRepresentation(representationId:string):Promise<void>;
-  vote(input:{ pollId:string; optionId:string; organizationId:string }):Promise<void>;
-  sendMessage(input:{ conversationId:string; body:string }):Promise<void>;
-  addComment(input:{ postId:string; representation:Representation; body:string }):Promise<Comment>;
-  setEventResponse(input:{ eventId:string; organizationId:string; response:EventResponse|null }):Promise<void>;
+  listEvents():Promise<Event[]>;
+  listConversations():Promise<Conversation[]>;
   listPublicOfficers(organizationId:string):Promise<PublicOfficer[]>;
-  completeOnboarding(input:{ schoolId:string; displayName:string; leaderMonth?:number }):Promise<void>;
+
+  // Representasjon og innlogging
+  switchRepresentation(representationId:string):Promise<void>;
+  completeOnboarding(input:OnboardingInput):Promise<void>;
+
+  // Innlegg
+  publishPost(input:PublishPostInput):Promise<Post>;
+  addComment(input:AddCommentInput):Promise<Comment>;
+  setPostSupport(input:{ postId:string; supported:boolean }):Promise<void>;
+  vote(input:VoteInput):Promise<void>;
+  reportPost(input:{ postId:string }):Promise<void>;
+
+  // Organisasjoner og arrangementer
+  setFollow(input:{ organizationId:string; following:boolean }):Promise<void>;
+  setEventResponse(input:SetEventResponseInput):Promise<void>;
+
+  // Meldinger
+  openConversation(input:{ organizationId:string }):Promise<Conversation>;
+  sendMessage(input:SendMessageInput):Promise<Message>;
+  markConversationRead(conversationId:string):Promise<void>;
+}
+
+/** Kastes av adaptere for operasjoner som ennå ikke har en RPC på serveren. */
+export class NotImplementedError extends Error {
+  constructor(operation:string) {
+    super(`«${operation}» er ikke koblet til Supabase ennå: RPC mangler.`);
+    this.name = 'NotImplementedError';
+  }
 }
