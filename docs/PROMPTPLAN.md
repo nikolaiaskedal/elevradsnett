@@ -2,20 +2,36 @@
 
 Planen deler `docs/KRAVSPEC.md` inn i prompter som sendes én om gangen, hver i en egen økt. Hver prompt avsluttes med at endringene merges til `main` (se `CLAUDE.md`) før neste prompt sendes. Punktnumre (§) viser til kravspesifikasjonen.
 
-## Utgangspunkt (oktober 2026)
+## Status
 
-- Frontend: en klikkbar prototype med demodata. Alle hovedsidene i designet finnes, men samlet i én stor fil (`components/elevradsnett-app.tsx`).
-- Tjenestelaget (`lib/services/`) finnes, men brukes ikke av grensesnittet.
-- Databasen: migrasjonene i `supabase/migrations/` dekker alle tabellene i §18, med RLS og de fleste transaksjonsfunksjonene. De er ikke kjørt mot noe Supabase-prosjekt ennå.
-- Dette mangler i databasen:
-  - målgruppe etter skoleform på innlegg
-  - endringshistorikk for innlegg
-  - blokkering i meldinger
-  - forespørsel om å bli skoleadministrator
-  - forespørsler om eksport og sletting av egne data
-  - regelen om at fylkesstyreadministrator også får rettigheter i eget lokallag
-  - sanntid
-  - søk
+| Prompt | Status | Merget |
+|---|---|---|
+| 1. Fundament | Ferdig | PR #3, #4 |
+| 2. Datamodell og Supabase-prosjekt | Ferdig, med to manuelle steg (se under) | PR #7, #10 |
+| 3. Innlogging, profiler og offentlig lesing | Neste | – |
+
+Neste prompt som skal sendes er **prompt 3**.
+
+## Utgangspunkt etter prompt 2 (1. oktober 2026)
+
+- Frontend: Vite + React SPA med én fil per visning i `components/views/`, og et tjenestelag med `DemoElevradsnettService` og `SupabaseElevradsnettService`. Appen kjører fortsatt på demodata.
+- Databasen: migrasjonene i `supabase/migrations/` dekker alle tabellene i §18, og i tillegg det som manglet før piloten:
+  - målgruppe etter skoleform på innlegg (`publish_post`, feeden)
+  - endringshistorikk for innlegg (`edit_post`, `post_revisions`)
+  - blokkering i meldinger (`user_blocks`)
+  - forespørsel om å bli skoleadministrator (`request_school_admin`, `decide_school_admin_request`)
+  - forespørsler om eksport og sletting av egne data (`request_personal_data`)
+  - regelen om at fylkesstyreadministrator også får rettigheter i eget lokallag (`has_role`, `has_area_role`)
+  - bildehierarki med lås (`resolve_organization_images`)
+  - sanntid for meldinger, samtalemedlemskap og varsler
+  - fulltekstsøk på norsk (`search`)
+  - bare offentlige funksjoner kan kalles uten innlogging
+- Ingen av funksjonene over har knapper i grensesnittet ennå. `docs/FUNKSJONSKART.md` viser hvilken prompt som kobler dem til.
+- Tester: `npm run test:db` kjører RLS- og databasetestene i `supabase/tests/`. CI kjører dem mot lokal Supabase på alle PR-er og sjekker at `lib/supabase/database.types.ts` er oppdatert.
+- Pilotprosjektet i Supabase finnes: `elevradsnett-pilot` (ref `ibipqyombdmtfvgthugz`, eu-north-1). Migrasjonene er kjørt, og 15 fylkesstyrer, 471 skoler, EO nasjonalt og de fem lokallagene er lastet inn.
+- Gjenstår fra prompt 2, gjøres manuelt i SQL Editor i Supabase: den nye versjonen av `publish_post` (med skoleform) og `set_event_response`. Supabase-koblingen krever en bekreftelse for SQL med `drop`/`delete` som ikke kan gis fra en Claude-økt.
+- Supabase-verdiene er ikke lagt inn som GitHub Actions-variabler. Det gjøres i prompt 3, når appen kan hente innlogging og data fra Supabase. Før det ville GitHub Pages-siden sluttet å virke.
+- Kjent hull, egen oppgave: `has_role` og `can_view_post` ligger fortsatt i `public` og kan kalles uten innlogging, fordi RLS for offentlig lesing trenger dem. Hjelperne bør flyttes til et skjema som API-et ikke viser.
 - Funksjonen for å kombinere skoler finnes ikke i koden.
 
 ## Hosting og tjenester
@@ -62,8 +78,8 @@ Grensene må overholdes i piloten. Spesielt e-post: engangskoder går foran vars
 
 ### Før piloten
 
-1. **Fundament.** Full tekst står nederst.
-2. **Datamodell og Supabase-prosjekt** (§2, §14, §17, §18)
+1. ✅ **Fundament.** Ferdig. Full tekst står nederst.
+2. ✅ **Datamodell og Supabase-prosjekt** (§2, §14, §17, §18). Ferdig, se *Status* øverst for det som gjenstår manuelt.
    - Migrasjoner for alt som mangler fra listen over.
    - Funksjon for bildehierarkiet (egen skole → lokallag → fylke → global), med lås.
    - Demodata med de fem lokallagene, alle fylkene og EO-logoen som standardbilde. Alt merket med `is_placeholder`.
