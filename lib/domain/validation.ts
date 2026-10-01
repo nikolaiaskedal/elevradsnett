@@ -1,9 +1,12 @@
 import { z } from 'zod';
+import { COUNTIES } from '@/lib/domain/counties';
 
 // Valideringsskjemaer for alt som skrives. Delt mellom web, iOS og Android; databasen validerer i tillegg.
 
 export const idSchema = z.string().trim().min(1, 'Mangler id.');
 export const audienceSchema = z.enum(['public','county','local','friends']);
+export const countySchema = z.enum(COUNTIES, 'Ukjent fylke.');
+export const schoolLevelSchema = z.enum(['upper_secondary','lower_secondary'], 'Ugyldig skoleform.');
 export const eventResponseSchema = z.enum(['going','interested']);
 
 export const POST_MAX_LENGTH = 6000;
