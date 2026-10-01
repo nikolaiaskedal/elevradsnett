@@ -1,4 +1,4 @@
-import type { Organization, OrganizationType } from './types';
+import type { Audience, Organization, OrganizationType } from './types';
 
 // Norske visningsnavn som deles av web og mobil.
 export const kindLabel:Record<OrganizationType,string> = { national:'Nasjonalt', county_board:'Fylkeslag', local_board:'Lokallag', school:'Elevråd' };
@@ -6,3 +6,5 @@ export const kindLabel:Record<OrganizationType,string> = { national:'Nasjonalt',
 export const orgSub = (o:Organization)=>o.type==='national'?'Nasjonalt':`${o.county} · ${kindLabel[o.type]}`;
 
 export const initialsOf = (name:string)=>name.trim().split(/\s+/).slice(0,2).map(w=>w[0]?.toUpperCase() ?? '').join('');
+
+export const audienceLabel:Record<Audience,string> = { public:'Alle elevråd', county:'Elevråd i fylket', local:'Elevråd i lokallaget', friends:'Venneråd' };

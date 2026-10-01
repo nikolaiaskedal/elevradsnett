@@ -5,7 +5,7 @@ import { Avatar, SearchField } from '@/components/shared/ui';
 import type { Conversation } from '@/lib/domain/types';
 import { errorMessage } from '@/lib/domain/validation';
 
-export function MessagesView({conversations,setConversations,selectedId,onSelect}:{conversations:Conversation[];setConversations:React.Dispatch<React.SetStateAction<Conversation[]>>;selectedId:string;onSelect:(id:string)=>void}) {
+export function MessagesView({conversations,setConversations,selectedId,onSelect,error}:{conversations:Conversation[];setConversations:React.Dispatch<React.SetStateAction<Conversation[]>>;selectedId:string;onSelect:(id:string)=>void;error?:string}) {
   const service = useService();
   const { go, notify } = useApp();
   const [search,setSearch] = useState('');
@@ -31,10 +31,11 @@ export function MessagesView({conversations,setConversations,selectedId,onSelect
   };
   return <div className="page" style={{ gap:16 }}>
     <h1>Meldinger</h1>
+    {error&&<p className="warn-box" role="alert">Kunne ikke hente samtalene: {error}</p>}
     <div className="messages">
       <div className="convo-list">
         <SearchField size="sm" value={search} onChange={setSearch} label="Søk i samtaler" placeholder="Søk elevråd eller fylkeslag"/>
-        {!hits.length&&<p className="empty-note">Ingen treff. Prøv navnet på skolen eller fylkeslaget.</p>}
+        {!hits.length&&<p className="empty-note">{q?'Ingen treff. Prøv navnet på skolen eller fylkeslaget.':'Du har ingen samtaler ennå.'}</p>}
         {hits.map(c=><button key={c.id} className={`convo ${c.id===active?.id?'on':''}`} aria-current={c.id===active?.id} onClick={()=>onSelect(c.id)}>
           <Avatar initials={c.initials}/>
           <span className="grow"><span className="name">{c.name}</span><span className="preview">{c.messages.at(-1)?.text ?? 'Ingen meldinger ennå'}</span></span>

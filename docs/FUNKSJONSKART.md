@@ -4,11 +4,13 @@ Alle synlige knapper og kontroller i appen, per side, sammenholdt med designet i
 
 **Status**
 
-- **Fungerer**: gjør det den skal uten server (navigasjon, filtrering og søk i data som allerede er lastet, lokale skjemasteg).
+- **Fungerer**: gjør det den skal, enten uten server (navigasjon, filtrering i data som allerede er lastet, lokale skjemasteg) eller via en tjenestemetode som er koblet til Supabase.
 - **Demo**: går gjennom `ElevradsnettService` og virker mot `DemoElevradsnettService`, men er ikke ferdig mot Supabase. Kolonnen *Supabase* viser om metoden har en RPC eller tabelltilgang (`ja`) eller kaster `NotImplementedError` (`nei`).
 - **Mangler**: knappen vises, men gjør ingenting reelt (bare en melding, deaktivert eller statiske data).
 
-Merk: Med Supabase konfigurert laster appen ikke i dag, fordi `getSession`, `listOrganizations`, `listEvents` og `listConversations` mangler RPC. Alle datadrevne kontroller er derfor *demo* inntil disse finnes.
+Fra prompt 3 laster appen mot Supabase: økt, organisasjoner, innlegg, arrangementer og tillitsvalgte hentes via RPC-er som også virker uten innlogging (§1). `listConversations` mangler fortsatt RPC for innloggede (prompt 10); Meldinger viser da en feilmelding i stedet for at appen stopper.
+
+**Uten innlogging** kan alt offentlig leses. Kontroller som endrer noe (støtte, kommentere, følge, stemme, svare på arrangementer, nytt innlegg, rapportere, kontakte) åpner innloggingsdialogen, og handlingen gjøres når brukeren er logget inn. Meldinger, Profil og Administrasjon viser innloggingen i stedet for siden.
 
 **Kravpunkt** viser til punktnumrene (§) i `docs/KRAVSPEC.md`. §19 (brukeropplevelse og universell utforming) gjelder i tillegg alle kontroller.
 
@@ -19,12 +21,15 @@ Merk: Med Supabase konfigurert laster appen ikke i dag, fordi `getSession`, `lis
 | Kontroll | Hva den gjør | Status | Tjenestemetode | Supabase | I designet | Kravpunkt |
 |---|---|---|---|---|---|---|
 | Logo | Går til Hjem | Fungerer | – | – | ja | §19 |
-| Meny: Hjem, Arrangementer, Profil, Logg inn | Navigasjon | Fungerer | – | – | ja | §19 |
+| Meny: Hjem, Arrangementer, Profil | Navigasjon | Fungerer | – | – | ja | §19 |
+| Meny: Logg inn | Vises bare uten innlogging | Fungerer | `getSession` | ja | ja | §1, §3 |
 | Meny: Meldinger med antall uleste | Navigasjon; tallet summerer uleste samtaler | Demo | `listConversations` | nei | ja | §9 |
-| Nytt innlegg (toppmeny) | Åpner innleggsdialogen | Fungerer | – | – | ja | §7 |
+| Nytt innlegg (toppmeny) | Åpner innleggsdialogen. Uten innlogging: innloggingsdialogen først. Uten verv: melding om at verv trengs | Fungerer | – | – | ja | §7 |
+| Innloggingsdialog | Åpnes av handlinger som krever innlogging, og fullfører handlingen etterpå. Lukk (×) avbryter | Fungerer | `requestLoginCode`, `verifyLoginCode` | ja | app | §1, §7 |
+| Varsel om deaktivert profil | Vises øverst når profilen er deaktivert | Fungerer | `getSession` | ja | app | §10 |
 | Bunnmeny: Personvern, Vilkår, Informasjonskapsler, Kontakt | Åpner informasjonssidene | Fungerer | – | – | app | §16 |
 | Bunnmeny: Administrasjon | Åpner administrasjonen | Fungerer | – | – | app | §12 |
-| Lastefeil | Viser feilmeldingen hvis data ikke kan lastes | Fungerer | alle lesemetoder | – | app | §19 |
+| Lastefeil og Prøv igjen | Viser feilmeldingen hvis data ikke kan lastes, og laster på nytt | Fungerer | alle lesemetoder | – | app | §19 |
 
 ## Innleggsdialog (Nytt innlegg)
 
@@ -37,7 +42,7 @@ Merk: Med Supabase konfigurert laster appen ikke i dag, fordi `getSession`, `lis
 | Legg til bilde / fjern | Legger til et plassholderbilde, ingen opplasting | Mangler | `publishPost` | nei | ja | §7, §11 |
 | Synlig for (Alle elevråd, Elevråd i fylket, Venneråd) | Velger målgruppe | Demo | `publishPost` | ja | app | §7 |
 | Publiser | Publiserer som aktiv representasjon; deaktivert uten publiseringsrett | Demo | `publishPost` | ja (bare tekst) | ja | §3, §7 |
-| Varsel om manglende publiseringsrett | Vises når aktiv representasjon ikke kan publisere | Demo | `getSession` | nei | app | §3, §4 |
+| Varsel om manglende publiseringsrett | Vises når aktiv representasjon ikke kan publisere (serveren regner ut retten i `get_my_session`) | Fungerer | `getSession` | ja | app | §3, §4 |
 
 ## Innleggskort (Hjem og organisasjonssider)
 
@@ -47,9 +52,9 @@ Merk: Med Supabase konfigurert laster appen ikke i dag, fordi `getSession`, `lis
 | ··· (flere valg) | Åpner menyen | Fungerer | – | – | ja | §7 |
 | Meny: Del innlegget | Deler via systemdeling, ellers kopieres lenken | Fungerer | – | – | app | §7 (Deling) |
 | Meny: Rapporter innlegg | Rapporterer til moderatorene | Demo | `reportPost` | nei | app | §15 |
-| Støtt (tommel) med antall | Gir eller fjerner støtte | Demo | `setPostSupport` | nei | ja | §7 (Kommentarer, reaksjoner og avstemninger) |
+| Støtt (tommel) med antall | Gir eller fjerner støtte. Antall og egen støtte kommer fra serveren | Demo | `setPostSupport` | nei | ja | §7 (Kommentarer, reaksjoner og avstemninger) |
 | Kommentarer med antall | Viser og skjuler kommentarer | Fungerer | – | – | ja | §7 (Kommentarer, reaksjoner og avstemninger) |
-| Kommentarfelt og Send | Kommenterer som aktiv representasjon | Demo | `addComment` | ja | ja | §7 (Kommentarer, reaksjoner og avstemninger) |
+| Kommentarfelt og Send | Kommenterer som aktiv representasjon. Uten innlogging: knappen «Logg inn for å kommentere». Uten verv: forklaring | Demo | `addComment` | ja | ja | §7 (Kommentarer, reaksjoner og avstemninger) |
 | Del (pil) | Som «Del innlegget» | Fungerer | – | – | app | §7 (Deling) |
 | Avstemningsalternativ | Stemmer på vegne av aktiv organisasjon; kan endres | Demo | `vote` | ja | ja | §7 (Kommentarer, reaksjoner og avstemninger) |
 | Koblet arrangement | Åpner arrangementet | Fungerer | – | – | ja | §8 |
@@ -66,7 +71,7 @@ Merk: Med Supabase konfigurert laster appen ikke i dag, fordi `getSession`, `lis
 | Arrangementer: Se alle | Går til Arrangementer | Fungerer | – | – | ja | §8 |
 | Arrangementer: kort | Åpner arrangementet | Fungerer | – | – | ja | §8 |
 | Filter: Alle / fylket | Filtrerer feeden på brukerens fylke | Fungerer | – | – | ja | §6 |
-| Feed | Viser innlegg | Demo | `listFeed` | ja | ja | §6 |
+| Feed | Viser innlegg. Uten innlogging eller verv: offentlige innlegg, nyeste først. Med representasjon: feeden for den | Fungerer | `listFeed` | ja (`get_post_cards`) | ja | §1, §6 |
 
 ## Utforsk (`#/utforsk`)
 
@@ -85,7 +90,7 @@ Merk: Med Supabase konfigurert laster appen ikke i dag, fordi `getSession`, `lis
 | Bilde og Detaljer | Åpner arrangementet | Fungerer | – | – | ja | §8 |
 | Skal | Melder organisasjonen på / av | Demo | `setEventResponse` | ja | ja | §8 |
 | Interessert | Markerer interesse / fjerner | Demo | `setEventResponse` | ja | ja | §8 |
-| Liste over arrangementer | Viser arrangementer | Demo | `listEvents` | nei | ja | §8 |
+| Liste over arrangementer | Viser arrangementer, også uten innlogging | Fungerer | `listEvents` | ja (`list_public_events`) | ja | §1, §8 |
 
 ## Arrangement (`#/arrangementer/<id>`)
 
@@ -101,9 +106,9 @@ Merk: Med Supabase konfigurert laster appen ikke i dag, fordi `getSession`, `lis
 |---|---|---|---|---|---|---|
 | Nytt innlegg som … | Åpner innleggsdialogen (egen organisasjon med publiseringsrett) | Fungerer | – | – | ja | §2, §6 |
 | Kontakt EO / fylkesstyret / lokallaget, Foreslå samarbeid | Åpner eller oppretter samtale og går til Meldinger | Demo | `openConversation` | nei | ja | §9 |
-| Prioriterte saker, tillitsvalgte, statistikk | Visning | Demo | `listOrganizations` | nei | ja | §2, §4 |
+| Prioriterte saker, tillitsvalgte, statistikk | Visning, også uten innlogging | Fungerer | `listOrganizations`, `listPublicOfficers` | ja (`list_public_organizations`, `get_public_officers`) | ja | §1, §2, §4 |
 | Kommende arrangementer | Åpner arrangementet | Fungerer | – | – | ja | §8 |
-| Innlegg | Innleggskort uten meny (se over) | Demo | `listFeed` | ja | ja | §7 |
+| Innlegg | Innleggskort uten meny (se over). Hentes for siden, også når de ikke er i feeden | Fungerer | `listOrganizationPosts` | ja (`get_post_cards`) | ja | §1, §7 |
 
 ## Meldinger (`#/meldinger`)
 
@@ -113,30 +118,48 @@ Merk: Med Supabase konfigurert laster appen ikke i dag, fordi `getSession`, `lis
 | Samtale i listen | Åpner samtalen og markerer den som lest | Demo | `markConversationRead` | nei | ja | §9 |
 | Navn i samtalehodet | Åpner organisasjonssiden | Fungerer | – | – | ja | §9 |
 | Meldingsfelt og Send | Sender melding | Demo | `sendMessage` | ja (tabell) | ja | §9 |
-| Samtaleliste | Viser samtaler | Demo | `listConversations` | nei | ja | §9 |
+| Samtaleliste | Viser samtaler. Uten innlogging: innloggingen vises i stedet | Demo | `listConversations` | nei (innlogget) | ja | §9 |
 
 ## Profil (`#/profil`)
 
+Uten innlogging vises innloggingen i stedet for profilen.
+
 | Kontroll | Hva den gjør | Status | Tjenestemetode | Supabase | I designet | Kravpunkt |
 |---|---|---|---|---|---|---|
+| Legg til bilde / Bytt bilde | Velger bilde, beskjærer til kvadrat og koder om i nettleseren (fjerner EXIF og GPS), laster opp til `public-avatars/<bruker-id>/` | Fungerer | `setAvatar` | ja (`set_avatar`) | app | §10, §11 |
+| Fjern (profilbilde) | Fjerner profilbildet og sletter filen | Fungerer | `removeAvatar` | ja | app | §10, §11 |
+| Rediger profil, Navn, Lagre / Avbryt | Endrer navnet | Fungerer | `updateProfile` | ja (`update_profile`) | app | §10 |
 | Åpne elevrådets side | Åpner skolens elevrådsside | Fungerer | – | – | ja | §3, §10 |
+| Bytt skole, søk, Bytt til … / Avbryt | Bytter skole selv. Verv ved gammel skole avsluttes med sluttdato, ingen rettigheter følger med. Siste skoleadministrator stoppes | Fungerer | `changeSchool` | ja (`change_school`) | app | §1, §3 |
+| Skolehistorikk | Viser nåværende og tidligere skoler | Fungerer | `listSchoolHistory` | ja (`get_my_school_history`) | app | §1, §3 |
 | Representasjon (navn) | Åpner organisasjonssiden | Fungerer | – | – | app | §3, §10 |
-| Bruk | Bytter aktiv representasjon | Demo | `switchRepresentation` | ja | app | §3 |
-| Roller i systemet (brikker) | Visning | Demo | `getSession` | nei | ja | §4 |
+| Bruk | Bytter aktiv representasjon og henter feeden for den | Fungerer | `switchRepresentation`, `listFeed` | ja | app | §3 |
+| Roller i systemet (brikker) | Visning | Fungerer | `getSession` | ja | ja | §4 |
+| Innlogging: e-post, Telefonnummer og Feide («Kommer senere») | Visning. Telefonnummer kan ikke lagres i piloten | Fungerer | `getSession` | ja | app | §1, §3 |
+| Logg ut | Logger ut og går til Hjem | Fungerer | `signOut` | ja | app | §3 |
 
-## Logg inn (`#/logg-inn`)
+## Logg inn (`#/logg-inn`, innloggingsdialogen og innlogging på Meldinger, Profil og Administrasjon)
+
+Samme flyt alle steder. Fra `#/logg-inn` sendes brukeren tilbake til siden de kom fra.
 
 | Kontroll | Hva den gjør | Status | Tjenestemetode | Supabase | I designet | Kravpunkt |
 |---|---|---|---|---|---|---|
-| Søk etter skole og treffliste | Velger skole | Fungerer | – | – | ja | §3, §5 |
-| Fortsett / Tilbake | Går mellom stegene | Fungerer | – | – | ja | §3, §5 |
+| Logg inn med: E-post | Valgt | Fungerer | – | – | ja | §3 |
+| Logg inn med: Telefonnummer («Kommer senere») | Deaktivert; SMS koster | Mangler | – | – | ja | §1 |
+| E-post og Send kode | Sender en sekssifret engangskode. Svarer likt om kontoen finnes eller ikke | Fungerer | `requestLoginCode` | ja (Supabase Auth) | ja | §3, §17 |
+| Engangskode og Logg inn | Logger inn. Nye brukere går videre til onboarding | Fungerer | `verifyLoginCode` | ja (Supabase Auth) | app | §3 |
+| Send ny kode (etter 60 s) / Bruk en annen e-post | Ny kode eller tilbake til e-post | Fungerer | `requestLoginCode` | ja | app | §3 |
 | Logg inn med Feide (Ikke tilgjengelig) | Deaktivert | Mangler | – | – | ja | §1 |
-| Navn | Fritekst | Fungerer | – | – | ja | §3, §5 |
-| Telefonnummer / E-post og felt | Velger kontaktmåte; ingen engangskode sendes. Telefonnummer merkes «Kommer senere» i prompt 3, siden SMS koster | Mangler | – | – | ja | §3, §5 |
-| Måned for ledervalg | Valgfri måned | Demo | `completeOnboarding` | ja | ja | §5 |
-| Fullfør innlogging / Hopp over | Lagrer onboarding og går til Hjem; ingen ekte innlogging | Demo | `completeOnboarding` | ja | ja | §3, §5 |
+| Onboarding: Søk etter skole og treffliste | Velger skole | Fungerer | – | – | ja | §3 |
+| Onboarding: Navn | Fritekst, 2–120 tegn | Fungerer | – | – | ja | §3 |
+| Onboarding: Dato for neste valg | Valgfri dato, fra i dag og inntil to år frem | Fungerer | `completeOnboarding` | ja | app | §5 |
+| Onboarding: Fortsett / Tilbake / Fullfør / Hopp over | Oppretter profilen med skole og eventuell valgdato | Fungerer | `completeOnboarding` | ja (`complete_onboarding`) | ja | §3, §5 |
+| Onboarding: Logg ut | Avbryter onboarding | Fungerer | `signOut` | ja | app | §3 |
+| Allerede innlogget: Til forsiden / Logg ut | Vises på `#/logg-inn` når brukeren er logget inn | Fungerer | `signOut` | ja | app | §3 |
 
 ## Administrasjon (`#/admin`)
+
+Uten innlogging vises innloggingen. Innlogget uten verv vises en forklaring i stedet for panelet.
 
 Hele administrasjonen er statiske demodata i komponenten, og ingen av handlingene går gjennom tjenestelaget ennå. Finnes ikke i designet.
 

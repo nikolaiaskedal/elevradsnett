@@ -515,3 +515,30 @@ p { margin: 0; }
   .post-head { padding-left: 16px; padding-right: 16px; margin: 0; }
   .comments { padding: 14px 16px; }
 }
+
+/* ---------- Innlogging og profil ---------- */
+.login-flow { display: flex; flex-direction: column; gap: 16px; }
+.login-modal-body { background: var(--soft); }
+.login-modal-body .card { box-shadow: none; }
+.later-tag { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 9px; background: var(--navy-100); color: var(--navy-300); font-weight: 600; font-size: 0.85em; white-space: nowrap; }
+.toggle-pair button:disabled { cursor: not-allowed; opacity: 0.8; }
+.code-input { letter-spacing: 0.4em; font-size: 1.35em; font-variant-numeric: tabular-nums; text-align: center; }
+.form-error { border: 1px solid var(--accent-300); background: var(--accent-100); color: var(--ink); border-radius: 9px; padding: 10px 14px; line-height: 1.5; }
+.notice-bar { background: var(--accent-100); border-bottom: 1px solid var(--accent-200); color: var(--ink); padding: 10px 16px; text-align: center; line-height: 1.5; }
+.avatar { overflow: hidden; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.avatar-edit { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.avatar-edit label.btn { cursor: pointer; text-align: center; }
+.avatar-edit input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 2px; }
+.small-quiet { padding: 2px 6px; }
+.name-form { display: flex; flex-direction: column; gap: 10px; }
+.change-school { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.history-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.history-list li { display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--navy-100); border-radius: 9px; padding: 10px 14px; }
+.facts { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.facts div { display: flex; gap: 12px; flex-wrap: wrap; justify-content: space-between; border-bottom: 1px solid var(--hair); padding-bottom: 8px; }
+.facts dt { color: var(--navy-300); font-weight: 500; }
+.facts dd { font-weight: 600; overflow-wrap: anywhere; }
+.comment-note { color: var(--navy-300); line-height: 1.5; margin-top: 6px; }
+.comment-login { align-self: flex-start; margin-top: 6px; }
+.login-flow .card h1 + .muted, .login-flow .card h2 + .muted { margin-top: 6px; line-height: 1.6; }

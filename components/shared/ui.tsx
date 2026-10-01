@@ -6,8 +6,8 @@ export function Logo(){
   return <span className="brand" aria-label="Elevrådsnett"><span className="brand-mark"><span/></span><span className="brand-word">elevråds<strong>nett</strong></span></span>;
 }
 
-export function Avatar({initials,tone='navy',size='md'}:{initials:string;tone?:Tone;size?:'sm'|'md'|'lg'|'xl'}){
-  return <span className={`avatar ${tone} ${size}`} aria-hidden="true">{initials}</span>;
+export function Avatar({initials,tone='navy',size='md',src}:{initials:string;tone?:Tone;size?:'sm'|'md'|'lg'|'xl';src?:string}){
+  return <span className={`avatar ${tone} ${size}`} aria-hidden="true">{src?<img src={src} alt=""/>:initials}</span>;
 }
 
 export function Status({children,tone='blue'}:{children:React.ReactNode;tone?:'blue'|'coral'|'green'|'gray'}){

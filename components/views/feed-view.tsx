@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '@/components/app-context';
-import { byDate } from '@/components/format';
+import { byDate, hasOfficers } from '@/components/format';
 import { EventMini } from '@/components/shared/event-mini';
 import { OrgRow } from '@/components/shared/org-row';
 import { PostCard } from '@/components/shared/post-card';
@@ -9,9 +9,9 @@ import { SearchField } from '@/components/shared/ui';
 export function FeedView({query,setQuery}:{query:string;setQuery:(v:string)=>void}) {
   const { currentUser, events, organizations, posts, org, go } = useApp();
   const [scope,setScope] = useState<'all'|'county'>('all');
-  const home = org(currentUser.schoolId);
+  const home = currentUser?.schoolId?org(currentUser.schoolId):undefined;
   const county = home?.county ?? 'Oslo';
-  const nearby = organizations.filter(o=>o.type==='school'&&o.status==='active'&&o.county===county&&o.id!==currentUser.schoolId&&o.officers).slice(0,4);
+  const nearby = organizations.filter(o=>o.type==='school'&&o.status==='active'&&o.county===county&&o.id!==currentUser?.schoolId&&hasOfficers(o)).slice(0,4);
   const levels = organizations.filter(o=>o.status==='active'&&(o.type==='national'||(o.type==='county_board'&&o.county===county)));
   const upcoming = [...events].sort(byDate).slice(0,3);
   const visible = scope==='all'?posts:posts.filter(p=>org(p.organizationId)?.county===county);

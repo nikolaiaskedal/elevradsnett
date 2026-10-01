@@ -12,7 +12,7 @@ describe('demo data',()=>{
     for (const event of events) expect(ids.has(event.hostId)).toBe(true);
     for (const rep of representations) expect(ids.has(rep.organizationId)).toBe(true);
     for (const conversation of conversations) if (conversation.organizationId) expect(ids.has(conversation.organizationId)).toBe(true);
-    expect(ids.has(currentUser.schoolId)).toBe(true);
+    expect(ids.has(currentUser.schoolId ?? '')).toBe(true);
   });
   it('keeps comment counts in sync with loaded comments',()=>{
     for (const post of initialPosts) expect(post.comments).toBe(post.commentItems?.length ?? post.comments);

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from './database.types';
 
 export type SupabaseConfig = { url:string; anonKey:string };
 
@@ -10,7 +11,8 @@ export function readSupabaseConfig(env:Partial<Record<'VITE_SUPABASE_URL'|'VITE_
 }
 
 /** Lastes dynamisk, så demobygget slipper å laste supabase-js. */
-export async function createSupabaseBrowserClient(config:SupabaseConfig):Promise<SupabaseClient> {
+export async function createSupabaseBrowserClient(config:SupabaseConfig):Promise<SupabaseClient<Database>> {
   const { createClient } = await import('@supabase/supabase-js');
-  return createClient(config.url, config.anonKey, { auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:true } });
+  // Innlogging med engangskode som skrives inn i appen, så økten kommer aldri via URL-en.
+  return createClient<Database>(config.url, config.anonKey, { auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:false } });
 }
