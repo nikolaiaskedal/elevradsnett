@@ -13,6 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "format": "oxfmt",
+    "test:db": "bash scripts/test-db.sh",
+    "db:types": "supabase gen types typescript --local --schema public > lib/supabase/database.types.ts",
     "pilot:seed": "node scripts/build-pilot-seed.mjs"
   },
   "dependencies": {
@@ -30,6 +32,7 @@
     "oxfmt": "0.61.0",
     "oxlint": "1.76.0",
     "oxlint-tsgolint": "7.0.2001",
+    "supabase": "^2.119.0",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
     "vite": "8.0.13",

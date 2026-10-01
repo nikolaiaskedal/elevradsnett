@@ -29,8 +29,8 @@ Designet grensesnittet følger ligger i `docs/design/elevradsnett.dc.html`. Krav
 1. Installer Node.js 22.13 eller nyere og kjør `npm install`.
 2. Start demoen med `npm run dev`. Uten miljøvariabler brukes demodata.
 3. For Supabase: kopier `.env.example` til `.env.local` og fyll inn prosjektets offentlige `VITE_SUPABASE_URL` og `VITE_SUPABASE_ANON_KEY`. Service role-nøkkelen skal bare finnes i servermiljøet og skal aldri ha `VITE_`-prefiks.
-4. Knytt Supabase CLI til et eget prosjekt og kjør `supabase db push`.
-5. Last demodata med `supabase db reset` bare i lokalt miljø.
+4. Lokal database: `npx supabase db start` (krever Docker) kjører migrasjonene og `supabase/seed.sql`. `npm run test:db` kjører RLS-testene, og `npm run db:types` oppdaterer `lib/supabase/database.types.ts`.
+5. Pilotprosjektet (Supabase Free, eu-north-1): `npx supabase link --project-ref <ref>` og `npx supabase db push`. Demodata (`seed.sql`) er merket `is_placeholder` og kan slettes samlet. Legg så `VITE_SUPABASE_URL` og `VITE_SUPABASE_ANON_KEY` inn som GitHub Actions-variabler.
 
 | Kommando | Hva den gjør |
 | --- | --- |
@@ -40,8 +40,10 @@ Designet grensesnittet følger ligger i `docs/design/elevradsnett.dc.html`. Krav
 | `npm run lint` | oxlint |
 | `npm run typecheck` | TypeScript uten utdata |
 | `npm test` | Vitest |
+| `npm run test:db` | RLS- og databasetester mot lokal Supabase |
+| `npm run db:types` | Genererer TypeScript-typer fra lokal Supabase |
 
-CI (`.github/workflows/ci.yml`) kjører lint, typecheck, test og bygg på alle pull requests.
+CI (`.github/workflows/ci.yml`) kjører lint, typecheck, test og bygg på alle pull requests, og i en egen jobb migrasjonene, RLS-testene og en sjekk av at TypeScript-typene er oppdatert mot lokal Supabase.
 
 ## Publisering
 

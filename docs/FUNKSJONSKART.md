@@ -166,3 +166,17 @@ Hele administrasjonen er statiske demodata i komponenten, og ingen av handlingen
 | Kontroll | Hva den gjør | Status | Tjenestemetode | Supabase | I designet | Kravpunkt |
 |---|---|---|---|---|---|---|
 | ← Til forsiden | Går til Hjem | Fungerer | – | – | app | §19 |
+
+## Serverfunksjoner uten kontroll ennå
+
+Finnes i databasen (prompt 2), men er ikke koblet til en knapp. Kolonnen *Prompt* viser når de får en kontroll.
+
+| RPC eller tabell | Hva den gjør | Status | Prompt | Kravpunkt |
+|---|---|---|---|---|
+| `search` | Fulltekstsøk på norsk etter skoler, styrer, personer, arrangementer og innlegg, med filter for tidligere tillitsvalgte | Mangler kontroll | 8 | §6 |
+| `edit_post`, `post_revisions` | Redigerer innlegg, merker det redigert og lagrer historikk for administratorer | Mangler kontroll | 5 | §7 |
+| `publish_post(…, p_school_level_target)` | Målgruppe etter skoleform (vgs, ungdomsskole eller begge) | Mangler kontroll | 5 | §7 |
+| `user_blocks` | Blokkering i meldinger | Mangler kontroll | 10 | §9 |
+| `request_school_admin`, `decide_school_admin_request`, `cancel_school_admin_request` | Forespørsel om å bli skoleadministrator, godkjent av styreadministrator i området | Mangler kontroll | 4 | §4 |
+| `request_personal_data` | Forespørsel om eksport eller sletting av egne data | Mangler kontroll | 14 | §10, §16 |
+| `resolve_organization_images` | Bildehierarkiet eget → lokallag → fylke → global, med lås og kilde | Mangler kontroll | 6, 12 | §14 |

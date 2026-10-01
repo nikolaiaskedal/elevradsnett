@@ -23,7 +23,8 @@
   },
   "ignorePatterns": [
     "dist/**",
-    "coverage/**"
+    "coverage/**",
+    "lib/supabase/database.types.ts"
   ],
   "rules": {
     "no-array-constructor": "error",
