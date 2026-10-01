@@ -1,4 +1,4 @@
-# Kjører lint, typecheck og test på alle pull requests.
+# Kjører lint, typecheck, test og build, og databasetestene mot lokal Supabase, på alle pull requests.
 name: CI
 
 on:
@@ -31,3 +31,27 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+
+  # Migrasjoner, seed og RLS-tester mot lokal Supabase (supabase/tests/).
+  database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Start lokal Supabase-database
+        run: npx supabase db start
+      - name: RLS- og databasetester
+        run: npm run test:db
+      - name: TypeScript-typer er oppdatert
+        run: |
+          npx supabase gen types typescript --local --schema public > /tmp/database.types.ts
+          if ! diff -u lib/supabase/database.types.ts /tmp/database.types.ts; then
+            echo "::error::lib/supabase/database.types.ts er utdatert. Kjør npm run db:types."
+            echo "----- generert fil -----"
+            cat /tmp/database.types.ts
+            exit 1
+          fi
