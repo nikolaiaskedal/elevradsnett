@@ -7,7 +7,7 @@ import { errorMessage } from '@/lib/domain/validation';
 
 export function MessagesView({conversations,setConversations,selectedId,onSelect,error}:{conversations:Conversation[];setConversations:React.Dispatch<React.SetStateAction<Conversation[]>>;selectedId:string;onSelect:(id:string)=>void;error?:string}) {
   const service = useService();
-  const { go, notify } = useApp();
+  const { go, notify, org } = useApp();
   const [search,setSearch] = useState('');
   const [draft,setDraft] = useState('');
   const q = search.trim().toLowerCase();
@@ -37,14 +37,14 @@ export function MessagesView({conversations,setConversations,selectedId,onSelect
         <SearchField size="sm" value={search} onChange={setSearch} label="Søk i samtaler" placeholder="Søk elevråd eller fylkeslag"/>
         {!hits.length&&<p className="empty-note">{q?'Ingen treff. Prøv navnet på skolen eller fylkeslaget.':'Du har ingen samtaler ennå.'}</p>}
         {hits.map(c=><button key={c.id} className={`convo ${c.id===active?.id?'on':''}`} aria-current={c.id===active?.id} onClick={()=>onSelect(c.id)}>
-          <Avatar initials={c.initials}/>
+          <Avatar initials={c.initials} orgType={c.organizationId?org(c.organizationId)?.type:undefined}/>
           <span className="grow"><span className="name">{c.name}</span><span className="preview">{c.messages.at(-1)?.text ?? 'Ingen meldinger ennå'}</span></span>
           {c.unread>0&&<span className="unread" aria-label={`${c.unread} uleste`}>{c.unread}</span>}
         </button>)}
       </div>
       {active&&<div className="chat">
         <div className="chat-head">
-          <Avatar initials={active.initials}/>
+          <Avatar initials={active.initials} orgType={active.organizationId?org(active.organizationId)?.type:undefined}/>
           <div className="grow">{active.organizationId?<button className="name-link" onClick={()=>go({ view:'organization', id:active.organizationId! })}>{active.name}</button>:<strong>{active.name}</strong>}<p className="sub">{active.subtitle ?? `${active.members} deltakere`}</p></div>
         </div>
         <div className="chat-log" aria-live="polite">

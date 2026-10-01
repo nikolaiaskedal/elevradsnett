@@ -1,5 +1,5 @@
 import type { EventRecord } from '@/lib/domain/events';
-import type { Conversation, CurrentUser, InternalRole, Organization, Post } from '@/lib/domain/types';
+import type { Conversation, CurrentUser, InternalRole, Organization, Post, PostDraft, PostRevision } from '@/lib/domain/types';
 
 export const currentUser: CurrentUser = { id:'user-ida', name:'Ida Halvorsen', initials:'IH', schoolId:'elvebakken', email:'ida.halvorsen@example.invalid' };
 
@@ -25,6 +25,22 @@ export const demoGrants:{ person:string; organizationId:string; role:InternalRol
 export const demoSchoolAdminRequests = [
   { person:'Frida Aas', schoolId:'ohg', message:'Jeg er elevrådsleder og vil oppdatere siden vår.', createdAt:'2026-09-28T10:15:00.000Z' },
 ];
+
+/** Venneråd (§7): Elvebakken og Kuben er venneråd, og Hartvig Nissen har spurt Elvebakken. */
+export const demoFriendConnections = [
+  { requesterId:'kuben', recipientId:'elvebakken', status:'accepted' as const, createdAt:'2026-08-30T09:00:00.000Z', approvedAt:'2026-08-31T12:00:00.000Z' },
+  { requesterId:'hartvig', recipientId:'elvebakken', status:'pending' as const, createdAt:'2026-09-29T14:30:00.000Z' },
+];
+/** Et utkast Elvebakken ikke har publisert ennå. */
+export const demoDrafts:(PostDraft & { actorId:string })[] = [
+  { id:'draft-1', organizationId:'elvebakken', actorId:'user-ida', actorName:'Ida Halvorsen', audience:'local', schoolLevel:'both', updatedAt:'2026-09-30T18:20:00.000Z',
+    body:'Lederforum for elevrådene i Oslo Sentrum er flyttet til torsdag 15. oktober. Mer info kommer.' },
+];
+/** Forrige versjon av innlegg 4, som er redigert. */
+export const demoRevisions:Record<string,PostRevision[]> = {
+  'post-4':[{ id:'rev-4-1', audience:'public', schoolLevel:'both', editedByName:'Ida Halvorsen', createdAt:'2026-09-04T16:05:00.000Z',
+    body:'Bilder fra elevrådsuka! Vi hadde stand i kantina, quiz på tvers av trinn og åpent møte om vurdering.\n\n60 elever meldte seg på klassekontaktvervet. Ny rekord.' }],
+};
 
 const officers = (prefix:string, list:[string,string][]) => list.map(([name,publicTitle],i)=>({ id:`${prefix}-${i+1}`, name, publicTitle }));
 
@@ -87,7 +103,7 @@ export const initialPosts: Post[] = [
     commentItems:[
       { id:'c-3-1', organizationId:'oslo-fylke', organizationName:'Elevorganisasjonen i Oslo', actorName:'Mathilde Rø', createdAt:'6 t', body:'Gratulerer! Dette er et godt eksempel til fylkessamlinga.' },
       { id:'c-3-2', organizationId:'hartvig', organizationName:'Hartvig Nissen elevråd', actorName:'Ingrid Haaland', createdAt:'5 t', body:'Hvordan argumenterte dere overfor rektor?' }] },
-  { id:'post-4', organizationId:'elvebakken', initials:'EV', organizationName:'Elvebakken vgs elevråd', actorName:'Ida Halvorsen', actorRole:'Elevrådsleder', createdAt:'4. september 2026', audience:'public', likes:198, comments:1,
+  { id:'post-4', organizationId:'elvebakken', initials:'EV', organizationName:'Elvebakken vgs elevråd', actorName:'Ida Halvorsen', actorRole:'Elevrådsleder', createdAt:'4. september 2026', audience:'public', edited:true, likes:198, comments:1,
     body:'Bilder fra elevrådsuka! Vi hadde stand i kantina, quiz på tvers av trinn og åpent møte om vurdering.\n\n62 elever meldte seg på klassekontaktvervet. Ny rekord.',
     tags:['elevrådsuka','skolemiljø'], media:[{ id:'m-4', type:'image', alt:'foto: stand i kantina under elevrådsuka' }],
     commentItems:[{ id:'c-4-1', organizationId:'ohg', organizationName:'Oslo handelsgymnasium elevråd', actorName:'Frida Aas', createdAt:'22 t', body:'Quizen ser gøy ut. Deler dere opplegget?' }] },
@@ -103,6 +119,9 @@ export const initialPosts: Post[] = [
   { id:'post-7', organizationId:'kuben', initials:'KU', organizationName:'Kuben vgs elevråd', actorName:'Emil Strand', actorRole:'Elevrådsleder', createdAt:'2. september 2026', audience:'public', likes:154, comments:0,
     body:'Vi har fått ja til at verkstedene holdes åpne to ettermiddager i uka, med lærer til stede.\n\nDet har vært elevrådets hovedsak i høst. Takk til alle klassene som skrev under.',
     tags:['yrkesfag','gjennomslag'], commentItems:[] },
+  { id:'post-8', organizationId:'kuben', initials:'KU', organizationName:'Kuben vgs elevråd', actorName:'Emil Strand', actorRole:'Elevrådsleder', createdAt:'1. september 2026', audience:'friends', likes:12, comments:0,
+    body:'Til vennerådene våre: vi deler gjerne malen vi brukte for underskriftskampanjen om verkstedene. Send en melding, så får dere den.',
+    tags:['venneråd'], commentItems:[] },
 ];
 
 /** Tidspunkt relativt til i dag, så demoen alltid har kommende og tidligere arrangementer. */

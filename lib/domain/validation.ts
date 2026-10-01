@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { COUNTIES } from '@/lib/domain/counties';
+import type { Audience, OrganizationType } from '@/lib/domain/types';
 
 // Valideringsskjemaer for alt som skrives. Delt mellom web, iOS og Android; databasen validerer i tillegg.
 
@@ -16,20 +17,59 @@ export const pollInputSchema = z.object({
   options:z.array(z.string().trim().min(1).max(200)).min(2, 'En avstemning trenger minst to svaralternativer.').max(10),
 });
 
-export const publishPostSchema = z.object({
-  representationId:idSchema,
-  body:z.string().trim().min(1, 'Skriv noe før du publiserer.').max(POST_MAX_LENGTH),
+/**
+ * Rensing av tekst før lagring (XSS, §7): fjerner HTML-tagger, styretegn og usynlige retningstegn, og trimmer.
+ * Teksten vises alltid som ren tekst. Databasen gjør det samme i clean_text, så regelen gjelder også andre klienter.
+ */
+export function cleanText(value:string) {
+  return value.replace(/\r\n/g,'\n')
+    .replace(/<\/?[A-Za-z!][^>]*>/g,'')
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g,'')
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g,'')
+    .trim();
+}
+const cleaned = (min:string,max:number,maxMessage:string)=>z.string().transform(cleanText).pipe(z.string().min(1,min).max(max,maxMessage));
+
+export const schoolLevelTargetSchema = z.enum(['both','upper_secondary','lower_secondary'], 'Ugyldig skoleform.');
+export const postBodySchema = cleaned('Skriv noe før du publiserer.',POST_MAX_LENGTH,`Innlegget kan ha maks ${POST_MAX_LENGTH} tegn.`);
+/** Innholdet i et innlegg eller utkast. Serveren sjekker i tillegg at målgruppen passer avsenderen og at arrangementet er publisert. */
+export const postContentSchema = z.object({
+  body:postBodySchema,
   audience:audienceSchema,
-  status:z.enum(['draft','published']),
+  schoolLevel:schoolLevelTargetSchema.default('both'),
+  eventId:idSchema.optional(),
+});
+/** Publiser et nytt innlegg, eller et utkast (draftId). */
+export const publishPostSchema = postContentSchema.extend({
+  representationId:idSchema,
+  draftId:idSchema.optional(),
   poll:pollInputSchema.optional(),
   withImage:z.boolean().optional(),
 });
 export type PublishPostInput = z.input<typeof publishPostSchema>;
+export const saveDraftSchema = postContentSchema.extend({ representationId:idSchema, draftId:idSchema.optional() });
+export type SaveDraftInput = z.input<typeof saveDraftSchema>;
+export const editPostSchema = postContentSchema.extend({ postId:idSchema });
+export type EditPostInput = z.input<typeof editPostSchema>;
+
+/** Målgrupper som passer avsenderen (samme regel som audience_fits_organization i databasen). */
+export function audiencesFor(type:OrganizationType, hasLocalBoard:boolean):Audience[] {
+  if (type==='school') return hasLocalBoard?['public','county','local','friends']:['public','county','friends'];
+  if (type==='local_board') return ['public','county','local'];
+  if (type==='county_board') return ['public','county'];
+  return ['public'];
+}
+
+export const friendRequestSchema = z.object({ schoolId:idSchema, targetSchoolId:z.string().trim().min(1, 'Velg en skole.') });
+export type FriendRequestInput = z.input<typeof friendRequestSchema>;
+export const decideFriendRequestSchema = z.object({ connectionId:idSchema, accept:z.boolean() });
+export type DecideFriendRequestInput = z.input<typeof decideFriendRequestSchema>;
 
 export const commentSchema = z.object({
   postId:idSchema,
   representationId:idSchema,
-  body:z.string().trim().min(1, 'Kommentaren er tom.').max(COMMENT_MAX_LENGTH),
+  body:cleaned('Kommentaren er tom.',COMMENT_MAX_LENGTH,`Kommentaren kan ha maks ${COMMENT_MAX_LENGTH} tegn.`),
 });
 export type AddCommentInput = z.input<typeof commentSchema>;
 

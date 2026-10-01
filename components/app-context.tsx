@@ -24,6 +24,9 @@ export type App = {
   /** Personlig interesse for et arrangement (§8). Krever bare innlogging, ikke verv. */
   toggleInterest:(event:Event)=>void;
   share:(post:Post)=>void; report:(post:Post)=>void; openComposer:()=>void;
+  /** Åpner publiseringsdialogen for et publisert innlegg. Vises bare når serveren sier at brukeren kan redigere det (post.canManage). */
+  editPost:(post:Post)=>void;
+  deletePost:(post:Post)=>void;
 };
 
 export const AppContext = createContext<App|null>(null);

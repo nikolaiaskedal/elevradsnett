@@ -9,16 +9,16 @@ Planen deler `docs/KRAVSPEC.md` inn i prompter som sendes én om gangen, hver i 
 | 1. Fundament | Ferdig | PR #3, #4 |
 | 2. Datamodell og Supabase-prosjekt | Ferdig, med to manuelle steg (se under) | PR #7, #10 |
 | 3. Innlogging, profiler og offentlig lesing | Ferdig, med manuelle steg (se *Før prompt 4*) | PR #13 |
-| 4. Medlemskap, roller og aktiv representasjon | Ferdig | se git-loggen |
-| 5. Innlegg | Neste | – |
-| 6.–8. Bilder, kommentarer m.m., feed og søk | Ikke startet | – |
-| 9. Arrangementer og CV | Ferdig, med ett manuelt steg (se under) | se git-loggen |
+| 4. Medlemskap, roller og aktiv representasjon | Ferdig | PR #14 |
+| 5. Innlegg | Ferdig, migrasjonen må kjøres i pilotprosjektet (se under) | se git-loggen |
+| 6. Bilder | Neste | – |
+| 9. Arrangementer og CV | Ferdig, migrasjonen må kjøres i pilotprosjektet (se under) | se git-loggen |
 
-Neste prompt som skal sendes er **prompt 5**. Prompt 9 er gjort før 5–8 etter ønske; se *Før neste prompt (etter prompt 9)*. Sjekk først at stegene 3–6 under *Før prompt 4* er gjort (e-postmal, OTP-innstillinger og GitHub-variablene).
+Neste prompt som skal sendes er **prompt 6**. Prompt 9 er gjort før 6–8 etter ønske. Kjør først `supabase/migrations/202610040001_innlegg.sql` og deretter `supabase/migrations/202610090001_arrangementer_cv.sql` i SQL Editor i pilotprosjektet, og sjekk at stegene 3–6 under *Før prompt 4* er gjort (e-postmal, OTP-innstillinger og GitHub-variablene).
 
 ## Utgangspunkt etter prompt 9 (1. oktober 2026)
 
-Prompt 9 ble gjort før prompt 5–8. Den bygger bare på prompt 1–4.
+Prompt 9 ble gjort før prompt 6–8, parallelt med prompt 5.
 
 - Interesse, påmelding, delegater og bekreftet oppmøte er fire adskilte ting (§8):
   - **Interesse** er personlig (`event_interests`, `set_event_interest`) og krever bare innlogging.
@@ -27,15 +27,27 @@ Prompt 9 ble gjort før prompt 5–8. Den bygger bare på prompt 1–4.
   - **Oppmøte** bekreftes bare av arrangøren etter start (`confirm_event_attendance`, `confirm_all_event_attendance`). Bare dette gir CV-oppføring.
 - Styreadministrator i et styre eller EO oppretter, redigerer, publiserer, avlyser og avslutter arrangementer (`save_event`, `set_event_status`) og laster opp bilde (`set_event_image`, `public-content/<arrangør>/events/<id>/`). Utkast vises bare for arrangøren.
 - CV: `#/person/<id>` viser offentlige verv, arrangementer med bekreftet oppmøte og én stjerne per Elevting (landsmøte hos EO nasjonalt). Profilen viser egne invitasjoner og CV. Skolens side viser deltakelse med årstall, hvem som representerte skolen og vervet deres.
-- «Skal» fra designet er erstattet av påmelding på arrangementsiden. Arrangementer kan ikke tagges i innlegg ennå; det kommer med prompt 5.
+- «Skal» fra designet er erstattet av påmelding på arrangementsiden. Tagging av arrangementer i innlegg kom med prompt 5 og gir ikke CV-oppføring.
 - Varslene lagres i `notifications`, men vises ikke før prompt 11 (varsler og e-postsammendrag).
 - Demoen har datoer relativt til i dag, og Ida har deltatt på forrige Elevting og vårsamlingen og er invitert til fylkessamlingen.
 - Databasetestene ligger i `supabase/tests/arrangementer_cv.sql`.
 
 ### Før neste prompt (etter prompt 9, manuelt, ca. 5 minutter)
 
-1. Kjør hele `supabase/migrations/202610090001_arrangementer_cv.sql` i SQL Editor i Supabase. Supabase-koblingen fra Claude krever bekreftelse for SQL med `delete` (inne i funksjonene), så den kunne ikke kjøres fra økten.
+1. Kjør hele `supabase/migrations/202610090001_arrangementer_cv.sql` (etter migrasjonen fra prompt 5) i SQL Editor i Supabase. Supabase-koblingen fra Claude krever bekreftelse for SQL med `delete` (inne i funksjonene), så den kunne ikke kjøres fra økten.
 2. Til det er gjort, viser appen arrangementene via den gamle `list_public_events`, men oppretting, påmelding, delegater og CV gir feilmelding.
+
+## Utgangspunkt etter prompt 5 (1. oktober 2026)
+
+- Publiseringsdialogen viser avsenderen og har utkast (lagre, fortsette, slette), forhåndsvisning, tagging av arrangement, målgruppe og skoleform. Målgruppene som tilbys passer avsenderen, og serveren avviser andre (`audience_fits_organization`).
+- Innleggskortet har Rediger, Vis endringshistorikk og Slett for dem serveren sier kan endre innlegget (`can_manage` i `list_post_cards`). Redigerte innlegg merkes «redigert», og forrige versjon lagres. Menyen vises nå også på organisasjonssider.
+- XSS-rensing: tekst i innlegg og kommentarer renses for HTML, styretegn og usynlige retningstegn i klienten (`cleanText`) og i databasen (`clean_text`). Tekst vises fortsatt bare som ren tekst.
+- Venneråd: Administrasjon → Venneråd for skoler. Skoleadministrator ber om, godtar, avslår og avslutter. Tabellen kan ikke lenger skrives direkte, så ingen side kan godkjenne alene. Elevene ved vennerådene ser innlegg til «Venneråd».
+- Synlighet rettet: lokallagets innlegg til «lokallaget» nådde ingen, og elevene ved avsenderskolen så ikke skolens vennerådsinnlegg.
+- Poll og bilde i nye innlegg virker fortsatt bare i demoen (prompt 6 og 7).
+- Demoen: Elvebakken og Kuben er venneråd, Hartvig Nissen har spurt Elvebakken, Elvebakken har ett utkast, og innlegg 4 er redigert med historikk.
+- Migrasjonen `202610040001_innlegg.sql` har ingen `drop`, men er **ikke kjørt i pilotprosjektet** ennå. Til den er kjørt, feiler innleggene i appen mot Supabase (`list_post_cards` finnes ikke). Kjør hele filen i SQL Editor.
+- Databasetestene for prompt 5 ligger i `supabase/tests/innlegg.sql`.
 
 ## Utgangspunkt etter prompt 4 (1. oktober 2026)
 
@@ -175,7 +187,7 @@ Gjør stegene i denne rekkefølgen. Settes variablene i steg 5 før migrasjonen 
    - Regelen om fylkesstyre og lokallag, og sperre mot å fjerne siste administrator.
    - Deaktivert bruker og skole vises tydelig.
    - Revisjonslogg for alle endringer.
-5. **Innlegg** (§7)
+5. ✅ **Innlegg** (§7). Ferdig.
    - Publiseringsdialogen viser avsenderorganisasjonen.
    - Målgruppe: offentlig, fylke, lokallag eller venneråd. I tillegg skoleform: vgs, ungdomsskole eller begge.
    - Utkast, forhåndsvisning, redigering merket «redigert» med historikk for administratorer, sletting og tagging av arrangementer.

@@ -1,6 +1,7 @@
 export type OrganizationType = 'national' | 'county_board' | 'local_board' | 'school';
 export type OrganizationStatus = 'active' | 'deactivated' | 'archived';
 export type Audience = 'public' | 'county' | 'local' | 'friends';
+export type SchoolLevelTarget = 'both' | 'upper_secondary' | 'lower_secondary';
 export type EventCategory = 'landsmote' | 'kurs' | 'samling' | 'mote' | 'digitalt' | 'annet';
 /** En tilknytning brukeren kan opptre på vegne av. canPublish regnes ut av serveren. Verv i deaktiverte organisasjoner vises, men kan ikke brukes. */
 export type Representation = { id:string; organizationId:string; name:string; initials:string; publicRole:string; canPublish:boolean; type:OrganizationType; organizationStatus:OrganizationStatus };
@@ -9,7 +10,17 @@ export type OrganizationPriority = { id:string; title:string; description:string
 export type Organization = { id:string; type:OrganizationType; name:string; schoolName?:string; initials:string; county:string; place?:string; localBoard?:string; schoolLevel?:'upper_secondary'|'lower_secondary'; status:OrganizationStatus; bio:string; contactEmail?:string; studentCount?:number; memberCount?:number; followers:number; following?:boolean; officersTitle?:string; officers?:PublicOfficer[]; officerCount?:number; prioritiesTitle?:string; priorities?:OrganizationPriority[] };
 export type Comment = { id:string; organizationId:string; organizationName:string; actorName:string; createdAt:string; body:string };
 export type PostMedia = { id:string; type:'image'|'video'; alt:string; url?:string };
-export type Post = { id:string; organizationId:string; initials:string; organizationName:string; actorName:string; actorRole:string; createdAt:string; body:string; audience:Audience; priority?:boolean; edited?:boolean; likes:number; supported?:boolean; comments:number; commentItems?:Comment[]; tags?:string[]; media?:PostMedia[]; poll?:{ question:string; options:{ id:string; label:string; votes:number }[]; closesAt:string; resultsVisibility?:'after_vote'|'after_close'|'always' }; eventId?:string };
+export type Post = { id:string; organizationId:string; initials:string; organizationName:string; actorName:string; actorRole:string; createdAt:string; body:string; audience:Audience; priority?:boolean; edited?:boolean; likes:number; supported?:boolean; comments:number; commentItems?:Comment[]; tags?:string[]; media?:PostMedia[]; poll?:{ question:string; options:{ id:string; label:string; votes:number }[]; closesAt:string; resultsVisibility?:'after_vote'|'after_close'|'always' }; eventId?:string;
+  /** Skoleform innlegget er rettet mot. */
+  schoolLevel?:SchoolLevelTarget;
+  /** Serverens svar: kan brukeren redigere og slette innlegget og se historikken? */
+  canManage?:boolean };
+/** Et lagret utkast. Bare de som kan publisere for organisasjonen ser det. */
+export type PostDraft = { id:string; organizationId:string; body:string; audience:Audience; schoolLevel:SchoolLevelTarget; eventId?:string; updatedAt:string; actorName:string };
+/** En tidligere versjon av et publisert innlegg (§7). Bare for administratorer. */
+export type PostRevision = { id:string; body:string; audience:Audience; schoolLevel:SchoolLevelTarget; editedByName:string; createdAt:string };
+/** Venneråd sett fra egen skole: ventende eller godkjent. canDecide er serverens svar. */
+export type FriendConnection = { id:string; schoolId:string; schoolName:string; county:string; status:'pending'|'accepted'; direction:'incoming'|'outgoing'; createdAt:string; approvedAt?:string; canDecide:boolean };
 export type EventStatus = 'draft'|'published'|'cancelled'|'completed';
 export type EventAudience = 'public'|'county'|'local';
 /**
