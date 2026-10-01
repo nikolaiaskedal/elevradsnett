@@ -167,4 +167,25 @@ do $$ begin
   end if;
 end $$;
 
+-- Funksjonstilgang: anon kan bare kalle det som er ment å være offentlig.
+do $$ begin
+  if has_function_privilege('anon','public.assign_role(uuid,uuid,admin_role,date,date)','execute') then raise exception 'anon kan kalle assign_role'; end if;
+  if has_function_privilege('anon','public.has_area_role(uuid,uuid)','execute') then raise exception 'anon kan kalle has_area_role'; end if;
+  if has_function_privilege('anon','public.is_blocked_between(uuid,uuid)','execute') then raise exception 'anon kan kalle is_blocked_between'; end if;
+  if not has_function_privilege('anon','public.search(text,text[],boolean,int)','execute') then raise exception 'anon kan ikke søke'; end if;
+  if not has_function_privilege('authenticated','public.request_personal_data(text)','execute') then raise exception 'innloggede mangler tilgang til RPC'; end if;
+end $$;
+
+-- Tredjepart kan ikke finne ut om to andre har blokkert hverandre.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a0000000-0000-4000-8000-00000000000b',true);
+do $$ begin
+  if public.is_blocked_between('a0000000-0000-4000-8000-00000000000a','a0000000-0000-4000-8000-00000000000c') then raise exception 'blokkering lekker til tredjepart'; end if;
+end $$;
+select set_config('request.jwt.claim.sub','a0000000-0000-4000-8000-00000000000a',true);
+do $$ begin
+  if not public.is_blocked_between('a0000000-0000-4000-8000-00000000000a','a0000000-0000-4000-8000-00000000000c') then raise exception 'parten ser ikke blokkeringen'; end if;
+end $$;
+reset role;
+
 rollback;
