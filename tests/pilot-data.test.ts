@@ -22,7 +22,7 @@ describe('pilotdata',()=>{
   });
 
   it('har gyldige og unike skoler',()=>{
-    expect(schools.length).toBe(453);
+    expect(schools.length).toBe(471);
     expect(new Set(schools.map(s=>s.ekstern_id)).size).toBe(schools.length);
     expect(new Set(schools.map(s=>s.slug)).size).toBe(schools.length);
     for (const school of schools) {

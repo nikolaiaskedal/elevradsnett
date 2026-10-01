@@ -67,7 +67,7 @@ Grensene må overholdes i piloten. Spesielt e-post: engangskoder går foran vars
    - Migrasjoner for alt som mangler fra listen over.
    - Funksjon for bildehierarkiet (egen skole → lokallag → fylke → global), med lås.
    - Demodata med de fem lokallagene, alle fylkene og EO-logoen som standardbilde. Alt merket med `is_placeholder`.
-   - Fylkene og skolene i piloten ligger i `supabase/pilot/` (453 skoler i 15 fylker fra medlemsregisteret 2025/2026). Disse er ekte data og merkes ikke med `is_placeholder`.
+   - Fylkene og skolene i piloten ligger i `supabase/pilot/` (471 skoler i 15 fylker fra medlemsregisteret 2025/2026). Disse er ekte data og merkes ikke med `is_placeholder`.
    - Pilotprosjektet opprettes i Supabase. TypeScript-typer genereres, og RLS-testene kjøres i CI mot lokal Supabase.
    - `docs/RLS_MATRIX.md` oppdateres.
 3. **Innlogging, profiler og offentlig lesing** (§1, §3, §10)
