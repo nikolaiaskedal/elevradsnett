@@ -10,11 +10,11 @@ Planen deler `docs/KRAVSPEC.md` inn i prompter som sendes én om gangen, hver i 
 | 2. Datamodell og Supabase-prosjekt | Ferdig, med to manuelle steg (se under) | PR #7, #10 |
 | 3. Innlogging, profiler og offentlig lesing | Ferdig, med manuelle steg (se *Før prompt 4*) | PR #13 |
 | 4. Medlemskap, roller og aktiv representasjon | Ferdig | PR #14 |
-| 5. Innlegg | Ferdig, migrasjonen må kjøres i pilotprosjektet (se under) | se git-loggen |
+| 5. Innlegg | Ferdig, migrasjonen er kjørt i pilotprosjektet | se git-loggen |
 | 6. Bilder | Neste | – |
-| 9. Arrangementer og CV | Ferdig, migrasjonen må kjøres i pilotprosjektet (se under) | se git-loggen |
+| 9. Arrangementer og CV | Ferdig, med ett manuelt steg (se *Før neste prompt*) | se git-loggen |
 
-Neste prompt som skal sendes er **prompt 6**. Prompt 9 er gjort før 6–8 etter ønske. Kjør først `supabase/migrations/202610040001_innlegg.sql` og deretter `supabase/migrations/202610090001_arrangementer_cv.sql` i SQL Editor i pilotprosjektet, og sjekk at stegene 3–6 under *Før prompt 4* er gjort (e-postmal, OTP-innstillinger og GitHub-variablene).
+Neste prompt som skal sendes er **prompt 6**. Prompt 9 er gjort før 6–8 etter ønske. Kjør først `supabase/manual/gjenstar_fra_prompt9.sql` i SQL Editor i pilotprosjektet, og sjekk at stegene 3–6 under *Før prompt 4* er gjort (e-postmal, OTP-innstillinger og GitHub-variablene).
 
 ## Utgangspunkt etter prompt 9 (1. oktober 2026)
 
@@ -34,8 +34,10 @@ Prompt 9 ble gjort før prompt 6–8, parallelt med prompt 5.
 
 ### Før neste prompt (etter prompt 9, manuelt, ca. 5 minutter)
 
-1. Kjør hele `supabase/migrations/202610090001_arrangementer_cv.sql` (etter migrasjonen fra prompt 5) i SQL Editor i Supabase. Supabase-koblingen fra Claude krever bekreftelse for SQL med `delete` (inne i funksjonene), så den kunne ikke kjøres fra økten.
-2. Til det er gjort, viser appen arrangementene via den gamle `list_public_events`, men oppretting, påmelding, delegater og CV gir feilmelding.
+Migrasjonene fra prompt 5 og 9 er kjørt i pilotprosjektet, bortsett fra tre funksjoner i prompt 9 som sletter rader. Supabase-koblingen fra Claude krever en bekreftelse for SQL med `delete` som ikke kan gis fra en økt.
+
+1. Lim inn hele `supabase/manual/gjenstar_fra_prompt9.sql` i SQL Editor i Supabase og kjør den. Kontrollspørringen nederst skal gi tre rader.
+2. Til det er gjort, gir det feilmelding å markere eller fjerne interesse, melde på eller av og fjerne delegater. Alt annet virker.
 
 ## Utgangspunkt etter prompt 5 (1. oktober 2026)
 
@@ -46,7 +48,7 @@ Prompt 9 ble gjort før prompt 6–8, parallelt med prompt 5.
 - Synlighet rettet: lokallagets innlegg til «lokallaget» nådde ingen, og elevene ved avsenderskolen så ikke skolens vennerådsinnlegg.
 - Poll og bilde i nye innlegg virker fortsatt bare i demoen (prompt 6 og 7).
 - Demoen: Elvebakken og Kuben er venneråd, Hartvig Nissen har spurt Elvebakken, Elvebakken har ett utkast, og innlegg 4 er redigert med historikk.
-- Migrasjonen `202610040001_innlegg.sql` har ingen `drop`, men er **ikke kjørt i pilotprosjektet** ennå. Til den er kjørt, feiler innleggene i appen mot Supabase (`list_post_cards` finnes ikke). Kjør hele filen i SQL Editor.
+- Migrasjonen `202610040001_innlegg.sql` har ingen `drop`, og er kjørt i pilotprosjektet.
 - Databasetestene for prompt 5 ligger i `supabase/tests/innlegg.sql`.
 
 ## Utgangspunkt etter prompt 4 (1. oktober 2026)
