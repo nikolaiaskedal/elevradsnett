@@ -100,6 +100,7 @@ Nye samtaler er begrenset til 30 per bruker per døgn (`check_conversation_rate_
 - Innlogging skjer med engangskode på e-post i Supabase Auth. Profilen finnes ikke før onboarding er fullført; da svarer `get_my_session` «onboarding».
 - `profiles_self_update` er fjernet (prompt 3). Den lot brukeren endre alle kolonner i egen profil, også status og skole.
 - Profilbilder ligger i `public-avatars/<bruker-id>/`. Brukeren kan laste opp og slette bare i egen mappe (`own_avatar_upload`, `own_avatar_delete`), og `set_avatar` godtar bare en fil som finnes i egen mappe.
+- Den første superadministratoren kan ikke tildeles i appen (`assign_role` stopper selvtildeling). Prosjekteieren kjører `supabase/manual/gjor_meg_til_superadmin.sql` i SQL Editor; den krever en eksisterende aktiv profil, er idempotent og logger `role.bootstrapped`.
 - Skolebytte (`change_school`) avslutter verv og rettigheter ved gammel skole med sluttdato, gir ingen rettigheter ved ny skole, og stopper siste skoleadministrator.
 
 ## Sanntid
