@@ -10,7 +10,7 @@ Planen deler `docs/KRAVSPEC.md` inn i prompter som sendes én om gangen, hver i 
 | 2. Datamodell og Supabase-prosjekt | Ferdig, med to manuelle steg (se under) | PR #7, #10 |
 | 3. Innlogging, profiler og offentlig lesing | Ferdig, med manuelle steg (se *Før prompt 4*) | PR #13 |
 | 4. Medlemskap, roller og aktiv representasjon | Ferdig | PR #14 |
-| 5. Innlegg | Ferdig, migrasjonen må kjøres i pilotprosjektet (se under) | se git-loggen |
+| 5. Innlegg | Ferdig | PR #16 |
 | 6. Bilder | Neste | – |
 | 9. Arrangementer og CV | Ferdig, migrasjonen må kjøres i pilotprosjektet (se under) | se git-loggen |
 
@@ -46,7 +46,7 @@ Prompt 9 ble gjort før prompt 6–8, parallelt med prompt 5.
 - Synlighet rettet: lokallagets innlegg til «lokallaget» nådde ingen, og elevene ved avsenderskolen så ikke skolens vennerådsinnlegg.
 - Poll og bilde i nye innlegg virker fortsatt bare i demoen (prompt 6 og 7).
 - Demoen: Elvebakken og Kuben er venneråd, Hartvig Nissen har spurt Elvebakken, Elvebakken har ett utkast, og innlegg 4 er redigert med historikk.
-- Migrasjonen `202610040001_innlegg.sql` har ingen `drop`, men er **ikke kjørt i pilotprosjektet** ennå. Til den er kjørt, feiler innleggene i appen mot Supabase (`list_post_cards` finnes ikke). Kjør hele filen i SQL Editor.
+- Migrasjonen `202610040001_innlegg.sql` har ingen `drop`, og er kjørt i pilotprosjektet.
 - Databasetestene for prompt 5 ligger i `supabase/tests/innlegg.sql`.
 
 ## Utgangspunkt etter prompt 4 (1. oktober 2026)
