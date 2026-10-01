@@ -1,4 +1,4 @@
-# Builds the Elevrådsnett prototype (vite.pages.config.ts) and deploys it to GitHub Pages
+# Bygger Elevrådsnett-demoen (vite.config.ts) og publiserer den på GitHub Pages i tillegg til Cloudflare Pages
 name: Deploy static content to Pages
 
 on:
@@ -40,15 +40,15 @@ jobs:
         run: npm ci
       - name: Test
         run: npm test
-      - name: Build static prototype
-        run: npm run build:pages
+      - name: Build
+        run: npm run build
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           # Only the built prototype, not the repository source
-          path: './dist-pages'
+          path: './dist'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5

@@ -1,0 +1,18 @@
+# Cloudflare Pages: sikkerhets- og cache-headere for SPA-en.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+
+# index.html må alltid hentes på nytt, så nye bygg tas i bruk med en gang.
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+
+# Filnavnene under /assets/ har innholdshash og kan caches for alltid.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
