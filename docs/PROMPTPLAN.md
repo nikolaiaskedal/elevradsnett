@@ -13,8 +13,9 @@ Planen deler `docs/KRAVSPEC.md` inn i prompter som sendes én om gangen, hver i 
 | 5. Innlegg | Ferdig | PR #16 |
 | 6. Bilder | Neste | – |
 | 9. Arrangementer og CV | Ferdig, med ett manuelt steg (se *Før neste prompt*) | se git-loggen |
+| 10. Meldinger | Ferdig, med ett manuelt steg (migrasjonen med `drop policy`, se *Utgangspunkt etter prompt 10*) | se git-loggen |
 
-Neste prompt som skal sendes er **prompt 6**. Prompt 9 er gjort før 6–8 etter ønske. Kjør først `supabase/manual/gjenstar_fra_prompt9.sql` i SQL Editor i pilotprosjektet, og sjekk at stegene 3–6 under *Før prompt 4* er gjort (e-postmal, OTP-innstillinger og GitHub-variablene).
+Neste prompt som skal sendes er **prompt 6** (Bilder), deretter 7 (kommentarer, reaksjoner, avstemninger) og 8 (feed og søk), så 11 (varsler og styreoverføring). Prompt 9 og 10 er gjort før 6–8 etter ønske. Kjør først `supabase/manual/gjenstar_fra_prompt9.sql` i SQL Editor i pilotprosjektet, kjør `supabase/migrations/202610100001_meldinger.sql` i SQL Editor, og sjekk at stegene 3–6 under *Før prompt 4* er gjort (e-postmal, OTP-innstillinger og GitHub-variablene).
 
 ## Utgangspunkt etter prompt 9 (1. oktober 2026)
 
