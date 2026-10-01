@@ -1,19 +1,12 @@
 -- DEMO / PLACEHOLDER DATA ONLY. Never use as production identities or content.
 -- Alt her er merket is_placeholder, så superadministrator kan finne og slette det samlet (§11).
--- Organisasjonsstrukturen følger §2: EO nasjonalt, alle fylkesstyrene og de fem standard lokallagene.
+-- Organisasjonsstrukturen følger §2: EO nasjonalt og de fem standard lokallagene. Fylkesstyrene og de
+-- ekte medlemsskolene kommer fra supabase/pilot/seed.sql, som lastes før denne filen.
 
 -- EO-logoen er global standard for profilbilde (§2, §14). Fylkesstyrer og lokallag har ikke eget
 -- bilde, så de arver den via resolve_organization_images. Filen lastes opp til public-avatars/defaults/.
 insert into public.organizations(id,type,external_id,name,slug,county,local_board_id,school_level,contact_email,bio,status,is_placeholder,default_profile_image_path) values
 ('00000000-0000-4000-8000-000000000001','national','demo-eo','EO Nasjonalt','eo-nasjonalt','Nasjonalt',null,null,'teknisk@elev.no','Elevorganisasjonen er av, med og for elever.','active',true,'public-avatars/defaults/eo-logo.png')
-on conflict(id) do nothing;
-
--- Fylkesstyrer, ett per fylke (fylkesinndelingen fra 2024).
-insert into public.organizations(id,type,external_id,name,slug,county,bio,status,is_placeholder)
-select ('00000000-0000-4000-8000-0000000001'||lpad(n::text,2,'0'))::uuid,'county_board','demo-county-'||slug,'Fylkesstyret i '||county,'fylkesstyret-'||slug,county,'Demo-fylkesstyre.','active',true
-from (values (1,'Oslo','oslo'),(2,'Akershus','akershus'),(3,'Østfold','ostfold'),(4,'Buskerud','buskerud'),(5,'Innlandet','innlandet'),
-             (6,'Vestfold','vestfold'),(7,'Telemark','telemark'),(8,'Agder','agder'),(9,'Rogaland','rogaland'),(10,'Vestland','vestland'),
-             (11,'Møre og Romsdal','more-og-romsdal'),(12,'Trøndelag','trondelag'),(13,'Nordland','nordland'),(14,'Troms','troms'),(15,'Finnmark','finnmark')) c(n,county,slug)
 on conflict(id) do nothing;
 
 -- De fem standard lokallagene.

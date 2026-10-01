@@ -16,7 +16,7 @@ insert into public.profiles(id,display_name,email,current_school_id,status) valu
 ('a0000000-0000-4000-8000-00000000000c','Cecilie Utenfor','c@example.invalid',null,'active'),
 ('a0000000-0000-4000-8000-00000000000d','Dagfinn Tidligere','d@example.invalid','00000000-0000-4000-8000-000000000020','deactivated');
 insert into public.role_grants(user_id,organization_id,role,start_date,status,granted_by) values
-('a0000000-0000-4000-8000-00000000000b','00000000-0000-4000-8000-000000000101','board_admin',current_date-1,'active','a0000000-0000-4000-8000-00000000000c');
+('a0000000-0000-4000-8000-00000000000b',(select id from public.organizations where type='county_board' and county='Oslo'),'board_admin',current_date-1,'active','a0000000-0000-4000-8000-00000000000c');
 insert into public.memberships(id,user_id,organization_id,public_title,start_date,end_date,status) values
 ('b0000000-0000-4000-8000-00000000000a','a0000000-0000-4000-8000-00000000000a','00000000-0000-4000-8000-000000000020','Elevrådsleder',current_date-30,null,'active'),
 ('b0000000-0000-4000-8000-00000000000d','a0000000-0000-4000-8000-00000000000d','00000000-0000-4000-8000-000000000020','Elevrådsleder',current_date-400,current_date-40,'ended');
@@ -41,7 +41,7 @@ do $$ declare r record; begin
   select * into r from public.resolve_organization_images('00000000-0000-4000-8000-000000000020');
   if r.profile_image_source<>'global' or r.profile_image_path<>'public-avatars/defaults/eo-logo.png' then raise exception 'forventet global EO-logo, fikk % %',r.profile_image_source,r.profile_image_path; end if;
   if r.cover_image_source<>'none' then raise exception 'forventet ingen cover'; end if;
-  update public.organizations set default_cover_image_path='county-cover.webp' where id='00000000-0000-4000-8000-000000000101';
+  update public.organizations set default_cover_image_path='county-cover.webp' where id=(select id from public.organizations where type='county_board' and county='Oslo');
   update public.organizations set default_cover_image_path='local-cover.webp' where id='00000000-0000-4000-8000-000000000013';
   update public.organizations set cover_image_path='own-cover.webp' where id='00000000-0000-4000-8000-000000000020';
   select * into r from public.resolve_organization_images('00000000-0000-4000-8000-000000000020');

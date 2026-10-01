@@ -14,7 +14,8 @@
     "test": "vitest run",
     "format": "oxfmt",
     "test:db": "bash scripts/test-db.sh",
-    "db:types": "supabase gen types typescript --local --schema public > lib/supabase/database.types.ts"
+    "db:types": "supabase gen types typescript --local --schema public > lib/supabase/database.types.ts",
+    "pilot:seed": "node scripts/build-pilot-seed.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
