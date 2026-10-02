@@ -29,7 +29,7 @@ Prompt 6 og 7 er ferdige. Neste prompter er 8 (feed og søk) og 11 (varsler og s
 - Avstemninger har spørsmål, 2–10 alternativer og sluttdato (`add_post_poll`). Én stemme per organisasjon (aktiv representasjon), som kan endres til fristen. Resultatet vises etter egen stemme eller frist (`list_posts`, som erstatter `list_post_cards`).
 - Deling gjelder bare offentlige innlegg, og lenken går til innlegget (`#/innlegg/<id>`).
 - Til migrasjonene er kjørt, faller appen tilbake til `list_post_cards`, så feeden virker. Opplasting av bilder (også profilbilder og arrangementsbilder) virker først når både migrasjonene og den nye `process-media` er på plass.
-- Databasetestene ligger i `supabase/tests/bilder_aktivitet.sql`. De er ikke kjørt lokalt (Docker startet ikke på utviklermaskinen), og `lib/supabase/database.types.ts` er oppdatert for hånd. Kjør `npm run test:db` og `npm run db:types` når Docker virker, og rett eventuelle avvik.
+- Databasetestene ligger i `supabase/tests/bilder_aktivitet.sql`, og alle databasetestene går gjennom etter `supabase db reset` (kjørt 2. oktober 2026 i økten for prompt 8 og 11). `lib/supabase/database.types.ts` er oppdatert for hånd; kjør `npm run db:types` når Docker virker, og rett eventuelle avvik.
 
 ### Før neste prompt (etter prompt 6 og 7, manuelt, ca. 10 minutter)
 
