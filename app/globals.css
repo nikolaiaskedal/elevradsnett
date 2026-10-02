@@ -629,6 +629,13 @@ dl.facts dd { font-weight: 600; overflow-wrap: anywhere; }
 .admin-org { color: var(--navy-300); }
 .admin-org strong { color: var(--navy); }
 .admin-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.admin-action { margin-top: 16px; padding: 18px; border: 1px solid var(--navy-100); border-radius: 10px; background: var(--soft); display: grid; gap: 12px; }
+.admin-action textarea { min-height: 90px; resize: vertical; }
+.image-source-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.image-source-grid p { margin: 0; padding: 14px; border: 1px solid var(--navy-100); border-radius: 9px; display: grid; gap: 4px; }
+.image-source-grid small { color: var(--navy-300); }
+.mfa-enrollment { display: grid; justify-items: center; gap: 12px; padding: 16px; background: var(--soft); border-radius: 10px; overflow-wrap: anywhere; }
+.mfa-enrollment img { width: min(240px, 100%); height: auto; }
 .assign-form { display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--accent-200); background: var(--accent-50); border-radius: 11px; padding: 16px; }
 .assign-form .hits { max-height: 220px; }
 .role-row { flex-wrap: wrap; }
@@ -641,6 +648,11 @@ dl.facts dd { font-weight: 600; overflow-wrap: anywhere; }
   .rep-switch-button { max-width: 180px; padding-right: 8px; }
   .rep-switch-text small { display: none; }
   .rep-switch-panel { position: fixed; left: 16px; right: 16px; top: 64px; width: auto; max-width: none; }
+}
+@media (max-width: 480px) {
+  .image-source-grid { grid-template-columns: 1fr; }
+  .admin-action .actions { flex-direction: column-reverse; }
+  .admin-action .actions .btn { width: 100%; }
 }
 @media (max-width: 480px) {
   .rep-switch-text { display: none; }

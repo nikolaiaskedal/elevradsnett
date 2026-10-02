@@ -17,8 +17,9 @@ Planen deler `docs/KRAVSPEC.md` inn i prompter som sendes én om gangen, hver i 
 | 9. Arrangementer og CV | Ferdig, med ett manuelt steg (se *Før neste prompt*) | se git-loggen |
 | 10. Meldinger | Ferdig, med ett manuelt steg (migrasjonen med `drop policy`, se *Utgangspunkt etter prompt 10*) | se git-loggen |
 | 11. Varsler og styreoverføring | Ferdig, med manuelle steg (se *Før neste prompt (etter prompt 8 og 11)*) | se git-loggen |
+| 12. Adminpanel og moderering | Ferdig, migrasjon må kjøres manuelt | se git-loggen |
 
-Prompt 1–11 er ferdige. Neste prompt er **12** (adminpanel og moderering). Kjør først de manuelle stegene i rekkefølge: *Før neste prompt (etter prompt 6 og 7)*, deretter *Før neste prompt (etter prompt 8 og 11)*, `supabase/manual/gjenstar_fra_prompt9.sql` og `supabase/migrations/202610100001_meldinger.sql` i SQL Editor i pilotprosjektet. Sjekk også at stegene 3–6 under *Før prompt 4* er gjort (e-postmal, OTP-innstillinger og GitHub-variablene).
+Prompt 1–12 er ferdige. Neste prompt er **13** (CSV-import). Kjør først de manuelle stegene i rekkefølge: *Før neste prompt (etter prompt 6 og 7)*, deretter *Før neste prompt (etter prompt 8 og 11)*, `supabase/manual/gjenstar_fra_prompt9.sql`, `supabase/migrations/202610100001_meldinger.sql` og `supabase/migrations/202610120003_admin_moderering.sql` i SQL Editor i pilotprosjektet. Sjekk også at stegene 3–6 under *Før prompt 4* er gjort (e-postmal, OTP-innstillinger og GitHub-variablene).
 
 ## Utgangspunkt etter prompt 8 og 11 (2. oktober 2026)
 
@@ -67,6 +68,15 @@ Supabase-koblingen fra Claude fikk ikke lov til å endre pilotprosjektet i denne
 2. Lim inn hele `supabase/migrations/202610110002_aktivitet.sql` og kjør den.
 3. Publiser edge-funksjonen: `npx supabase login`, deretter `npx supabase functions deploy process-media --project-ref ibipqyombdmtfvgthugz`. JWT-sjekken skal være på (standard). Service role-nøkkelen finnes automatisk i funksjonen og skal ikke legges noe annet sted.
 4. Test: last opp et profilbilde, publiser et innlegg med bilde og avstemning, stem og slett innlegget.
+
+## Utgangspunkt etter prompt 12 (2. oktober 2026)
+
+- Administrasjonen har nå områdeavgrensede flater for brukere, organisasjoner, innhold, medier, placeholders, standardbilder, aggregert statistikk og moderering. Klienten viser bare data fra `get_admin_dashboard` og `list_moderation_queue`; alle rettigheter kontrolleres på nytt i RPC-ene.
+- Brukere kan flyttes til en annen skole, deaktiveres, reaktiveres eller anonymiseres. En administrator kan ikke administrere seg selv, og en profil brukeren selv deaktiverte kan ikke reaktiveres uten samtykke.
+- Moderering støtter skjuling, sletting, advarsel, sju dagers begrensning, deaktivering, gjenoppretting, ingen handling, klage og ny vurdering. En meldingssak deler fortsatt bare den konkrete rapporterte meldingen, og slike saker er begrenset til superadministrator.
+- Superadministratorrettigheten i databasen krever AAL2. Adminsiden har oppsett og kodekontroll for TOTP via Supabase Auth. Andre administratorer kan bruke TOTP frivillig.
+- Migrasjonen `supabase/migrations/202610120003_admin_moderering.sql` må kjøres i pilotprosjektet før de nye flatene brukes. Den inneholder sletting av placeholdermetadata og må derfor kjøres manuelt i SQL Editor dersom databasekoblingen krever bekreftelse.
+- Databasetestene ligger i `supabase/tests/admin_moderering.sql`.
 
 ## Utgangspunkt etter prompt 9 (1. oktober 2026)
 

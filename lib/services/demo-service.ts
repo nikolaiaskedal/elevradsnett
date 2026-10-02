@@ -12,8 +12,9 @@ import type { OrganizationImages, Poll } from '@/lib/domain/types';
 import { organizationImageSchema, publishPostFields, reportPostSchema } from '@/lib/domain/validation';
 import type { PublishProgress, ReportPostInput } from './contracts';
 import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, CurrentUser, DelegateCandidate, DelegateStatus, Event, EventDelegate, EventOrganizer, EventParticipation, GrantStatus, InternalRole, Message, MyRole, Organization, OrganizationCvEntry, OrganizationRoleEntry, PersonCv, Post, RegistrationStatus, Representation, SchoolAdminRequest, SchoolHistoryEntry, Session, Audience, FriendConnection, PostDraft, PostRevision } from '@/lib/domain/types';
-import { addDelegateSchema, assignPublicOfficeSchema, assignRoleSchema, attendanceSchema, avatarSchema, changeSchoolSchema, commentSchema, decideSchoolAdminRequestSchema, delegationResponseSchema, eventImageSchema, eventInputSchema, eventInterestSchema, eventRegistrationSchema, eventStatusChangeSchema, idSchema, isoDate, onboardingSchema, publishPostSchema, requestLoginCodeSchema, schoolAdminRequestSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema, audiencesFor, decideFriendRequestSchema, editPostSchema, friendRequestSchema, saveDraftSchema } from '@/lib/domain/validation';
-import type { AddCommentInput, AddDelegateInput, AssignPublicOfficeInput, AttendanceInput, DelegationResponseInput, EventInput, EventInterestInput, EventRegistrationInput, EventStatusChangeInput, AssignRoleInput, ChangeSchoolInput, DecideSchoolAdminRequestInput, ElevradsnettService, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SchoolAdminRequestInput, SendMessageInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput, DecideFriendRequestInput, EditPostInput, FriendRequestInput, SaveDraftInput } from './contracts';
+import type { AdminDashboard, AdminImages, MfaStatus, ModerationReport, TotpEnrollment } from '@/lib/domain/admin';
+import { addDelegateSchema, adminImagesSchema, adminUserActionSchema, assignPublicOfficeSchema, assignRoleSchema, attendanceSchema, avatarSchema, changeSchoolSchema, commentSchema, decideSchoolAdminRequestSchema, delegationResponseSchema, eventImageSchema, eventInputSchema, eventInterestSchema, eventRegistrationSchema, eventStatusChangeSchema, idSchema, isoDate, moderationActionSchema, moderationAppealSchema, onboardingSchema, organizationStatusActionSchema, publishPostSchema, requestLoginCodeSchema, schoolAdminRequestSchema, totpCodeSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema, audiencesFor, decideFriendRequestSchema, editPostSchema, friendRequestSchema, saveDraftSchema } from '@/lib/domain/validation';
+import type { AddCommentInput, AddDelegateInput, AdminImagesInput, AdminUserActionInput, AssignPublicOfficeInput, AttendanceInput, DelegationResponseInput, EventInput, EventInterestInput, EventRegistrationInput, EventStatusChangeInput, AssignRoleInput, ChangeSchoolInput, DecideSchoolAdminRequestInput, ElevradsnettService, ModerationActionInput, ModerationAppealInput, OnboardingInput, OrganizationStatusActionInput, PublishPostInput, RequestLoginCodeInput, SchoolAdminRequestInput, SendMessageInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput, DecideFriendRequestInput, EditPostInput, FriendRequestInput, SaveDraftInput } from './contracts';
 
 /** Engangskoden som alltid virker i demoen. Vises i innloggingsdialogen når demotjenesten brukes. */
 export const DEMO_LOGIN_CODE = '123456';
@@ -60,6 +61,9 @@ export class DemoElevradsnettService implements ElevradsnettService {
   private registrations:Registration[] = [];
   private delegates:Delegate[] = [];
   private reported = new Set<string>();
+  private moderation:ModerationReport[] = [{ id:'report-demo-1',targetType:'post',targetId:'post-2',targetSummary:'Dette innlegget har upassende språk.',category:'Upassende innhold',description:'Språket oppleves krenkende.',status:'open',reporterName:'Omar Haddad',createdAt:'2026-10-01T09:30:00.000Z',actions:[] }];
+  private adminImages = new Map<string,AdminImages>();
+  private mfa:MfaStatus = { required:false,enrolled:false,verified:false };
   private organizationImages = new Map<string,{ profile?:string; cover?:string }>();
   private people = new Map<string,Person>();
   private memberships:Membership[] = [];
@@ -538,6 +542,54 @@ export class DemoElevradsnettService implements ElevradsnettService {
     return structuredClone(this.audit.filter(a=>a.organizationId===organizationId).slice(0,30)
       .map(({ id,createdAt,actorName,action,subjectId,details })=>({ id, createdAt, actorName, action, subjectName:subjectId?this.people.get(subjectId)?.name:undefined, details })));
   }
+  async getAdminDashboard(organizationId:string):Promise<AdminDashboard> {
+    this.requireAreaAdmin(organizationId);
+    const scope = this.organization(organizationId);
+    const inScope = (o:Organization)=>scope.type==='national'||o.id===scope.id||(scope.type==='county_board'&&o.county===scope.county)||(scope.type==='local_board'&&o.localBoard===scope.name);
+    const orgs = this.organizations.filter(inScope);
+    const schools = orgs.filter(o=>o.type==='school');
+    const users = [...this.people.values()].filter(p=>p.schoolId&&schools.some(s=>s.id===p.schoolId));
+    const images = this.adminImages.get(scope.id) ?? { organizationId:scope.id,locked:false,profile:{ sourceName:'Global standard',sourceLevel:'global' },cover:{ sourceName:'Global standard',sourceLevel:'global' } };
+    return structuredClone({
+      stats:{ activeUsers:users.filter(p=>p.active).length,activeSchools:schools.filter(s=>s.status==='active').length,newUsers30Days:1,publishedPosts:this.posts.filter(p=>orgs.some(o=>o.id===p.organizationId)).length,comments:this.posts.filter(p=>orgs.some(o=>o.id===p.organizationId)).reduce((n,p)=>n+p.comments,0),reactions:this.posts.filter(p=>orgs.some(o=>o.id===p.organizationId)).reduce((n,p)=>n+p.likes,0),eventRegistrations:this.registrations.filter(r=>this.events.some(e=>e.id===r.eventId&&orgs.some(o=>o.id===e.organizerId))).length,completedHandovers:0,openModerationCases:this.moderation.filter(r=>['open','reviewing','appealed'].includes(r.status)).length },
+      users:users.map(p=>({ id:p.id,name:p.name,schoolId:p.schoolId,schoolName:this.organizations.find(o=>o.id===p.schoolId)?.name ?? '',status:p.active?'active':'deactivated',deactivatedByUser:false })),
+      schools:schools.map(s=>({ id:s.id,name:s.name,county:s.county,localBoardName:s.localBoard ?? '',status:s.status,administratorCount:this.grants.filter(g=>g.organizationId===s.id&&g.role==='school_admin'&&this.live(g)).length })),
+      content:[...this.posts.filter(p=>orgs.some(o=>o.id===p.organizationId)).map(p=>({ id:p.id,type:'post' as const,title:p.body.slice(0,100),organizationName:p.organizationName,status:'publisert',createdAt:p.createdAt })),...this.events.filter(e=>orgs.some(o=>o.id===e.organizerId)).map(e=>({ id:e.id,type:'event' as const,title:e.title,organizationName:this.organization(e.organizerId).name,status:e.status,createdAt:e.startsAt }))],
+      media:[],placeholders:orgs.filter(o=>(o as Organization & { isPlaceholder?:boolean }).isPlaceholder).map(o=>({ id:o.id,type:'organization' as const,title:o.name,organizationName:o.name })),images,
+    });
+  }
+  async manageAdminUser(input:AdminUserActionInput) {
+    const value = adminUserActionSchema.parse(input); this.requireAreaAdmin(value.scopeId);
+    const person = this.people.get(value.userId); if (!person||person.id===this.user.id) throw new Error('Du kan ikke administrere denne brukeren.');
+    if (value.action==='change_school') person.schoolId=value.schoolId!;
+    else if (value.action==='restore') person.active=true;
+    else person.active=false;
+    this.log(value.scopeId,`user.${value.action}`,person.id,{ reason:value.reason,school_id:value.schoolId });
+  }
+  async setOrganizationStatus(input:OrganizationStatusActionInput) {
+    const value=organizationStatusActionSchema.parse(input); this.requireAreaAdmin(value.scopeId);
+    const organization=this.organization(value.organizationId); organization.status=value.status; this.log(organization.id,`organization.${value.status}`,undefined,{ reason:value.reason });
+  }
+  async setAdminImages(input:AdminImagesInput) {
+    const value=adminImagesSchema.parse(input); this.requireAreaAdmin(value.scopeId);
+    if (value.locked&&!this.isSuper(this.user.id)) throw new Error('Bare superadministrator kan låse bilder.');
+    this.adminImages.set(value.organizationId,{ organizationId:value.organizationId,locked:value.locked,defaultProfilePath:value.defaultProfilePath,defaultCoverPath:value.defaultCoverPath,profile:{ path:value.defaultProfilePath,sourceName:'Egen standard',sourceLevel:value.defaultProfilePath?'own':'global' },cover:{ path:value.defaultCoverPath,sourceName:'Egen standard',sourceLevel:value.defaultCoverPath?'own':'global' } });
+    this.log(value.organizationId,'organization.images_updated');
+  }
+  async deletePlaceholder(input:{ scopeId:string; type:'organization'|'post_media'|'event'; id:string }) {
+    this.requireAreaAdmin(input.scopeId); if (!this.isSuper(this.user.id)) throw new Error('Du har ikke tilgang til å gjøre dette.');
+  }
+  async deleteAllPlaceholders(scopeId:string) { this.requireAreaAdmin(scopeId); if (!this.isSuper(this.user.id)) throw new Error('Du har ikke tilgang til å gjøre dette.'); return 0; }
+  async listModerationReports(organizationId:string) { this.requireAreaAdmin(organizationId); return structuredClone(this.moderation); }
+  async applyModerationAction(input:ModerationActionInput) {
+    const value=moderationActionSchema.parse(input); const report=this.moderation.find(r=>r.id===value.reportId); if (!report) throw new Error('Fant ikke saken.');
+    this.requireUser(); report.status='resolved'; report.assignedToName=this.user.name; report.actions.push({ id:this.nextId('action'),action:value.action,reason:value.reason,moderatorName:this.user.name,createdAt:new Date().toISOString() });
+  }
+  async appealModerationReport(input:ModerationAppealInput) { const value=moderationAppealSchema.parse(input); const report=this.moderation.find(r=>r.id===value.reportId); if (!report||!['resolved','closed'].includes(report.status)) throw new Error('Saken kan ikke klages på.'); report.status='appealed'; report.description=`${report.description ?? ''}\n\nKlage: ${value.reason}`.trim(); }
+  async getMfaStatus() { return { ...this.mfa }; }
+  async enrollTotp():Promise<TotpEnrollment> { this.mfa={ ...this.mfa,enrolled:true,factorId:'demo-totp' }; return { factorId:'demo-totp',qrCode:'otpauth://totp/Elevaadsnett:demo?secret=DEMO1234',secret:'DEMO1234' }; }
+  async verifyTotp(input:{ factorId:string; code:string }) { totpCodeSchema.parse(input.code); if (input.code!==DEMO_LOGIN_CODE) throw new Error('Koden ble ikke godkjent.'); this.mfa={ ...this.mfa,enrolled:true,verified:true,factorId:input.factorId }; }
+  async challengeTotp(input:{ factorId:string; code:string }) { await this.verifyTotp(input); }
 
   // ---- Innlegg ----
   async publishPost(input:PublishPostInput,onProgress?:(progress:PublishProgress)=>void):Promise<Post> {

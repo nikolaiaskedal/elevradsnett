@@ -1,7 +1,8 @@
 import type { BlockedUser, ConversationMember, MessageSettings, OrganizationContact, RecipientSearchResult } from '@/lib/domain/messaging';
 import type { AddMembersInput, CreateGroupInput, ReportMessageInput } from '@/lib/domain/validation';
+import type { AdminDashboard, MfaStatus, ModerationReport, TotpEnrollment } from '@/lib/domain/admin';
 import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, DelegateCandidate, Event, EventOrganizer, EventParticipation, FriendConnection, Message, MyRole, Organization, OrganizationCvEntry, OrganizationRoleEntry, PersonCv, Post, PostDraft, PostRevision, PublicOfficer, SchoolAdminRequest, SchoolHistoryEntry, Session } from '@/lib/domain/types';
-import type { AddCommentInput, AddDelegateInput, AssignPublicOfficeInput, AssignRoleInput, AttendanceInput, ChangeSchoolInput, DecideFriendRequestInput, DecideSchoolAdminRequestInput, DelegationResponseInput, EditPostInput, EventInput, EventInterestInput, EventRegistrationInput, EventStatusChangeInput, FriendRequestInput, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SaveDraftInput, SchoolAdminRequestInput, SendMessageInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput } from '@/lib/domain/validation';
+import type { AddCommentInput, AddDelegateInput, AdminImagesInput, AdminUserActionInput, AssignPublicOfficeInput, AssignRoleInput, AttendanceInput, ChangeSchoolInput, DecideFriendRequestInput, DecideSchoolAdminRequestInput, DelegationResponseInput, EditPostInput, EventInput, EventInterestInput, EventRegistrationInput, EventStatusChangeInput, FriendRequestInput, ModerationActionInput, ModerationAppealInput, OnboardingInput, OrganizationStatusActionInput, PublishPostInput, RequestLoginCodeInput, SaveDraftInput, SchoolAdminRequestInput, SendMessageInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput } from '@/lib/domain/validation';
 
 import type { OrganizationImages, Poll } from '@/lib/domain/types';
 import type { ReportPostInput } from '@/lib/domain/validation';
@@ -11,7 +12,7 @@ import type { SearchResult } from '@/lib/domain/search';
 
 export type { AddMembersInput, CreateGroupInput, ReportMessageInput, ReportPostInput };
 export type { HandoverResponseInput, NotificationPreferencesInput, RescheduleHandoverInput, SearchInput, SetElectionDateInput, StartHandoverInput };
-export type { AddCommentInput, AddDelegateInput, AssignPublicOfficeInput, AssignRoleInput, AttendanceInput, ChangeSchoolInput, DecideFriendRequestInput, DecideSchoolAdminRequestInput, DelegationResponseInput, EditPostInput, EventInput, EventInterestInput, EventRegistrationInput, EventStatusChangeInput, FriendRequestInput, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SaveDraftInput, SchoolAdminRequestInput, SendMessageInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput };
+export type { AddCommentInput, AddDelegateInput, AdminImagesInput, AdminUserActionInput, AssignPublicOfficeInput, AssignRoleInput, AttendanceInput, ChangeSchoolInput, DecideFriendRequestInput, DecideSchoolAdminRequestInput, DelegationResponseInput, EditPostInput, EventInput, EventInterestInput, EventRegistrationInput, EventStatusChangeInput, FriendRequestInput, ModerationActionInput, ModerationAppealInput, OnboardingInput, OrganizationStatusActionInput, PublishPostInput, RequestLoginCodeInput, SaveDraftInput, SchoolAdminRequestInput, SendMessageInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput };
 
 /**
  * Alt grensesnittet leser og gjør. Samme kontrakt skal kunne brukes av iOS og Android.
@@ -69,6 +70,21 @@ export interface ElevradsnettService {
   assignRole(input:AssignRoleInput):Promise<void>;
   revokeRole(grantId:string):Promise<void>;
   listAuditLog(organizationId:string):Promise<AuditEntry[]>;
+  getAdminDashboard(organizationId:string):Promise<AdminDashboard>;
+  manageAdminUser(input:AdminUserActionInput):Promise<void>;
+  setOrganizationStatus(input:OrganizationStatusActionInput):Promise<void>;
+  setAdminImages(input:AdminImagesInput):Promise<void>;
+  deletePlaceholder(input:{ scopeId:string; type:'organization'|'post_media'|'event'; id:string }):Promise<void>;
+  deleteAllPlaceholders(scopeId:string):Promise<number>;
+  listModerationReports(organizationId:string):Promise<ModerationReport[]>;
+  applyModerationAction(input:ModerationActionInput):Promise<void>;
+  appealModerationReport(input:ModerationAppealInput):Promise<void>;
+
+  // MFA. Superadministratorrettigheter er sperret server-side til økten har AAL2.
+  getMfaStatus():Promise<MfaStatus>;
+  enrollTotp():Promise<TotpEnrollment>;
+  verifyTotp(input:{ factorId:string; code:string }):Promise<void>;
+  challengeTotp(input:{ factorId:string; code:string }):Promise<void>;
 
   // Innlegg (§7). Serveren avgjør hvem som kan publisere, redigere og slette, og hvem som ser hva.
   /**

@@ -6,18 +6,20 @@ import { Avatar, ConfirmButton, Status } from '@/components/shared/ui';
 import { auditActionLabel, initialsOf, kindLabel, officeSuggestions, roleLabel } from '@/lib/domain/labels';
 import { formatDate, formatRelative } from '@/lib/domain/time';
 import type { AdminOrganization, AssignablePerson, AuditEntry, FriendConnection, InternalRole, OrganizationRoleEntry, SchoolAdminRequest } from '@/lib/domain/types';
+import type { AdminDashboard, AdminUser, MfaStatus, ModerationAction, ModerationReport, TotpEnrollment } from '@/lib/domain/admin';
 import { errorMessage, OFFICE_TITLE_MAX_LENGTH, REQUEST_TEXT_MAX_LENGTH } from '@/lib/domain/validation';
 
 // Administrasjonen viser bare det serveren svarer: hvilke organisasjoner brukeren administrerer, og hvilke
 // rettigheter som kan tildeles der. Oversikt, Roller og verv, Forespørsler og Venneråd er koblet til tjenestelaget.
-// Styreoverføring er koblet til tjenestelaget (prompt 11). Skoler, Moderering og CSV er fortsatt statiske demoer (prompt 12 og 13).
+// Styreoverføring og resten av adminpanelet er koblet til tjenestelaget. CSV kommer i prompt 13.
 
 type Notify = (text:string)=>void;
-const adminTabs = [['overview','Oversikt'],['roles','Roller og verv'],['requests','Forespørsler'],['friends','Venneråd'],['handover','Styreoverføring'],['schools','Skoler'],['moderation','Moderering'],['import','CSV']] as const;
+type LoadResult<T> = { data:T|null; error:string; refresh:()=>void };
+const adminTabs = [['overview','Oversikt'],['users','Brukere'],['roles','Roller og verv'],['requests','Forespørsler'],['friends','Venneråd'],['handover','Styreoverføring'],['schools','Organisasjoner'],['content','Innhold'],['media','Medier'],['moderation','Moderering'],['import','CSV']] as const;
 type AdminTab = typeof adminTabs[number][0];
 
 /** Henter data på nytt når nøkkelen endres. Feil vises i stedet for dataene. */
-function useLoad<T>(load:()=>Promise<T>,key:string):{ data:T|null; error:string; refresh:()=>void } {
+function useLoad<T>(load:()=>Promise<T>,key:string):LoadResult<T> {
   const [state,setState] = useState<{ key:string; data:T|null; error:string }>({ key:'', data:null, error:'' });
   const [version,setVersion] = useState(0);
   // load lages på nytt ved hver visning, så den leses fra en ref. Nøkkelen og versjonen bestemmer når det hentes.
@@ -35,10 +37,16 @@ function useLoad<T>(load:()=>Promise<T>,key:string):{ data:T|null; error:string;
 export function AdminView(){
   const service = useService();
   const { notify, go } = useApp();
+  const mfa = useLoad(()=>service.getMfaStatus(),'mfa');
   const orgs = useLoad(()=>service.listAdminOrganizations(),'orgs');
   const requests = useLoad(()=>service.listSchoolAdminRequests(),'requests');
   const [orgId,setOrgId] = useState('');
   const [tab,setTab] = useState<AdminTab>('overview');
+  const currentOrgId=orgId||orgs.data?.[0]?.id||'';
+  const dashboard = useLoad(()=>currentOrgId?service.getAdminDashboard(currentOrgId):Promise.resolve(null as unknown as AdminDashboard),`dashboard:${currentOrgId}`);
+  if (mfa.error) return <div className="page narrow"><h1>Administrasjon</h1><p className="form-error" role="alert">{mfa.error}</p><button className="btn" onClick={mfa.refresh}>Prøv igjen</button></div>;
+  if (!mfa.data) return <div className="page narrow"><h1>Administrasjon</h1><p className="muted">Kontrollerer sikkerheten …</p></div>;
+  if (mfa.data.required&&!mfa.data.verified) return <MfaGate status={mfa.data} onDone={()=>{ mfa.refresh(); orgs.refresh(); }} />;
   if (orgs.error) return <div className="page narrow"><h1>Administrasjon</h1><p className="form-error" role="alert">{orgs.error}</p><button className="btn" onClick={orgs.refresh}>Prøv igjen</button></div>;
   if (!orgs.data) return <div className="page narrow"><h1>Administrasjon</h1><p className="muted">Henter organisasjonene du administrerer …</p></div>;
   if (!orgs.data.length) return <div className="page narrow">
@@ -64,11 +72,14 @@ export function AdminView(){
       </button>)}
     </div>
     <div role="tabpanel" id={`panel-${shownTab}`} aria-labelledby={`tab-${shownTab}`} className="stack">
-      {shownTab==='overview'?<Overview key={org.id} org={org} pending={decidable.length} onTab={setTab}/>
+      {shownTab==='overview'?<Overview key={org.id} org={org} pending={decidable.length} dashboard={dashboard} onTab={setTab}/>
+      :shownTab==='users'?<Users dashboard={dashboard} org={org} onNotify={notify}/>
       :shownTab==='roles'?<Roles key={org.id} org={org} onNotify={notify}/>
       :shownTab==='requests'?<Requests requests={requests.data} error={requests.error} onChanged={()=>{ requests.refresh(); orgs.refresh(); }} onNotify={notify}/>
       :shownTab==='friends'?<Friends key={org.id} org={org} onNotify={notify}/>
-      :shownTab==='handover'?<HandoverPanel key={org.id} org={org} onNotify={notify}/>:shownTab==='schools'?<Schools onNotify={notify}/>:shownTab==='moderation'?<Moderation onNotify={notify}/>:<CsvImport onNotify={notify}/>}
+      :shownTab==='handover'?<HandoverPanel key={org.id} org={org} onNotify={notify}/>:shownTab==='schools'?<Schools dashboard={dashboard} org={org} onNotify={notify}/>
+      :shownTab==='content'?<Content dashboard={dashboard}/>:shownTab==='media'?<Media dashboard={dashboard} org={org} onNotify={notify}/>
+      :shownTab==='moderation'?<Moderation org={org} onNotify={notify}/>:<CsvImport onNotify={notify}/>}
     </div>
   </div>;
 }
@@ -92,17 +103,22 @@ function OrganizationPicker({orgs,value,onChange}:{orgs:AdminOrganization[];valu
   </div>;
 }
 
-function Overview({org,pending,onTab}:{org:AdminOrganization;pending:number;onTab:(tab:AdminTab)=>void}){
+function Overview({org,pending,dashboard,onTab}:{org:AdminOrganization;pending:number;dashboard:LoadResult<AdminDashboard>;onTab:(tab:AdminTab)=>void}){
   const service = useService();
   const roles = useLoad(()=>service.listOrganizationRoles(org.id),`roles:${org.id}`);
   const audit = useLoad(()=>service.listAuditLog(org.id),`audit:${org.id}`);
   const active = (roles.data ?? []).filter(r=>r.status==='active');
+  const stats=dashboard.data?.stats;
   const metrics:[string,string,string][] = [
-    [roles.data?String(active.filter(r=>r.kind==='office').length):'–','Aktive verv','Vises offentlig'],
-    [roles.data?String(active.filter(r=>r.kind==='role').length):'–','Interne rettigheter','Vises ikke offentlig'],
+    [stats?String(stats.activeUsers):'–','Aktive brukere','I eget område'],
+    [stats?String(stats.activeSchools):'–','Aktive skoler','I eget område'],
+    [stats?String(stats.publishedPosts):'–','Publiserte innlegg','Aggregert, uten meldingsinnhold'],
+    [stats?String(stats.openModerationCases):'–','Modereringssaker','Åpne eller påklaget'],
+    [roles.data?String(active.filter(r=>r.kind==='office').length):'–','Aktive verv','I valgt organisasjon'],
     [String(pending),'Forespørsler','Venter på deg'],
   ];
   return <>
+    {dashboard.error&&<p className="form-error" role="alert">{dashboard.error}</p>}
     <div className="metric-grid">{metrics.map(([n,l,s])=><div className="card metric" key={l}><strong>{n}</strong><span>{l}</span><small>{s}</small></div>)}</div>
     {!!pending&&<div className="row-card"><Status tone="coral">Viktig</Status><span className="grow"><strong>{pending===1?'Én forespørsel':`${pending} forespørsler`} om å bli skoleadministrator</strong><small>Skolene i området venter på svar</small></span><button className="btn small" onClick={()=>onTab('requests')}>Behandle</button></div>}
     <section className="card">
@@ -113,6 +129,15 @@ function Overview({org,pending,onTab}:{org:AdminOrganization;pending:number;onTa
       {!!audit.data?.length&&<div className="list">{audit.data.map(a=><AuditRow key={a.id} entry={a}/>)}</div>}
     </section>
   </>;
+}
+
+function MfaGate({status,onDone}:{status:MfaStatus;onDone:()=>void}){
+  const service=useService(); const [enrollment,setEnrollment]=useState<TotpEnrollment|null>(null); const [code,setCode]=useState(''); const [busy,setBusy]=useState(false); const [error,setError]=useState('');
+  const submit=async()=>{ setBusy(true);setError('');try{ const factorId=enrollment?.factorId??status.factorId;if(!factorId){setEnrollment(await service.enrollTotp());return;}await (enrollment?service.verifyTotp({factorId,code}):service.challengeTotp({factorId,code}));onDone();}catch(e){setError(errorMessage(e));}finally{setBusy(false);} };
+  return <div className="page narrow"><h1>Bekreft administratorinnlogging</h1><section className="card stack"><Status tone="coral">Påkrevd for superadministrator</Status><p>Bruk en autentiseringsapp for å beskytte administrasjonen. Superadministratorrettigheter er sperret på serveren til denne økten har tofaktorinnlogging.</p>
+    {enrollment&&<div className="mfa-enrollment">{enrollment.qrCode.startsWith('data:')&&<img src={enrollment.qrCode} alt="QR-kode til autentiseringsappen"/>}<p><strong>Oppsettsnøkkel:</strong> <code>{enrollment.secret}</code></p></div>}
+    {(status.enrolled||enrollment)&&<label className="field"><span>Sekssifret kode</span><input inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,''))}/></label>}
+    {error&&<p className="form-error" role="alert">{error}</p>}<button className="btn primary" disabled={busy} onClick={()=>void submit()}>{!status.enrolled&&!enrollment?'Koble til autentiseringsapp':'Bekreft kode'}</button></section></div>;
 }
 
 function AuditRow({entry}:{entry:AuditEntry}){
@@ -325,16 +350,45 @@ function Table({head,rows}:{head:string[];rows:React.ReactNode[][]}){
   return <div className="table" role="table"><div className="table-row head" role="row">{head.map(h=><span role="columnheader" key={h}>{h}</span>)}</div>{rows.map((r,i)=><div className="table-row" role="row" key={i}>{r.map((c,j)=><span role="cell" key={j}>{c}</span>)}</div>)}</div>;
 }
 
-function Schools({onNotify}:{onNotify:Notify}){
-  return <section className="card"><div className="card-head"><div><h2>Skoleadministrasjon</h2><p className="muted">Deaktivering bevarer innlegg, verv og arrangementhistorikk.</p></div></div>
-    <Table head={['Skole','Lokallag','Administratorer','Status']} rows={[['Elvebakken vgs','Oslo Sentrum','2','Aktiv'],['Oslo handelsgymnasium','Oslo Sentrum','1','Aktiv'],['Fagerborg skole','Oslo Vest','0','Deaktivert']].map(r=>[<button className="link" key="n" onClick={()=>onNotify(`Åpnet ${r[0]}`)}>{r[0]}</button>,r[1],r[2],<Status key="s" tone={r[3]==='Aktiv'?'green':'gray'}>{r[3]}</Status>])}/>
+function DashboardState({dashboard}:{dashboard:LoadResult<AdminDashboard>}){
+  if (dashboard.error) return <p className="form-error" role="alert">{dashboard.error}</p>;
+  if (!dashboard.data) return <p className="muted">Henter …</p>;
+  return null;
+}
+
+function Users({dashboard,org,onNotify}:{dashboard:LoadResult<AdminDashboard>;org:AdminOrganization;onNotify:Notify}){
+  const service=useService(); const [selected,setSelected]=useState<AdminUser|null>(null); const [action,setAction]=useState<'change_school'|'deactivate'|'delete'|'restore'>('change_school'); const [schoolId,setSchoolId]=useState(''); const [reason,setReason]=useState(''); const [busy,setBusy]=useState(false); const [error,setError]=useState('');
+  const submit=async()=>{if(!selected)return;setBusy(true);setError('');try{await service.manageAdminUser({scopeId:org.id,userId:selected.id,action,schoolId:action==='change_school'?schoolId:undefined,reason});onNotify('Brukeren er oppdatert');setSelected(null);setReason('');dashboard.refresh();}catch(e){setError(errorMessage(e));}finally{setBusy(false);}};
+  return <section className="card"><div className="card-head"><div><h2>Brukeradministrasjon</h2><p className="muted">Bytt skole, deaktiver, reaktiver eller slett personopplysninger. Historiske bidrag og revisjon beholdes.</p></div></div><DashboardState dashboard={dashboard}/>
+    {!!dashboard.data?.users.length&&<div className="list">{dashboard.data.users.map(user=><div className="row-card" key={user.id}><Avatar size="sm" tone="pale" initials={initialsOf(user.name)}/><span className="grow"><strong>{user.name}</strong><small>{user.schoolName||'Ingen skole'}</small></span><Status tone={user.status==='active'?'green':'gray'}>{user.status==='active'?'Aktiv':'Deaktivert'}</Status><button className="btn small" onClick={()=>{setSelected(user);setAction(user.status==='active'?'change_school':'restore');setSchoolId(user.schoolId??'');}}>Administrer</button></div>)}</div>}
+    {dashboard.data&&!dashboard.data.users.length&&<p className="empty-note">Ingen brukere i dette området.</p>}
+    {selected&&<div className="admin-action"><h3>{selected.name}</h3><label className="field"><span>Handling</span><select value={action} onChange={e=>setAction(e.target.value as typeof action)}><option value="change_school">Bytt skole</option><option value="deactivate">Deaktiver</option>{selected.status!=='active'&&!selected.deactivatedByUser&&<option value="restore">Reaktiver</option>}<option value="delete">Slett personopplysninger</option></select></label>{action==='change_school'&&<label className="field"><span>Ny skole</span><select value={schoolId} onChange={e=>setSchoolId(e.target.value)}>{dashboard.data?.schools.filter(s=>s.status==='active').map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}<label className="field"><span>Begrunnelse</span><textarea value={reason} onChange={e=>setReason(e.target.value)} maxLength={1000}/></label>{selected.deactivatedByUser&&<p className="warn-box">Brukeren deaktiverte profilen selv og kan ikke reaktiveres uten samtykke.</p>}{error&&<p className="form-error" role="alert">{error}</p>}<div className="actions"><button className="btn ghost" onClick={()=>setSelected(null)}>Avbryt</button><button className="btn primary" disabled={busy||reason.trim().length<3} onClick={()=>void submit()}>Utfør</button></div></div>}
   </section>;
 }
 
-function Moderation({onNotify}:{onNotify:Notify}){
-  return <section className="card"><div className="card-head"><div><h2>Modereringskø</h2><p className="muted">Private meldinger vises bare når konkret innhold er rapportert.</p></div><Status tone="coral">2 åpne</Status></div>
-    <div className="list">{[['Innlegg','Upassende språk','Kuben vgs elevråd'],['Profil','Feilaktig verv','Tidligere tillitsvalgt']].map(r=><div className="row-card" key={r[1]}><Status tone="gray">{r[0]}</Status><span className="grow"><strong>{r[1]}</strong><small>{r[2]} · rapportert i går</small></span><button className="btn ghost" onClick={()=>onNotify('Modereringssaken er åpnet')}>Behandle</button></div>)}</div>
-  </section>;
+function Schools({dashboard,org,onNotify}:{dashboard:LoadResult<AdminDashboard>;org:AdminOrganization;onNotify:Notify}){
+  const service=useService();const [selected,setSelected]=useState<string|null>(null);const [reason,setReason]=useState('');const [busy,setBusy]=useState(false);const [error,setError]=useState('');
+  const school=dashboard.data?.schools.find(s=>s.id===selected); const submit=async()=>{if(!school)return;setBusy(true);setError('');try{await service.setOrganizationStatus({scopeId:org.id,organizationId:school.id,status:school.status==='active'?'deactivated':'active',reason});onNotify(school.status==='active'?'Skolen er deaktivert':'Skolen er reaktivert');setSelected(null);setReason('');dashboard.refresh();}catch(e){setError(errorMessage(e));}finally{setBusy(false);}};
+  return <section className="card"><div className="card-head"><div><h2>Organisasjonsadministrasjon</h2><p className="muted">Deaktivering bevarer innlegg, verv og arrangementhistorikk.</p></div></div><DashboardState dashboard={dashboard}/>{dashboard.data&&<Table head={['Skole','Lokallag','Administratorer','Status']} rows={dashboard.data.schools.map(s=>[<button className="link" key="n" onClick={()=>setSelected(s.id)}>{s.name}</button>,s.localBoardName,String(s.administratorCount),<Status key="s" tone={s.status==='active'?'green':'gray'}>{s.status==='active'?'Aktiv':'Deaktivert'}</Status>])}/>} {school&&<div className="admin-action"><h3>{school.status==='active'?'Deaktiver':'Reaktiver'} {school.name}</h3><label className="field"><span>Begrunnelse</span><textarea value={reason} onChange={e=>setReason(e.target.value)} maxLength={1000}/></label>{error&&<p className="form-error">{error}</p>}<div className="actions"><button className="btn ghost" onClick={()=>setSelected(null)}>Avbryt</button><button className="btn primary" disabled={busy||reason.trim().length<3} onClick={()=>void submit()}>Bekreft</button></div></div>}</section>;
+}
+
+function Content({dashboard}:{dashboard:LoadResult<AdminDashboard>}){
+  return <section className="card"><div className="card-head"><div><h2>Innhold</h2><p className="muted">Innlegg, kommentarer og arrangementer i eget område. Modereringshandlinger gjøres i modereringskøen.</p></div></div><DashboardState dashboard={dashboard}/><div className="list">{dashboard.data?.content.slice(0,100).map(item=><div className="row-card" key={`${item.type}-${item.id}`}><Status tone="gray">{{post:'Innlegg',comment:'Kommentar',event:'Arrangement'}[item.type]}</Status><span className="grow"><strong>{item.title}</strong><small>{item.organizationName} · {item.status}</small></span></div>)}</div></section>;
+}
+
+function Media({dashboard,org,onNotify}:{dashboard:LoadResult<AdminDashboard>;org:AdminOrganization;onNotify:Notify}){
+  const service=useService();const [profile,setProfile]=useState('');const [cover,setCover]=useState('');const [locked,setLocked]=useState(false);const [busy,setBusy]=useState(false);const [error,setError]=useState('');
+  useEffect(()=>{if(dashboard.data){setProfile(dashboard.data.images.defaultProfilePath??'');setCover(dashboard.data.images.defaultCoverPath??'');setLocked(dashboard.data.images.locked);}},[dashboard.data]);
+  const act=async(work:()=>Promise<unknown>,message:string)=>{setBusy(true);setError('');try{await work();onNotify(message);dashboard.refresh();}catch(e){setError(errorMessage(e));}finally{setBusy(false);}};
+  return <><section className="card"><div className="card-head"><div><h2>Standardbilder</h2><p className="muted">Egne bilder overstyrer arvede standarder. Bare superadministrator kan låse et arvet bilde.</p></div></div><DashboardState dashboard={dashboard}/>{dashboard.data&&<><div className="image-source-grid"><p><strong>Profilbilde</strong><small>{dashboard.data.images.profile.sourceName}</small></p><p><strong>Coverbilde</strong><small>{dashboard.data.images.cover.sourceName}</small></p></div><label className="field"><span>Sti til standard profilbilde</span><input value={profile} onChange={e=>setProfile(e.target.value)} placeholder="organisasjon/standard-profil.webp"/></label><label className="field"><span>Sti til standard coverbilde</span><input value={cover} onChange={e=>setCover(e.target.value)} placeholder="organisasjon/standard-cover.webp"/></label>{org.myRole==='super_admin'&&<label className="check"><input type="checkbox" checked={locked} onChange={e=>setLocked(e.target.checked)}/> Lås standardbildet for underliggende skoler</label>}<button className="btn primary" disabled={busy} onClick={()=>void act(()=>service.setAdminImages({scopeId:org.id,organizationId:org.id,defaultProfilePath:profile,defaultCoverPath:cover,locked}),'Standardbildene er lagret')}>Lagre bilder</button></>}{error&&<p className="form-error" role="alert">{error}</p>}</section>
+    <section className="card"><div className="card-head"><div><h2>Medier og placeholders</h2><p className="muted">Behandlingsstatus og tydelig merkede demoressurser i eget område.</p></div>{org.myRole==='super_admin'&&!!dashboard.data?.placeholders.length&&<ConfirmButton label="Slett alle" question="Slette alle placeholders i dette området?" confirmLabel="Slett alle" disabled={busy} onConfirm={()=>void act(async()=>{const n=await service.deleteAllPlaceholders(org.id);onNotify(`${n} placeholders er slettet`);},'')}/>}</div><div className="list">{dashboard.data?.media.map(m=><div className="row-card" key={`${m.type}-${m.id}`}><Status tone={m.processingStatus==='ready'?'green':m.processingStatus==='failed'?'coral':'gray'}>{m.processingStatus==='ready'?'Klar':m.processingStatus==='failed'?'Feilet':'Behandles'}</Status><span className="grow"><strong>{m.ownerName}</strong><small>{m.path}</small></span>{m.isPlaceholder&&<Status tone="blue">Placeholder</Status>}</div>)}</div>{!!dashboard.data?.placeholders.length&&<><h3 className="sub-head">Placeholders</h3><div className="list">{dashboard.data.placeholders.map(p=><div className="row-card" key={`${p.type}-${p.id}`}><span className="grow"><strong>{p.title}</strong><small>{p.organizationName}</small></span>{org.myRole==='super_admin'&&<ConfirmButton label="Slett" question={`Slette ${p.title}?`} confirmLabel="Slett" disabled={busy} onConfirm={()=>void act(()=>service.deletePlaceholder({scopeId:org.id,type:p.type,id:p.id}),'Placeholderen er slettet')}/>}</div>)}</div></>}</section></>;
+}
+
+const moderationLabels:Record<ModerationAction,string>={hide:'Skjul',delete:'Slett',warn:'Advar',restrict:'Begrens midlertidig',deactivate:'Deaktiver',restore:'Gjenopprett',no_action:'Ingen handling'};
+function Moderation({org,onNotify}:{org:AdminOrganization;onNotify:Notify}){
+  const service=useService();const reports=useLoad(()=>service.listModerationReports(org.id),`moderation:${org.id}`);const [selected,setSelected]=useState<ModerationReport|null>(null);const [action,setAction]=useState<ModerationAction>('hide');const [reason,setReason]=useState('');const [busy,setBusy]=useState(false);const [error,setError]=useState('');const open=(reports.data??[]).filter(r=>['open','reviewing','appealed'].includes(r.status));
+  const submit=async()=>{if(!selected)return;setBusy(true);setError('');try{await service.applyModerationAction({reportId:selected.id,action,reason});onNotify('Modereringssaken er behandlet');setSelected(null);setReason('');reports.refresh();}catch(e){setError(errorMessage(e));}finally{setBusy(false);}};
+  return <section className="card"><div className="card-head"><div><h2>Modereringskø</h2><p className="muted">Private meldinger vises bare når konkret innhold er rapportert. Klager prioriteres for ny vurdering.</p></div><Status tone={open.length?'coral':'green'}>{open.length} åpne</Status></div>{reports.error&&<p className="form-error">{reports.error}</p>}{!reports.data&&!reports.error&&<p className="muted">Henter …</p>}<div className="list">{reports.data?.map(report=><div className="row-card" key={report.id}><Status tone={report.status==='appealed'?'coral':'gray'}>{report.status==='appealed'?'Klage':report.targetType}</Status><span className="grow"><strong>{report.category}</strong><small>{report.targetSummary} · {report.reporterName} · {formatRelative(report.createdAt)}</small></span><button className="btn ghost" onClick={()=>setSelected(report)}>Behandle</button></div>)}</div>{selected&&<div className="admin-action"><h3>{selected.category}</h3><blockquote>{selected.targetSummary}</blockquote>{selected.description&&<p>{selected.description}</p>}{selected.sharedMessageExcerpt&&<p className="note-box"><strong>Delt meldingsinnhold:</strong> {selected.sharedMessageExcerpt}</p>} {!!selected.actions.length&&<div className="list">{selected.actions.map(a=><p key={a.id}><strong>{moderationLabels[a.action]}:</strong> {a.reason}</p>)}</div>}<label className="field"><span>Handling</span><select value={action} onChange={e=>setAction(e.target.value as ModerationAction)}>{Object.entries(moderationLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><label className="field"><span>Begrunnelse</span><textarea value={reason} onChange={e=>setReason(e.target.value)} maxLength={1000}/></label>{error&&<p className="form-error">{error}</p>}<div className="actions"><button className="btn ghost" onClick={()=>setSelected(null)}>Avbryt</button><button className="btn primary" disabled={busy||reason.trim().length<3} onClick={()=>void submit()}>Lagre vurdering</button></div></div>}</section>;
 }
 
 function CsvImport({onNotify}:{onNotify:Notify}){
