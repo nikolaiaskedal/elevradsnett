@@ -1047,6 +1047,19 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"placeholder_content": {
+                  Row: {
+                    "created_at": string,"target_id": string,"target_type": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"target_id": string,"target_type": string
+                  }
+                  Update: {
+                    "created_at"?: string,"target_id"?: string,"target_type"?: string
+                  }
+                  Relationships: [
+
+                  ]
                 },"poll_votes": {
                   Row: {
                     "actor_user_id": string,"option_id": string,"organization_id": string,"poll_id": string,"updated_at": string
@@ -1834,6 +1847,9 @@ isOneToOne: false
 "get_person_cv":
 { Args: { "p_user": string }; Returns: Json
                            },
+"get_placeholder_content_status":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
 "get_post_cards":
 { Args: { "p_limit"?: number,"p_mode"?: string,"p_organization"?: string,"p_representation_id"?: string }; Returns: {
               "actor_name": string,"actor_title": string,"audience": Database["public"]['Enums']["audience_type"],"body": string,"comment_count": number,"comments": Json,"edited": boolean,"id": string,"organization_id": string,"organization_name": string,"poll": Json,"priority": boolean,"published_at": string,"support_count": number,"supported": boolean
@@ -2193,6 +2209,9 @@ isOneToOne: false
                            },
 "set_organization_status":
 { Args: { "p_organization": string,"p_reason": string,"p_scope": string,"p_status": Database["public"]['Enums']["organization_status"] }; Returns: undefined
+                           },
+"set_placeholder_content":
+{ Args: { "p_enabled": boolean }; Returns: Json
                            },
 "set_post_support":
 { Args: { "p_post": string,"p_supported": boolean }; Returns: number

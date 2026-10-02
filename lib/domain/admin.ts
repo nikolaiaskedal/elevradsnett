@@ -56,6 +56,15 @@ export type AdminPlaceholder = {
   organizationName:string;
 };
 
+/** Eksempelinnholdet superadministrator kan skru av og på: brukere ved skoler, innlegg, arrangementer og samtaler. */
+export type PlaceholderContentStatus = {
+  enabled:boolean;
+  profiles:number;
+  posts:number;
+  events:number;
+  conversations:number;
+};
+
 export type ResolvedAdminImage = { path?:string; sourceName:string; sourceLevel:'own'|'local'|'county'|'global'|'none' };
 export type AdminImages = {
   organizationId:string;
