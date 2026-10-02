@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { COUNTIES } from '@/lib/domain/counties';
 import type { Audience, OrganizationType } from '@/lib/domain/types';
+import { NOTIFICATION_CATEGORIES } from '@/lib/domain/notifications';
+import { SEARCH_MAX_LENGTH } from '@/lib/domain/search';
 
 // Valideringsskjemaer for alt som skrives. Delt mellom web, iOS og Android; databasen validerer i tillegg.
 
@@ -258,3 +260,62 @@ export function errorMessage(error:unknown) {
   if (error instanceof Error) return error.message;
   return 'Noe gikk galt.';
 }
+
+// ---- Varsler og styreoverføring (§5, prompt 11) ----
+const notificationCategorySchema = z.enum(NOTIFICATION_CATEGORIES, 'Ukjent varseltype.');
+export const notificationPreferencesSchema = z.object({
+  inApp:z.boolean(), email:z.boolean(),
+  inAppOff:z.array(notificationCategorySchema).max(NOTIFICATION_CATEGORIES.length),
+  emailOff:z.array(notificationCategorySchema).max(NOTIFICATION_CATEGORIES.length),
+});
+export type NotificationPreferencesInput = z.input<typeof notificationPreferencesSchema>;
+
+const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Ugyldig dato.');
+const daysFromToday = (days:number)=>{ const d = new Date(); return isoDate(new Date(d.getFullYear(),d.getMonth(),d.getDate()+days)); };
+/** Dato for styreskiftet. Kan være litt tilbake i tid hvis overføringen er forsinket. Databasen sjekker det samme. */
+export const handoverDateSchema = dateString.refine(v=>v>=daysFromToday(-60) && v<=daysFromToday(MAX_ELECTION_DAYS_AHEAD), 'Velg en dato fra to måneder tilbake og inntil to år frem.');
+export const setElectionDateSchema = z.object({ organizationId:idSchema, date:handoverDateSchema });
+export type SetElectionDateInput = z.input<typeof setElectionDateSchema>;
+
+export const HANDOVER_MAX_INVITES = 40;
+export const handoverInviteSchema = z.object({
+  userId:z.string().trim().min(1).optional(),
+  email:emailSchema.optional(),
+  /** Navnet vises bare for invitasjoner på e-post, til personen har laget profil. */
+  name:z.string().trim().max(120, 'Navnet kan ha maks 120 tegn.').optional(),
+  publicTitle:officeTitleSchema.optional(),
+  adminRole:z.enum(['school_admin','content_manager'], 'Ukjent rettighet.').optional(),
+}).refine(v=>!!v.userId !== !!v.email, 'Velg en person, eller skriv inn e-postadressen til en ny bruker.')
+  .refine(v=>!!v.publicTitle || !!v.adminRole, 'Gi hver person et verv eller en rettighet.');
+export type HandoverInviteInput = z.input<typeof handoverInviteSchema>;
+
+/** Rekkefølgen er styreskifte, sluttdato for det gamle styret og aktivering: det gamle styret slutter senest når det nye aktiveres. */
+const handoverDatesSchema = z.object({
+  activationDate:dateString.refine(v=>v>=daysFromToday(0) && v<=daysFromToday(365), 'Aktiveringsdatoen må være fra i dag og inntil ett år frem.'),
+  oldBoardEndsOn:dateString.refine(v=>v>=daysFromToday(-60), 'Sluttdatoen kan ikke være mer enn to måneder tilbake.'),
+});
+export const startHandoverSchema = z.object({
+  organizationId:idSchema,
+  handoverOn:handoverDateSchema,
+  ...handoverDatesSchema.shape,
+  invites:z.array(handoverInviteSchema).min(1, 'Velg det nye styret.').max(HANDOVER_MAX_INVITES, `Maks ${HANDOVER_MAX_INVITES} personer i én overføring.`)
+    .refine(list=>list.some(i=>i.adminRole==='school_admin'), 'Velg minst én ny skoleadministrator.')
+    .refine(list=>new Set(list.map(i=>i.userId ?? i.email?.trim().toLowerCase())).size===list.length, 'Samme person er valgt to ganger.'),
+  /** Bare ved gjenoppretting (styreadministrator i området). */
+  recoveryReason:z.string().transform(v=>cleanText(v)).pipe(z.string().min(5, 'Skriv en begrunnelse på minst fem tegn.').max(1000, 'Begrunnelsen kan ha maks 1000 tegn.')).optional(),
+}).refine(v=>v.oldBoardEndsOn<=v.activationDate, { message:'Det gamle styret må slutte senest den dagen det nye aktiveres.', path:['oldBoardEndsOn'] });
+export type StartHandoverInput = z.input<typeof startHandoverSchema>;
+
+export const rescheduleHandoverSchema = z.object({ handoverId:idSchema, ...handoverDatesSchema.shape })
+  .refine(v=>v.oldBoardEndsOn<=v.activationDate, { message:'Det gamle styret må slutte senest den dagen det nye aktiveres.', path:['oldBoardEndsOn'] });
+export type RescheduleHandoverInput = z.input<typeof rescheduleHandoverSchema>;
+export const handoverResponseSchema = z.object({ inviteId:idSchema, accept:z.boolean() });
+export type HandoverResponseInput = z.input<typeof handoverResponseSchema>;
+
+// ---- Søk (§6, prompt 8) ----
+export const searchInputSchema = z.object({
+  query:z.string().transform(v=>v.trim().slice(0,SEARCH_MAX_LENGTH)),
+  kinds:z.array(z.enum(['national','county_board','local_board','school','person','event','post'])).optional(),
+  includeFormer:z.boolean().optional(),
+});
+export type SearchInput = z.input<typeof searchInputSchema>;

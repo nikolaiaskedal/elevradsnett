@@ -728,3 +728,38 @@ label.btn { cursor: pointer; }
   .post-media { margin-left: 16px; margin-right: 16px; }
   .org-cover.has-image { height: 130px; }
 }
+
+/* Varsler og styreoverføring (prompt 11) */
+.warm-card { border-color: var(--accent-200); background: var(--accent-50); }
+.notification-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.notification { display: flex; gap: 12px; align-items: flex-start; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--hair); background: none; padding: 12px 4px; color: var(--navy); cursor: pointer; }
+.notification:hover { background: var(--soft); }
+.notification strong { display: block; font-weight: 500; }
+.notification.unread strong { font-weight: 600; }
+.notification small { display: block; color: var(--navy-300); margin-top: 2px; }
+.notification-body { display: block; color: var(--slate); line-height: 1.5; margin-top: 2px; overflow-wrap: anywhere; }
+.notification-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; background: transparent; }
+.notification.unread .notification-dot { background: var(--accent); }
+.notification-list li:last-child .notification { border-bottom: 0; }
+.pref-table { border: 1px solid var(--navy-100); border-radius: 9px; padding: 4px 14px 8px; margin: 4px 0 0; min-width: 0; }
+.pref-table legend { font-weight: 600; padding: 0 4px; }
+.pref-row { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--hair); }
+.pref-row:last-child { border-bottom: 0; }
+.pref-row.head { color: var(--navy-300); font-weight: 600; padding: 6px 0; }
+.pref-row > span:not(.grow), .pref-row > input { width: 52px; flex: none; text-align: center; }
+.pref-row input { width: 20px; height: 20px; margin: 0 16px; accent-color: var(--accent); }
+.pref-row small { display: block; color: var(--navy-300); line-height: 1.4; }
+.pref-row .grow { min-width: 0; }
+.field.compact { min-width: 0; flex: 1 1 180px; }
+.field.compact select, .field.compact input { width: 100%; }
+
+/* Feed og søk (prompt 8) */
+.feed-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.search-options { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
+.result-list { display: flex; flex-direction: column; gap: 8px; }
+.result-row { display: flex; gap: 12px; align-items: center; width: 100%; text-align: left; border: 1px solid var(--navy-100); background: var(--white); border-radius: 9px; padding: 12px 14px; color: var(--navy); }
+button.result-row { cursor: pointer; }
+button.result-row:hover { border-color: var(--navy-200); background: var(--soft); }
+.result-row strong { display: block; font-weight: 600; overflow-wrap: anywhere; }
+.result-row small { display: block; color: var(--navy-300); line-height: 1.5; overflow-wrap: anywhere; }
+.result-row .grow { min-width: 0; }

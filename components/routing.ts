@@ -5,9 +5,9 @@ export const legalPages:[LegalPage,string][] = [['privacy','Personvern'],['terms
 
 export type Route =
   | { view:'feed' } | { view:'post'; id:string } | { view:'explore' } | { view:'events' } | { view:'event'; id:string } | { view:'organization'; id:string } | { view:'person'; id:string }
-  | { view:'messages' } | { view:'profile' } | { view:'login' } | { view:'admin' } | { view:'legal'; page:LegalPage };
+  | { view:'messages' } | { view:'notifications' } | { view:'profile' } | { view:'login' } | { view:'admin' } | { view:'legal'; page:LegalPage };
 
-const simpleRoutes:Record<string,Route> = { '':{view:'feed'}, utforsk:{view:'explore'}, arrangementer:{view:'events'}, meldinger:{view:'messages'}, profil:{view:'profile'}, 'logg-inn':{view:'login'}, admin:{view:'admin'} };
+const simpleRoutes:Record<string,Route> = { '':{view:'feed'}, utforsk:{view:'explore'}, arrangementer:{view:'events'}, meldinger:{view:'messages'}, varsler:{view:'notifications'}, profil:{view:'profile'}, 'logg-inn':{view:'login'}, admin:{view:'admin'} };
 
 export function parseHash(hash:string):Route {
   const [first='',second] = decodeURIComponent(hash.replace(/^#\/?/,'')).split('/');

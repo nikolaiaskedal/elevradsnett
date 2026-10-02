@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '@/components/app-context';
 import { useService } from '@/components/service-provider';
+import { HandoverPanel } from '@/components/shared/handover-panel';
 import { Avatar, ConfirmButton, Status } from '@/components/shared/ui';
 import { auditActionLabel, initialsOf, kindLabel, officeSuggestions, roleLabel } from '@/lib/domain/labels';
 import { formatDate, formatRelative } from '@/lib/domain/time';
@@ -9,7 +10,7 @@ import { errorMessage, OFFICE_TITLE_MAX_LENGTH, REQUEST_TEXT_MAX_LENGTH } from '
 
 // Administrasjonen viser bare det serveren svarer: hvilke organisasjoner brukeren administrerer, og hvilke
 // rettigheter som kan tildeles der. Oversikt, Roller og verv, Forespørsler og Venneråd er koblet til tjenestelaget.
-// Styreoverføring, Skoler, Moderering og CSV er fortsatt statiske demoer (prompt 11, 12 og 13).
+// Styreoverføring er koblet til tjenestelaget (prompt 11). Skoler, Moderering og CSV er fortsatt statiske demoer (prompt 12 og 13).
 
 type Notify = (text:string)=>void;
 const adminTabs = [['overview','Oversikt'],['roles','Roller og verv'],['requests','Forespørsler'],['friends','Venneråd'],['handover','Styreoverføring'],['schools','Skoler'],['moderation','Moderering'],['import','CSV']] as const;
@@ -67,7 +68,7 @@ export function AdminView(){
       :shownTab==='roles'?<Roles key={org.id} org={org} onNotify={notify}/>
       :shownTab==='requests'?<Requests requests={requests.data} error={requests.error} onChanged={()=>{ requests.refresh(); orgs.refresh(); }} onNotify={notify}/>
       :shownTab==='friends'?<Friends key={org.id} org={org} onNotify={notify}/>
-      :shownTab==='handover'?<Handover onNotify={notify}/>:shownTab==='schools'?<Schools onNotify={notify}/>:shownTab==='moderation'?<Moderation onNotify={notify}/>:<CsvImport onNotify={notify}/>}
+      :shownTab==='handover'?<HandoverPanel key={org.id} org={org} onNotify={notify}/>:shownTab==='schools'?<Schools onNotify={notify}/>:shownTab==='moderation'?<Moderation onNotify={notify}/>:<CsvImport onNotify={notify}/>}
     </div>
   </div>;
 }
@@ -318,20 +319,6 @@ function Friends({org,onNotify}:{org:AdminOrganization;onNotify:Notify}){
       </div>
     </section>}
   </>;
-}
-
-function Handover({onNotify}:{onNotify:Notify}){
-  const [step,setStep]=useState(1);
-  const steps=['Dato','Nytt styre','Rettigheter','Forhåndsvisning'];
-  return <section className="card">
-    <div className="progress" aria-hidden="true">{steps.map((s,i)=><div key={s} className={step>=i+1?'on':''}/>)}</div>
-    <p className="step-label">Steg {step} av 4 · {steps[step-1]}</p>
-    {step===1?<><h2>Bekreft styreskiftet</h2><p className="muted">Nåværende administrator beholder nødvendig tilgang til minst én etterfølger har akseptert.</p><label className="field"><span>Dato for styreskifte</span><input type="date" defaultValue="2026-10-25"/></label><label className="field"><span>Sluttdato for gammelt styre</span><input type="date" defaultValue="2026-10-24"/></label></>
-    :step===2?<><h2>Velg det nye styret</h2><div className="list">{['Sivert Aune · foreslått leder','Rania Osman · foreslått nestleder','Maja Solheim · foreslått medlem'].map(x=><label className="row-card" key={x}><input type="checkbox" defaultChecked/><Avatar size="sm" tone="pale" initials={x.split(' ').map(v=>v[0]).slice(0,2).join('')}/><span className="grow">{x}</span></label>)}</div><button className="btn ghost" onClick={()=>onNotify('Invitasjon til ny bruker er åpnet')}>+ Inviter ny bruker</button></>
-    :step===3?<><h2>Fordel tekniske rettigheter</h2><label className="field"><span>Ny skoleadministrator</span><select defaultValue="sivert"><option value="sivert">Sivert Aune</option><option value="rania">Rania Osman</option></select></label><div className="list"><label className="row-card"><input type="checkbox" defaultChecked/><span className="grow">Behold Ida som administrator frem til Sivert har akseptert</span></label><label className="row-card"><input type="checkbox"/><span className="grow">Gi Rania rollen innholdsansvarlig</span></label></div></>
-    :<><h2>Kontroller overføringen</h2><div className="note-box"><p><strong>25. oktober:</strong> Nytt styre aktiveres</p><p><strong>Sivert Aune:</strong> Elevrådsleder og skoleadministrator</p><p><strong>Ida Halvorsen:</strong> Verv avsluttes etter akseptert etterfølger</p><p><strong>Revisjonslogg:</strong> Alle endringer registreres</p></div></>}
-    <div className="actions"><button className="btn ghost" disabled={step===1} onClick={()=>setStep(v=>Math.max(1,v-1))}>Tilbake</button><button className="btn primary grow" onClick={()=>step<4?setStep(v=>v+1):onNotify('Overføringen er sendt til godkjenning')}>{step<4?'Neste':'Send invitasjoner'}</button></div>
-  </section>;
 }
 
 function Table({head,rows}:{head:string[];rows:React.ReactNode[][]}){

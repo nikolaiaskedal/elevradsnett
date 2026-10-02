@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { CurrentUser, Event, Organization, Post, Representation, Session } from '@/lib/domain/types';
 import type { ReportCategory } from '@/lib/domain/messaging';
+import type { FeedMode } from '@/lib/domain/search';
 import type { Route } from './routing';
 
 // Felles tilstand og handlinger for visningene. Data hentes og endres via tjenestelaget (useService).
@@ -9,6 +10,8 @@ export type App = {
   /** Innlogget med aktiv profil. Sier bare hvem som er logget inn; hva brukeren har lov til avgjør serveren. */
   signedIn:boolean;
   currentUser:CurrentUser|null; representations:Representation[]; activeRep:Representation|null; events:Event[];
+  /** Anbefalt (rangert av serveren) eller kronologisk feed (§6). Endring henter feeden på nytt. */
+  feedMode:FeedMode; setFeedMode:(mode:FeedMode)=>void;
   organizations:Organization[]; posts:Post[];
   liked:string[]; openComments:string[]; drafts:Record<string,string>;
   org:(id:string)=>Organization|undefined; go:(route:Route)=>void; notify:(text:string)=>void;

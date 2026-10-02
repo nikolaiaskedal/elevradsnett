@@ -49,8 +49,10 @@ describe('DemoElevradsnettService: lesing',()=>{
     const other = new DemoElevradsnettService();
     expect((await other.listOrganizations()).find(o=>o.id==='kuben')?.following).toBeFalsy();
   });
-  it('avviser ukjent representasjon i feeden',async()=>{
-    await expect(service.listFeed({ representationId:'finnes-ikke', mode:'recommended' })).rejects.toThrow('Ukjent representasjon');
+  it('bruker skolen når representasjonen ikke finnes, som get_ranked_feed',async()=>{
+    const unknown = await service.listFeed({ representationId:'finnes-ikke', mode:'recommended' });
+    const school = await service.listFeed({ representationId:null, mode:'recommended' });
+    expect(unknown.map(p=>p.id)).toEqual(school.map(p=>p.id));
   });
 });
 

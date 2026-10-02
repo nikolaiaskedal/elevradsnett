@@ -471,13 +471,13 @@ isOneToOne: false
                   ]
                 },"handover_invites": {
                   Row: {
-                    "accepted_at": string | null,"admin_role": Database["public"]['Enums']["admin_role"] | null,"created_at": string,"email": string | null,"expires_at": string | null,"handover_id": string,"id": string,"public_title": string | null,"status": string,"token_hash": string | null,"user_id": string | null
+                    "accepted_at": string | null,"admin_role": Database["public"]['Enums']["admin_role"] | null,"created_at": string,"email": string | null,"emailed_at": string | null,"expires_at": string | null,"handover_id": string,"id": string,"invited_name": string | null,"public_title": string | null,"responded_at": string | null,"status": string,"token_hash": string | null,"user_id": string | null
                   }
                   Insert: {
-                    "accepted_at"?: string | null,"admin_role"?: Database["public"]['Enums']["admin_role"] | null,"created_at"?: string,"email"?: string | null,"expires_at"?: string | null,"handover_id": string,"id"?: string,"public_title"?: string | null,"status": string,"token_hash"?: string | null,"user_id"?: string | null
+                    "accepted_at"?: string | null,"admin_role"?: Database["public"]['Enums']["admin_role"] | null,"created_at"?: string,"email"?: string | null,"emailed_at"?: string | null,"expires_at"?: string | null,"handover_id": string,"id"?: string,"invited_name"?: string | null,"public_title"?: string | null,"responded_at"?: string | null,"status": string,"token_hash"?: string | null,"user_id"?: string | null
                   }
                   Update: {
-                    "accepted_at"?: string | null,"admin_role"?: Database["public"]['Enums']["admin_role"] | null,"created_at"?: string,"email"?: string | null,"expires_at"?: string | null,"handover_id"?: string,"id"?: string,"public_title"?: string | null,"status"?: string,"token_hash"?: string | null,"user_id"?: string | null
+                    "accepted_at"?: string | null,"admin_role"?: Database["public"]['Enums']["admin_role"] | null,"created_at"?: string,"email"?: string | null,"emailed_at"?: string | null,"expires_at"?: string | null,"handover_id"?: string,"id"?: string,"invited_name"?: string | null,"public_title"?: string | null,"responded_at"?: string | null,"status"?: string,"token_hash"?: string | null,"user_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -502,13 +502,13 @@ isOneToOne: false
                   ]
                 },"handover_processes": {
                   Row: {
-                    "activation_date": string,"completed_at": string | null,"confirmed_by": string | null,"created_at": string,"current_term_id": string | null,"id": string,"old_board_ends_on": string,"organization_id": string,"started_by": string,"status": string,"target_term_id": string | null,"updated_at": string
+                    "activation_date": string,"completed_at": string | null,"confirmed_by": string | null,"created_at": string,"current_term_id": string | null,"id": string,"is_recovery": boolean,"old_board_ends_on": string,"organization_id": string,"recovery_reason": string | null,"started_by": string,"status": string,"target_term_id": string | null,"updated_at": string
                   }
                   Insert: {
-                    "activation_date": string,"completed_at"?: string | null,"confirmed_by"?: string | null,"created_at"?: string,"current_term_id"?: string | null,"id"?: string,"old_board_ends_on": string,"organization_id": string,"started_by": string,"status": string,"target_term_id"?: string | null,"updated_at"?: string
+                    "activation_date": string,"completed_at"?: string | null,"confirmed_by"?: string | null,"created_at"?: string,"current_term_id"?: string | null,"id"?: string,"is_recovery"?: boolean,"old_board_ends_on": string,"organization_id": string,"recovery_reason"?: string | null,"started_by": string,"status": string,"target_term_id"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "activation_date"?: string,"completed_at"?: string | null,"confirmed_by"?: string | null,"created_at"?: string,"current_term_id"?: string | null,"id"?: string,"old_board_ends_on"?: string,"organization_id"?: string,"started_by"?: string,"status"?: string,"target_term_id"?: string | null,"updated_at"?: string
+                    "activation_date"?: string,"completed_at"?: string | null,"confirmed_by"?: string | null,"created_at"?: string,"current_term_id"?: string | null,"id"?: string,"is_recovery"?: boolean,"old_board_ends_on"?: string,"organization_id"?: string,"recovery_reason"?: string | null,"started_by"?: string,"status"?: string,"target_term_id"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -555,6 +555,25 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"handover_reminders": {
+                  Row: {
+                    "created_at": string,"expected_on": string,"kind": string,"organization_id": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"expected_on": string,"kind": string,"organization_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"expected_on"?: string,"kind"?: string,"organization_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "handover_reminders_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"import_batches": {
                   Row: {
                     "applied_at": string | null,"county": string | null,"created_at": string,"filename": string,"id": string,"row_results": NonNullable<Json>,"status": string,"summary": NonNullable<Json>,"uploaded_by": string
@@ -592,6 +611,31 @@ isOneToOne: false
                   }
                   Relationships: [
                     
+                  ]
+                },"media_checks": {
+                  Row: {
+                    "bucket": string,"byte_size": number | null,"checked_at": string,"checked_by": string | null,"height": number | null,"mime_type": string | null,"path": string,"reason": string | null,"status": string,"width": number | null
+                  }
+                  Insert: {
+                    "bucket": string,"byte_size"?: number | null,"checked_at"?: string,"checked_by"?: string | null,"height"?: number | null,"mime_type"?: string | null,"path": string,"reason"?: string | null,"status": string,"width"?: number | null
+                  }
+                  Update: {
+                    "bucket"?: string,"byte_size"?: number | null,"checked_at"?: string,"checked_by"?: string | null,"height"?: number | null,"mime_type"?: string | null,"path"?: string,"reason"?: string | null,"status"?: string,"width"?: number | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "media_checks_checked_by_fkey"
+      columns: ["checked_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "media_checks_checked_by_fkey"
+      columns: ["checked_by"]
+isOneToOne: false
+      referencedRelation: "public_profiles"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"memberships": {
                   Row: {
@@ -824,13 +868,13 @@ isOneToOne: false
                   ]
                 },"notification_preferences": {
                   Row: {
-                    "email": boolean,"in_app": boolean,"push": boolean,"updated_at": string,"user_id": string
+                    "email": boolean,"email_off": (string)[],"in_app": boolean,"in_app_off": (string)[],"push": boolean,"updated_at": string,"user_id": string
                   }
                   Insert: {
-                    "email"?: boolean,"in_app"?: boolean,"push"?: boolean,"updated_at"?: string,"user_id": string
+                    "email"?: boolean,"email_off"?: (string)[],"in_app"?: boolean,"in_app_off"?: (string)[],"push"?: boolean,"updated_at"?: string,"user_id": string
                   }
                   Update: {
-                    "email"?: boolean,"in_app"?: boolean,"push"?: boolean,"updated_at"?: string,"user_id"?: string
+                    "email"?: boolean,"email_off"?: (string)[],"in_app"?: boolean,"in_app_off"?: (string)[],"push"?: boolean,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -849,13 +893,13 @@ isOneToOne: true
                   ]
                 },"notifications": {
                   Row: {
-                    "body": string | null,"created_at": string,"email_sent_at": string | null,"id": string,"link": string | null,"push_sent_at": string | null,"read_at": string | null,"title": string,"type": string,"user_id": string
+                    "body": string | null,"category": string,"created_at": string,"email_sent_at": string | null,"group_key": string | null,"id": string,"item_count": number,"link": string | null,"push_sent_at": string | null,"read_at": string | null,"send_email": boolean,"send_push": boolean,"show_in_app": boolean,"title": string,"type": string,"user_id": string
                   }
                   Insert: {
-                    "body"?: string | null,"created_at"?: string,"email_sent_at"?: string | null,"id"?: string,"link"?: string | null,"push_sent_at"?: string | null,"read_at"?: string | null,"title": string,"type": string,"user_id": string
+                    "body"?: string | null,"category"?: string,"created_at"?: string,"email_sent_at"?: string | null,"group_key"?: string | null,"id"?: string,"item_count"?: number,"link"?: string | null,"push_sent_at"?: string | null,"read_at"?: string | null,"send_email"?: boolean,"send_push"?: boolean,"show_in_app"?: boolean,"title": string,"type": string,"user_id": string
                   }
                   Update: {
-                    "body"?: string | null,"created_at"?: string,"email_sent_at"?: string | null,"id"?: string,"link"?: string | null,"push_sent_at"?: string | null,"read_at"?: string | null,"title"?: string,"type"?: string,"user_id"?: string
+                    "body"?: string | null,"category"?: string,"created_at"?: string,"email_sent_at"?: string | null,"group_key"?: string | null,"id"?: string,"item_count"?: number,"link"?: string | null,"push_sent_at"?: string | null,"read_at"?: string | null,"send_email"?: boolean,"send_push"?: boolean,"show_in_app"?: boolean,"title"?: string,"type"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -1070,10 +1114,10 @@ isOneToOne: true
                     "alt_text": string | null,"byte_size": number,"created_at": string,"duration_seconds": number | null,"height": number | null,"id": string,"is_placeholder": boolean,"media_type": string,"mime_type": string,"position": number,"post_id": string,"processing_status": string,"storage_path": string,"thumbnail_path": string | null,"uploaded_by": string | null,"width": number | null
                   }
                   Insert: {
-                    "alt_text"?: string | null,"byte_size": number,"created_at"?: string,"duration_seconds"?: number | null,"height"?: number | null,"id"?: string,"is_placeholder"?: boolean,"media_type": string,"mime_type": string,"post_id": string,"processing_status": string,"storage_path": string,"thumbnail_path"?: string | null,"width"?: number | null
+                    "alt_text"?: string | null,"byte_size": number,"created_at"?: string,"duration_seconds"?: number | null,"height"?: number | null,"id"?: string,"is_placeholder"?: boolean,"media_type": string,"mime_type": string,"position"?: number,"post_id": string,"processing_status": string,"storage_path": string,"thumbnail_path"?: string | null,"uploaded_by"?: string | null,"width"?: number | null
                   }
                   Update: {
-                    "alt_text"?: string | null,"byte_size"?: number,"created_at"?: string,"duration_seconds"?: number | null,"height"?: number | null,"id"?: string,"is_placeholder"?: boolean,"media_type"?: string,"mime_type"?: string,"post_id"?: string,"processing_status"?: string,"storage_path"?: string,"thumbnail_path"?: string | null,"width"?: number | null
+                    "alt_text"?: string | null,"byte_size"?: number,"created_at"?: string,"duration_seconds"?: number | null,"height"?: number | null,"id"?: string,"is_placeholder"?: boolean,"media_type"?: string,"mime_type"?: string,"position"?: number,"post_id"?: string,"processing_status"?: string,"storage_path"?: string,"thumbnail_path"?: string | null,"uploaded_by"?: string | null,"width"?: number | null
                   }
                   Relationships: [
                     {
@@ -1081,6 +1125,18 @@ isOneToOne: true
       columns: ["post_id"]
 isOneToOne: false
       referencedRelation: "posts"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "post_media_uploaded_by_fkey"
+      columns: ["uploaded_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "post_media_uploaded_by_fkey"
+      columns: ["uploaded_by"]
+isOneToOne: false
+      referencedRelation: "public_profiles"
       referencedColumns: ["id"]
     }
                   ]
@@ -1368,6 +1424,19 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"storage_deletions": {
+                  Row: {
+                    "bucket": string,"created_at": string,"done_at": string | null,"id": number,"path": string,"reason": string
+                  }
+                  Insert: {
+                    "bucket": string,"created_at"?: string,"done_at"?: string | null,"id"?: never,"path": string,"reason": string
+                  }
+                  Update: {
+                    "bucket"?: string,"created_at"?: string,"done_at"?: string | null,"id"?: never,"path"?: string,"reason"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"tags": {
                   Row: {
                     "id": string,"label": string,"slug": string
@@ -1443,7 +1512,10 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "add_comment":
+            "activate_handover":
+{ Args: { "p_handover": string }; Returns: undefined
+                           },
+"add_comment":
 { Args: { "p_body": string,"p_organization": string,"p_post": string }; Returns: {
               "actor_user_id": string,
 "body": string,
@@ -1471,13 +1543,19 @@ isOneToOne: false
 { Args: { "p_alt"?: string,"p_path": string,"p_post": string }; Returns: string
                            },
 "add_post_poll":
-{ Args: { "p_closes_at"?: string,"p_options": string[],"p_post": string,"p_question": string }; Returns: string
+{ Args: { "p_closes_at"?: string,"p_options": (string)[],"p_post": string,"p_question": string }; Returns: string
+                           },
+"apply_handover_invite":
+{ Args: { "p_invite": string }; Returns: undefined
                            },
 "apply_moderation_action":
 { Args: { "p_action": string,"p_reason": string,"p_report": string }; Returns: undefined
                            },
 "apply_school_import":
 { Args: { "p_batch": string }; Returns: Json
+                           },
+"area_board_admins":
+{ Args: { "p_school": string }; Returns: string[]
                            },
 "assign_public_office":
 { Args: { "p_org": string,"p_starts"?: string,"p_title": string,"p_user": string }; Returns: string
@@ -1511,6 +1589,9 @@ isOneToOne: false
                            },
 "can_view_post":
 { Args: { "p": Database["public"]['Tables']["posts"]['Row'],"p_user"?: string }; Returns: boolean
+                           },
+"cancel_handover":
+{ Args: { "p_handover": string }; Returns: undefined
                            },
 "cancel_school_admin_request":
 { Args: { "p_request": string }; Returns: undefined
@@ -1573,6 +1654,21 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"current_board_term":
+{ Args: { "p_org": string }; Returns: {
+              "created_at": string,
+"ends_on": string | null,
+"id": string,
+"organization_id": string,
+"starts_on": string,
+"status": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "board_terms"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "deactivate_school":
 { Args: { "p_reason": string,"p_school": string }; Returns: undefined
                            },
@@ -1619,6 +1715,9 @@ isOneToOne: false
 "event_audience_allows":
 { Args: { "p_event": string,"p_org": string }; Returns: boolean
                            },
+"expire_roles":
+{ Args: { "p_today"?: string }; Returns: number
+                           },
 "get_conversation_messages":
 { Args: { "p_before"?: string,"p_conversation": string,"p_limit"?: number }; Returns: {
               "attachments": Json,"body": string,"created_at": string,"id": string,"mine": boolean,"read_by": number,"sender_name": string,"sender_user_id": string
@@ -1631,6 +1730,9 @@ isOneToOne: false
                            },
 "get_event_participation":
 { Args: { "p_event": string }; Returns: Json
+                           },
+"get_handover_overview":
+{ Args: { "p_org": string }; Returns: Json
                            },
 "get_message_settings":
 { Args: Record<PropertyKey, never>; Returns: {
@@ -1649,6 +1751,11 @@ isOneToOne: false
                            },
 "get_my_session":
 { Args: Record<PropertyKey, never>; Returns: Json
+                           },
+"get_notification_preferences":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "email": boolean,"email_off": (string)[],"in_app": boolean,"in_app_off": (string)[],"push": boolean
+            }[]
                            },
 "get_organization_cv":
 { Args: { "p_org": string }; Returns: {
@@ -1687,6 +1794,9 @@ isOneToOne: false
 { Args: { "p_mode"?: string,"p_representation_id": string }; Returns: {
               "post_id": string,"score": number
             }[]
+                           },
+"handover_overdue_days":
+{ Args: { "p_org": string,"p_today"?: string }; Returns: number
                            },
 "has_active_membership":
 { Args: { "p_org": string,"p_user"?: string }; Returns: boolean
@@ -1768,6 +1878,16 @@ isOneToOne: false
               "county": string,"id": string,"name": string,"type": Database["public"]['Enums']["organization_type"]
             }[]
                            },
+"list_my_handover_invites":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "activation_date": string,"admin_role": Database["public"]['Enums']["admin_role"],"at_school": boolean,"created_at": string,"handover_id": string,"id": string,"invited_by_name": string,"organization_id": string,"organization_name": string,"public_title": string
+            }[]
+                           },
+"list_notifications":
+{ Args: { "p_limit"?: number }; Returns: {
+              "body": string,"category": string,"created_at": string,"id": string,"item_count": number,"link": string,"read_at": string,"title": string,"type": string
+            }[]
+                           },
 "list_organization_contacts":
 { Args: { "p_org": string }; Returns: {
               "display_name": string,"me": boolean,"public_title": string,"user_id": string
@@ -1814,8 +1934,17 @@ isOneToOne: false
 "mark_conversation_read":
 { Args: { "p_conversation": string }; Returns: undefined
                            },
+"mark_email_digest_sent":
+{ Args: { "p_until": string,"p_user": string }; Returns: undefined
+                           },
+"mark_handover_invite_emailed":
+{ Args: { "p_invite": string }; Returns: undefined
+                           },
+"mark_notifications_read":
+{ Args: { "p_ids"?: (string)[] }; Returns: number
+                           },
 "mark_storage_deleted":
-{ Args: { "p_ids": number[] }; Returns: undefined
+{ Args: { "p_ids": (number)[] }; Returns: undefined
                            },
 "media_object_info":
 { Args: { "p_bucket": string,"p_path": string }; Returns: {
@@ -1824,6 +1953,25 @@ isOneToOne: false
                            },
 "media_ready":
 { Args: { "p_bucket": string,"p_path": string }; Returns: boolean
+                           },
+"notification_category":
+{ Args: { "p_type": string }; Returns: string
+                           },
+"notify_user":
+{ Args: { "p_body"?: string,"p_group"?: string,"p_link"?: string,"p_title": string,"p_type": string,"p_user": string }; Returns: undefined
+                           },
+"organization_admins":
+{ Args: { "p_org": string }; Returns: string[]
+                           },
+"pending_email_digests":
+{ Args: { "p_limit"?: number }; Returns: {
+              "display_name": string,"email": string,"items": Json,"until": string,"user_id": string
+            }[]
+                           },
+"pending_handover_invite_emails":
+{ Args: { "p_limit"?: number }; Returns: {
+              "activation_date": string,"admin_role": Database["public"]['Enums']["admin_role"],"email": string,"id": string,"invited_name": string,"organization_name": string,"public_title": string
+            }[]
                            },
 "pending_storage_deletions":
 { Args: { "p_limit"?: number }; Returns: {
@@ -1882,6 +2030,9 @@ isOneToOne: false
 "request_school_admin":
 { Args: { "p_message"?: string,"p_school": string }; Returns: string
                            },
+"reschedule_handover":
+{ Args: { "p_activation_date": string,"p_handover": string,"p_old_board_ends_on": string }; Returns: undefined
+                           },
 "resolve_organization_images":
 { Args: { "p_org": string }; Returns: {
               "cover_image_path": string,"cover_image_source": string,"profile_image_path": string,"profile_image_source": string
@@ -1890,11 +2041,20 @@ isOneToOne: false
 "respond_event_delegation":
 { Args: { "p_accept": boolean,"p_delegate": string }; Returns: undefined
                            },
+"respond_handover_invite":
+{ Args: { "p_accept": boolean,"p_invite": string }; Returns: undefined
+                           },
 "revoke_role":
 { Args: { "p_grant": string }; Returns: undefined
                            },
 "role_fits_organization":
 { Args: { "p_org": string,"p_role": Database["public"]['Enums']["admin_role"] }; Returns: boolean
+                           },
+"run_daily_jobs":
+{ Args: { "p_today"?: string }; Returns: Json
+                           },
+"run_handover_reminders":
+{ Args: { "p_today"?: string }; Returns: number
                            },
 "save_event":
 { Args: { "p_audience": Database["public"]['Enums']["audience_type"],"p_capacity": number,"p_category": string,"p_description": string,"p_digital_url": string,"p_ends_at": string,"p_event": string,"p_organizer": string,"p_place": string,"p_price_label": string,"p_registration_deadline": string,"p_seats_per_organization": number,"p_starts_at": string,"p_status": Database["public"]['Enums']["event_status"],"p_summary": string,"p_title": string }; Returns: string
@@ -1902,6 +2062,11 @@ isOneToOne: false
 "search":
 { Args: { "p_include_former"?: boolean,"p_kinds"?: (string)[],"p_limit"?: number,"p_query": string }; Returns: {
               "id": string,"kind": string,"organization_id": string,"rank": number,"subtitle": string,"title": string
+            }[]
+                           },
+"search_directory":
+{ Args: { "p_include_former"?: boolean,"p_kinds"?: (string)[],"p_limit"?: number,"p_query": string }; Returns: {
+              "active": boolean,"id": string,"kind": string,"organization_id": string,"rank": number,"starts_at": string,"subtitle": string,"title": string
             }[]
                            },
 "search_message_recipients":
@@ -1926,6 +2091,9 @@ isOneToOne: false
 "set_conversation_muted":
 { Args: { "p_conversation": string,"p_muted": boolean }; Returns: undefined
                            },
+"set_election_date":
+{ Args: { "p_date": string,"p_org": string }; Returns: undefined
+                           },
 "set_event_image":
 { Args: { "p_event": string,"p_path"?: string }; Returns: string
                            },
@@ -1941,6 +2109,9 @@ isOneToOne: false
 "set_follow":
 { Args: { "p_following": boolean,"p_org": string }; Returns: number
                            },
+"set_notification_preferences":
+{ Args: { "p_email": boolean,"p_email_off"?: (string)[],"p_in_app": boolean,"p_in_app_off"?: (string)[] }; Returns: undefined
+                           },
 "set_organization_image":
 { Args: { "p_kind": string,"p_org": string,"p_path"?: string }; Returns: string
                            },
@@ -1952,6 +2123,12 @@ isOneToOne: false
                            },
 "start_direct_conversation":
 { Args: { "p_user": string }; Returns: string
+                           },
+"start_handover":
+{ Args: { "p_activation_date": string,"p_handover_on": string,"p_invites": Json,"p_old_board_ends_on": string,"p_org": string,"p_recovery_reason"?: string }; Returns: string
+                           },
+"super_admins":
+{ Args: Record<PropertyKey, never>; Returns: string[]
                            },
 "sync_managed_conversation":
 { Args: { "p_org": string }; Returns: undefined
