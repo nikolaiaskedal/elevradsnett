@@ -444,7 +444,7 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
   async getMfaStatus():Promise<MfaStatus> {
     const client = await this.client;
     const [required,levels,factors] = await Promise.all([
-      run(client.rpc('is_super_admin_account')),
+      run(client.rpc('admin_mfa_required')),
       client.auth.mfa.getAuthenticatorAssuranceLevel(),
       client.auth.mfa.listFactors(),
     ]);
