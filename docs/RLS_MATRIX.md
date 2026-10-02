@@ -65,7 +65,7 @@ Arrangementer har ingen skrive-policy: alt går via `security definer`-funksjone
 
 ## Funksjonstilgang
 
-Supabase gir i utgangspunktet alle roller tilgang til å kalle funksjonene i `public`. Migrasjonen `202610010002_function_grants.sql` tar den tilgangen fra `anon`. Ikke-innloggede kan bare kalle `get_public_officers`, `get_event_engagement`, `resolve_organization_images`, `search`, `list_public_organizations`, `get_post_cards`, `list_public_events` og `get_my_session` (som da bare svarer «anonymous»), pluss `can_view_post` og `has_role`, som RLS-reglene for offentlig lesing trenger. Nye funksjoner må få `grant execute` eksplisitt. Fra prompt 4 kan anon også kalle `get_public_organization`, og fra prompt 5 `list_post_cards`; alle de andre nye funksjonene krever innlogging. `is_blocked_between` svarer bare for partene selv. Meldingsfunksjonene fra prompt 10 krever innlogging, og `sync_managed_conversation`, `sync_my_managed_conversations` og `check_conversation_rate_limit` kan bare kalles av andre databasefunksjoner.
+Supabase gir i utgangspunktet alle roller tilgang til å kalle funksjonene i `public`. Migrasjonen `202610010002_function_grants.sql` tar den tilgangen fra `anon`. Ikke-innloggede kan bare kalle `get_public_officers`, `get_event_engagement`, `resolve_organization_images`, `search`, `list_public_organizations`, `get_post_cards`, `list_public_events` og `get_my_session` (som da bare svarer «anonymous»), pluss `can_view_post` og `has_role`, som RLS-reglene for offentlig lesing trenger. Nye funksjoner må få `grant execute` eksplisitt. Fra prompt 4 kan anon også kalle `get_public_organization`, fra prompt 5 `list_post_cards`, og fra prompt 6–7 `list_posts` og `get_organization_images`; alle de andre nye funksjonene krever innlogging. `is_blocked_between` svarer bare for partene selv. Meldingsfunksjonene fra prompt 10 krever innlogging, og `sync_managed_conversation`, `sync_my_managed_conversations` og `check_conversation_rate_limit` kan bare kalles av andre databasefunksjoner.
 
 ## Innlegg (prompt 5)
 
@@ -74,6 +74,37 @@ Supabase gir i utgangspunktet alle roller tilgang til å kalle funksjonene i `pu
 - Sletting er myk (`status='deleted'`, `deleted_at`). `can_view_post` viser ikke slettede innlegg, og de kan ikke endres. Logges som `post.deleted` med utdrag.
 - Synlighet: «Lokallaget» fra et lokallag når skolene i lokallaget. «Venneråd» når elevene ved avsenderskolen og ved skoler med godkjent venneråd.
 - `check_post_content` og `log_friend_event` er interne og kan ikke kalles av `anon` eller `authenticated`. Anon kan kalle `list_post_cards`; resten krever innlogging.
+
+## Bilder (prompt 6)
+
+Bildene kodes om i nettleseren (EXIF og GPS forsvinner), og edge-funksjonen `process-media` kontrollerer hver fil med service role: filtype ut fra innholdet, størrelse, maks 4096 px og ingen EXIF-, XMP-, IPTC- eller tekstmetadata. Bare den som lastet opp filen kan be om kontroll. Avviste filer slettes.
+
+| Tabell eller RPC | Hvem | Regler |
+|---|---|---|
+| `media_checks` | Bare `process-media` (service role, via `record_media_check`) | RLS uten policyer: klientene kan verken lese eller skrive |
+| `storage_deletions` | Bare databasen og `process-media` (`pending_storage_deletions`, `mark_storage_deleted`) | Filer fra slettede innlegg, byttede organisasjonsbilder og avviste filer. Slettes fra Storage av `process-media` (`action:'cleanup'`) |
+| `set_avatar`, `set_event_image` | Som før | Krever nå en godkjent kontroll (`media_ready`) |
+| `add_post_media` | Innholdsansvarlig og opp i organisasjonen | Stien må ligge under `<organisasjon>/posts/<innlegg>/` i `public-content`, maks fire bilder. Status «pending» til kontrollen er ferdig |
+| `post_media` (lesing) | Alle som kan se innlegget | Bilder som ikke er klare, ser bare de som kan endre innlegget. Kan ikke skrives direkte |
+| `set_organization_image` | Skole- og styreadministrator for organisasjonen | Profilbilde i `public-avatars/<organisasjon>/profile/`, coverbilde i `public-covers/<organisasjon>/cover/`. Kontrollert fil. Låst bilde kan bare endres av superadministrator. Logges |
+| `get_organization_images` | Alle, også uten innlogging | Bildene etter hierarkiet (eget → lokallag → fylke → global) med kilde, og `can_change` |
+| `organizations` (bildefeltene) | Ingen direkte | `guard_organization_update` avviser endringer i bildefeltene utenom `set_organization_image` |
+
+Lagringsområdene tar bare bilder (WebP, JPEG og PNG): profilbilder maks 5 MB, cover og innhold maks 10 MB. Video kommer etter piloten (prompt 20). Filer i de offentlige områdene har tilfeldige navn, men kan leses av alle som kjenner adressen; bilder i avgrensede innlegg er derfor ikke hemmelige for den som får lenken direkte.
+
+## Kommentarer, reaksjoner, avstemninger og følging (prompt 7)
+
+| Tabell eller RPC | Hvem | Regler |
+|---|---|---|
+| `add_comment` | Aktiv bruker med aktivt verv i organisasjonen det kommenteres for | Innlegget må være synlig. Teksten renses. Maks 10 kommentarer i minuttet. Brukeren som skrev lagres. `comments` kan ikke skrives direkte |
+| `reactions` | Aktiv bruker, via `set_post_support` | Innlegget må være synlig. Hver bruker leser bare egne rader; bare antallet er offentlig (i `list_posts`). Tidligere kunne alle lese hvem som hadde reagert |
+| `set_follow` | Aktiv bruker | Bare aktive organisasjoner. `follows` kan ikke skrives direkte |
+| `add_post_poll` | Innholdsansvarlig og opp i organisasjonen | Bare på utkast, én per innlegg, 2–10 svaralternativer, frist innen ett år |
+| `cast_organization_vote` | Aktiv bruker med aktivt verv i organisasjonen | Én stemme per organisasjon, kan endres til fristen. Innlegget må være synlig. Stemmene leses bare av egen organisasjon |
+| `list_posts` | Alle, også uten innlogging | Erstatter `list_post_cards`. Stemmetall bare etter egen organisasjons stemme (aktiv representasjon) eller etter fristen |
+| `report_post` | Aktiv bruker som kan se innlegget | Én åpen rapport per innlegg og bruker. Går til modereringskøen (prompt 12) |
+
+Deling (§7): appen deler bare offentlige innlegg. Lenken (`#/innlegg/<id>`) viser innlegget via `list_posts`, så den som ikke har tilgang, får «fant ikke».
 
 ## Meldinger (prompt 10)
 

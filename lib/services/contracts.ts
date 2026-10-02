@@ -3,7 +3,10 @@ import type { AddMembersInput, CreateGroupInput, ReportMessageInput } from '@/li
 import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, DelegateCandidate, Event, EventOrganizer, EventParticipation, FriendConnection, Message, MyRole, Organization, OrganizationCvEntry, OrganizationRoleEntry, PersonCv, Post, PostDraft, PostRevision, PublicOfficer, SchoolAdminRequest, SchoolHistoryEntry, Session } from '@/lib/domain/types';
 import type { AddCommentInput, AddDelegateInput, AssignPublicOfficeInput, AssignRoleInput, AttendanceInput, ChangeSchoolInput, DecideFriendRequestInput, DecideSchoolAdminRequestInput, DelegationResponseInput, EditPostInput, EventInput, EventInterestInput, EventRegistrationInput, EventStatusChangeInput, FriendRequestInput, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SaveDraftInput, SchoolAdminRequestInput, SendMessageInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput } from '@/lib/domain/validation';
 
-export type { AddMembersInput, CreateGroupInput, ReportMessageInput };
+import type { OrganizationImages, Poll } from '@/lib/domain/types';
+import type { ReportPostInput } from '@/lib/domain/validation';
+
+export type { AddMembersInput, CreateGroupInput, ReportMessageInput, ReportPostInput };
 export type { AddCommentInput, AddDelegateInput, AssignPublicOfficeInput, AssignRoleInput, AttendanceInput, ChangeSchoolInput, DecideFriendRequestInput, DecideSchoolAdminRequestInput, DelegationResponseInput, EditPostInput, EventInput, EventInterestInput, EventRegistrationInput, EventStatusChangeInput, FriendRequestInput, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SaveDraftInput, SchoolAdminRequestInput, SendMessageInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput };
 
 /**
@@ -64,8 +67,13 @@ export interface ElevradsnettService {
   listAuditLog(organizationId:string):Promise<AuditEntry[]>;
 
   // Innlegg (§7). Serveren avgjør hvem som kan publisere, redigere og slette, og hvem som ser hva.
-  /** Publiserer et nytt innlegg, eller et utkast når draftId er satt. */
-  publishPost(input:PublishPostInput):Promise<Post>;
+  /**
+   * Publiserer et nytt innlegg, eller et utkast når draftId er satt. Med avstemning eller bilder lagres innlegget først som utkast,
+   * bildene lastes opp og kontrolleres, og så publiseres det. onProgress sier hva som skjer, så behandlingsstatusen kan vises.
+   */
+  publishPost(input:PublishPostInput, onProgress?:(progress:PublishProgress)=>void):Promise<Post>;
+  /** Ett innlegg (delte lenker). null hvis det ikke finnes eller ikke er synlig for brukeren. */
+  getPost(postId:string):Promise<Post|null>;
   /** Lagrer et nytt utkast, eller oppdaterer et eksisterende (draftId). */
   saveDraft(input:SaveDraftInput):Promise<PostDraft>;
   /** Utkastene til organisasjonen representasjonen gjelder. */
@@ -77,9 +85,12 @@ export interface ElevradsnettService {
   /** Tidligere versjoner av et innlegg, nyeste først. */
   listPostHistory(postId:string):Promise<PostRevision[]>;
   addComment(input:AddCommentInput):Promise<Comment>;
-  setPostSupport(input:{ postId:string; supported:boolean }):Promise<void>;
-  vote(input:VoteInput):Promise<void>;
-  reportPost(input:{ postId:string }):Promise<void>;
+  /** Gir eller fjerner støtte. Returnerer antall støtter; bare antallet er offentlig. */
+  setPostSupport(input:{ postId:string; supported:boolean }):Promise<number>;
+  /** Stemmer, eller endrer stemmen, på vegne av organisasjonen. Returnerer avstemningen slik serveren viser den nå. */
+  vote(input:VoteInput):Promise<Poll>;
+  /** Rapporterer et innlegg til moderatorene (§15). */
+  reportPost(input:ReportPostInput):Promise<void>;
 
   // Venneråd: gjensidig godkjent forbindelse mellom to skoler. Skoleadministratorer styrer dem.
   listFriendConnections(schoolId:string):Promise<FriendConnection[]>;
@@ -89,7 +100,12 @@ export interface ElevradsnettService {
   endFriendConnection(connectionId:string):Promise<void>;
 
   // Organisasjoner
-  setFollow(input:{ organizationId:string; following:boolean }):Promise<void>;
+  /** Følger eller slutter å følge. Returnerer antall følgere. */
+  setFollow(input:{ organizationId:string; following:boolean }):Promise<number>;
+  /** Profil- og coverbilde etter bildehierarkiet (§14), og om brukeren kan endre dem. */
+  getOrganizationImages(organizationId:string):Promise<OrganizationImages>;
+  /** Laster opp et ferdig omkodet bilde som organisasjonens eget, eller fjerner det (null). */
+  setOrganizationImage(input:{ organizationId:string; kind:'profile'|'cover'; image:Blob|null }):Promise<OrganizationImages>;
 
   // Arrangementer (§8). Interesse, påmelding, delegater og bekreftet oppmøte er adskilte handlinger.
   /** Organisasjonene brukeren kan opprette arrangementer for. Tom liste uten rettigheter. */
@@ -150,6 +166,9 @@ export interface ElevradsnettService {
   /** Kalles når det kommer nye meldinger eller endringer i samtalene. Returnerer en funksjon som avslutter lyttingen. */
   subscribeToMessages(listener:()=>void):()=>void;
 }
+
+/** Steg i publiseringen, så grensesnittet kan vise behandlingsstatus. */
+export type PublishProgress = { step:'saving' } | { step:'uploading'|'checking'; index:number; count:number } | { step:'publishing' };
 
 /** Kastes av adaptere for operasjoner som ennå ikke har en RPC på serveren. */
 export class NotImplementedError extends Error {

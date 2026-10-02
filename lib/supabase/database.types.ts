@@ -1067,7 +1067,7 @@ isOneToOne: true
                   ]
                 },"post_media": {
                   Row: {
-                    "alt_text": string | null,"byte_size": number,"created_at": string,"duration_seconds": number | null,"height": number | null,"id": string,"is_placeholder": boolean,"media_type": string,"mime_type": string,"post_id": string,"processing_status": string,"storage_path": string,"thumbnail_path": string | null,"width": number | null
+                    "alt_text": string | null,"byte_size": number,"created_at": string,"duration_seconds": number | null,"height": number | null,"id": string,"is_placeholder": boolean,"media_type": string,"mime_type": string,"position": number,"post_id": string,"processing_status": string,"storage_path": string,"thumbnail_path": string | null,"uploaded_by": string | null,"width": number | null
                   }
                   Insert: {
                     "alt_text"?: string | null,"byte_size": number,"created_at"?: string,"duration_seconds"?: number | null,"height"?: number | null,"id"?: string,"is_placeholder"?: boolean,"media_type": string,"mime_type": string,"post_id": string,"processing_status": string,"storage_path": string,"thumbnail_path"?: string | null,"width"?: number | null
@@ -1467,6 +1467,12 @@ isOneToOne: false
 "add_event_delegate":
 { Args: { "p_registration": string,"p_user": string }; Returns: string
                            },
+"add_post_media":
+{ Args: { "p_alt"?: string,"p_path": string,"p_post": string }; Returns: string
+                           },
+"add_post_poll":
+{ Args: { "p_closes_at"?: string,"p_options": string[],"p_post": string,"p_question": string }; Returns: string
+                           },
 "apply_moderation_action":
 { Args: { "p_action": string,"p_reason": string,"p_report": string }; Returns: undefined
                            },
@@ -1649,6 +1655,11 @@ isOneToOne: false
               "category": string,"display_name": string,"elevtinget": boolean,"event_id": string,"office_title": string,"organizer_name": string,"starts_at": string,"title": string,"user_id": string
             }[]
                            },
+"get_organization_images":
+{ Args: { "p_org": string }; Returns: {
+              "can_change": boolean,"cover_image_path": string,"cover_image_source": string,"locked": boolean,"profile_image_path": string,"profile_image_source": string
+            }[]
+                           },
 "get_person_cv":
 { Args: { "p_user": string }; Returns: Json
                            },
@@ -1777,6 +1788,11 @@ isOneToOne: false
               "actor_name": string,"audience": Database["public"]['Enums']["audience_type"],"body": string,"event_id": string,"id": string,"organization_id": string,"school_level": string,"updated_at": string
             }[]
                            },
+"list_posts":
+{ Args: { "p_limit"?: number,"p_mode"?: string,"p_organization"?: string,"p_post"?: string,"p_representation_id"?: string }; Returns: {
+              "actor_name": string,"actor_title": string,"audience": Database["public"]['Enums']["audience_type"],"body": string,"can_manage": boolean,"comment_count": number,"comments": Json,"edited": boolean,"event_id": string,"id": string,"media": Json,"organization_id": string,"organization_name": string,"poll": Json,"priority": boolean,"published_at": string,"school_level": string,"support_count": number,"supported": boolean
+            }[]
+                           },
 "list_public_events":
 { Args: Record<PropertyKey, never>; Returns: {
               "audience": Database["public"]['Enums']["audience_type"],"capacity": number,"category": string,"description": string,"digital": boolean,"ends_at": string,"id": string,"interested": number,"organizer_id": string,"organizer_name": string,"place": string,"price_label": string,"registered": number,"registration_deadline": string,"seats_per_organization": number,"starts_at": string,"status": Database["public"]['Enums']["event_status"],"summary": string,"title": string
@@ -1797,6 +1813,22 @@ isOneToOne: false
                            },
 "mark_conversation_read":
 { Args: { "p_conversation": string }; Returns: undefined
+                           },
+"mark_storage_deleted":
+{ Args: { "p_ids": number[] }; Returns: undefined
+                           },
+"media_object_info":
+{ Args: { "p_bucket": string,"p_path": string }; Returns: {
+              "already_checked": boolean,"byte_size": number,"mime_type": string,"owner_id": string
+            }[]
+                           },
+"media_ready":
+{ Args: { "p_bucket": string,"p_path": string }; Returns: boolean
+                           },
+"pending_storage_deletions":
+{ Args: { "p_limit"?: number }; Returns: {
+              "bucket": string,"id": number,"path": string
+            }[]
                            },
 "publish_post":
 { Args: { "p_audience": Database["public"]['Enums']["audience_type"],"p_body": string,"p_organization_id": string,"p_school_level_target"?: string,"p_status": Database["public"]['Enums']["content_status"] }; Returns: {
@@ -1823,6 +1855,12 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"queue_storage_deletion":
+{ Args: { "p_bucket": string,"p_path": string,"p_reason": string }; Returns: undefined
+                           },
+"record_media_check":
+{ Args: { "p_bucket": string,"p_height": number,"p_mime": string,"p_path": string,"p_reason": string,"p_size": number,"p_status": string,"p_user": string,"p_width": number }; Returns: undefined
+                           },
 "register_for_event":
 { Args: { "p_event": string,"p_org": string,"p_register": boolean }; Returns: string
                            },
@@ -1831,6 +1869,9 @@ isOneToOne: false
                            },
 "report_message":
 { Args: { "p_category": string,"p_description"?: string,"p_message": string }; Returns: string
+                           },
+"report_post":
+{ Args: { "p_category": string,"p_description"?: string,"p_post": string }; Returns: string
                            },
 "request_friend_school":
 { Args: { "p_school": string,"p_target": string }; Returns: string
@@ -1896,6 +1937,15 @@ isOneToOne: false
                            },
 "set_event_status":
 { Args: { "p_event": string,"p_status": Database["public"]['Enums']["event_status"] }; Returns: undefined
+                           },
+"set_follow":
+{ Args: { "p_following": boolean,"p_org": string }; Returns: number
+                           },
+"set_organization_image":
+{ Args: { "p_kind": string,"p_org": string,"p_path"?: string }; Returns: string
+                           },
+"set_post_support":
+{ Args: { "p_post": string,"p_supported": boolean }; Returns: number
                            },
 "set_read_receipts":
 { Args: { "p_enabled": boolean }; Returns: undefined

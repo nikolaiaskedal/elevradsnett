@@ -62,10 +62,11 @@ describe('DemoElevradsnettService: innlegg',()=>{
     expect(feed[0].id).toBe(post.id);
   });
   it('lager avstemning og bilde når det er valgt',async()=>{
-    const post = await service.publishPost({ representationId:'rep-school', body:'Hva mener dere?\nMer tekst', audience:'county', poll:{ options:['Ja','Nei'] }, withImage:true });
+    const post = await service.publishPost({ representationId:'rep-school', body:'Hva mener dere?\nMer tekst', audience:'county', poll:{ question:'Hva mener dere?', options:['Ja','Nei'] }, images:[{ file:new Blob([new Uint8Array([1])],{ type:'image/webp' }), alt:'Stand' }] });
     expect(post.poll?.question).toBe('Hva mener dere?');
     expect(post.poll?.options.map(o=>o.label)).toEqual(['Ja','Nei']);
-    expect(post.media).toHaveLength(1);
+    expect(post.media).toMatchObject([{ type:'image', alt:'Stand', status:'ready' }]);
+    expect(post.poll).toMatchObject({ closesAt:'ingen frist', showResults:false, myVote:undefined });
   });
   it('lagrer utkast utenfor feeden, og publiserer dem senere',async()=>{
     const before = (await service.listFeed({ representationId:'rep-school', mode:'chronological' })).length;
@@ -118,7 +119,7 @@ describe('DemoElevradsnettService: innlegg',()=>{
   it('validerer innlegg med de delte skjemaene',async()=>{
     await expect(service.publishPost({ representationId:'rep-school', body:'   ', audience:'public' })).rejects.toThrow('Skriv noe før du publiserer');
     await expect(service.publishPost({ representationId:'rep-school', body:'x'.repeat(6001), audience:'public' })).rejects.toThrow();
-    await expect(service.publishPost({ representationId:'rep-school', body:'Poll', audience:'public', poll:{ options:['Bare én'] } })).rejects.toThrow('minst to svaralternativer');
+    await expect(service.publishPost({ representationId:'rep-school', body:'Poll', audience:'public', poll:{ question:'Ja?', options:['Bare én'] } })).rejects.toThrow('minst to svaralternativer');
   });
   it('avviser publisering fra representasjon uten publiseringsrett',async()=>{
     // Lokallaget gir bare rett via fylkesstyreregelen, som faller bort når Ida bytter til en skole i et annet lokallag.
@@ -136,7 +137,8 @@ describe('DemoElevradsnettService: innlegg',()=>{
     await expect(service.addComment({ postId:'post-7', representationId:'rep-county', body:' ' })).rejects.toThrow('tom');
   });
   it('støtter og fjerner støtte uten å telle dobbelt',async()=>{
-    const likes = async()=>(await service.listFeed({ representationId:'rep-school', mode:'chronological' })).find(p=>p.id==='post-1')!.likes;
+    // Som kortet: de andres støtter pluss egen.
+    const likes = async()=>{ const p = (await service.listFeed({ representationId:'rep-school', mode:'chronological' })).find(x=>x.id==='post-1')!; return p.likes+(p.supported?1:0); };
     const start = await likes();
     await service.setPostSupport({ postId:'post-1', supported:true });
     await service.setPostSupport({ postId:'post-1', supported:true });
@@ -146,18 +148,44 @@ describe('DemoElevradsnettService: innlegg',()=>{
   });
   it('teller én stemme per organisasjon og flytter den ved nytt valg',async()=>{
     const votes = async()=>Object.fromEntries((await service.listFeed({ representationId:'rep-school', mode:'chronological' })).find(p=>p.id==='post-6')!.poll!.options.map(o=>[o.id,o.votes]));
-    const start = await votes();
     await service.vote({ postId:'post-6', optionId:'a', organizationId:'elvebakken' });
+    const first = await votes();
     await service.vote({ postId:'post-6', optionId:'b', organizationId:'elvebakken' });
     const after = await votes();
-    expect(after.a).toBe(start.a);
-    expect(after.b).toBe(start.b+1);
+    expect(after.a).toBe(first.a-1);
+    expect(after.b).toBe(first.b+1);
     await expect(service.vote({ postId:'post-1', optionId:'a', organizationId:'elvebakken' })).rejects.toThrow('ingen avstemning');
     await expect(service.vote({ postId:'post-6', optionId:'z', organizationId:'elvebakken' })).rejects.toThrow('Ukjent svaralternativ');
   });
-  it('tar imot rapport på kjente innlegg',async()=>{
-    await expect(service.reportPost({ postId:'post-2' })).resolves.toBeUndefined();
-    await expect(service.reportPost({ postId:'finnes-ikke' })).rejects.toThrow('Ukjent innlegg');
+  it('viser resultatet først etter egen stemme, og stemmen kan endres',async()=>{
+    const poll = async()=>(await service.getPost('post-6'))!.poll!;
+    expect(await poll()).toMatchObject({ showResults:false, myVote:undefined });
+    expect((await poll()).options.every(o=>o.votes===0)).toBe(true);
+    const after = await service.vote({ postId:'post-6', optionId:'a', organizationId:'elvebakken' });
+    expect(after).toMatchObject({ showResults:true, myVote:'a' });
+    expect(after.totalVotes).toBeGreaterThan(0);
+    expect((await service.vote({ postId:'post-6', optionId:'b', organizationId:'elvebakken' })).myVote).toBe('b');
+    // Uten verv i organisasjonen kan man ikke stemme for den.
+    await expect(service.vote({ postId:'post-6', optionId:'a', organizationId:'kuben' })).rejects.toThrow('ikke tilgang');
+  });
+  it('returnerer antall støtter og følgere fra tjenesten',async()=>{
+    const count = await service.setPostSupport({ postId:'post-1', supported:true });
+    expect(await service.setPostSupport({ postId:'post-1', supported:true })).toBe(count);
+    expect(await service.setPostSupport({ postId:'post-1', supported:false })).toBe(count-1);
+    const followers = await service.setFollow({ organizationId:'kuben', following:true });
+    expect(await service.setFollow({ organizationId:'kuben', following:false })).toBe(followers-1);
+  });
+  it('lar administratoren endre organisasjonsbilder, men ikke andre',async()=>{
+    const image = new Blob([new Uint8Array([1])],{ type:'image/webp' });
+    expect(await service.getOrganizationImages('elvebakken')).toMatchObject({ canChange:true, coverSource:'none' });
+    expect(await service.setOrganizationImage({ organizationId:'elvebakken', kind:'cover', image })).toMatchObject({ coverSource:'own' });
+    expect((await service.getOrganizationImages('kuben')).canChange).toBe(false);
+    await expect(service.setOrganizationImage({ organizationId:'kuben', kind:'cover', image })).rejects.toThrow('ikke tilgang');
+  });
+  it('tar imot rapport på kjente innlegg, én gang',async()=>{
+    await expect(service.reportPost({ postId:'post-2', category:'spam' })).resolves.toBeUndefined();
+    await expect(service.reportPost({ postId:'post-2', category:'spam' })).rejects.toThrow('allerede rapportert');
+    await expect(service.reportPost({ postId:'finnes-ikke', category:'spam' })).rejects.toThrow('Ukjent innlegg');
   });
 });
 
@@ -377,9 +405,9 @@ describe('createService',()=>{
     expect(createService({ VITE_SUPABASE_URL:'https://x.supabase.co', VITE_SUPABASE_ANON_KEY:'anon' })).toBeInstanceOf(SupabaseElevradsnettService);
   });
   it('kaster en tydelig feil for metoder uten RPC',async()=>{
-    const supabase = createService({ VITE_SUPABASE_URL:'https://x.supabase.co', VITE_SUPABASE_ANON_KEY:'anon' });
-    await expect(supabase.setFollow({ organizationId:'x', following:true })).rejects.toBeInstanceOf(NotImplementedError);
-    await expect(supabase.reportPost({ postId:'x' })).rejects.toThrow('«reportPost» er ikke koblet til Supabase ennå');
+    // Alle metodene har RPC-er fra prompt 7; feilen finnes fortsatt for nye metoder.
+    const error = new NotImplementedError('nyMetode');
+    expect(error.message).toBe('«nyMetode» er ikke koblet til Supabase ennå: RPC mangler.');
   });
   it('starter demoen uten innlogging',async()=>{
     expect(await createService({}).getSession()).toEqual({ status:'anonymous' });

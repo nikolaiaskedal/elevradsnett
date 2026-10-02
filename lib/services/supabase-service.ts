@@ -8,11 +8,14 @@ import { formatDayMonth, formatRelative } from '@/lib/domain/time';
 import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, CurrentUser, DelegateCandidate, DelegateStatus, Event, EventOrganizer, EventParticipation, GrantStatus, Message, MyRole, Organization, OrganizationCvEntry, OrganizationRoleEntry, OrganizationStatus, OrganizationType, PersonCv, Post, RegistrationStatus, PublicOfficer, Representation, SchoolAdminRequest, SchoolHistoryEntry, Session, FriendConnection, PostDraft, PostRevision, SchoolLevelTarget } from '@/lib/domain/types';
 import { assignPublicOfficeSchema, assignRoleSchema, avatarSchema, addDelegateSchema, attendanceSchema, changeSchoolSchema, commentSchema, decideSchoolAdminRequestSchema, delegationResponseSchema, eventImageSchema, eventInputSchema, eventInterestSchema, eventRegistrationSchema, eventStatusChangeSchema, idSchema, isoDate, onboardingSchema, publishPostSchema, requestLoginCodeSchema, schoolAdminRequestSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema, decideFriendRequestSchema, editPostSchema, friendRequestSchema, saveDraftSchema } from '@/lib/domain/validation';
 import type { Database } from '@/lib/supabase/database.types';
+import type { ImageSource, OrganizationImages, Poll, PostMedia } from '@/lib/domain/types';
+import { organizationImageSchema, publishPostFields, reportPostSchema } from '@/lib/domain/validation';
+import type { PublishProgress, ReportPostInput } from './contracts';
 import { NotImplementedError, type AddCommentInput, type AddDelegateInput, type AttendanceInput, type DelegationResponseInput, type EventInput, type EventInterestInput, type EventRegistrationInput, type EventStatusChangeInput, type AssignPublicOfficeInput, type AssignRoleInput, type ChangeSchoolInput, type DecideSchoolAdminRequestInput, type ElevradsnettService, type OnboardingInput, type SchoolAdminRequestInput, type PublishPostInput, type RequestLoginCodeInput, type SendMessageInput, type UpdateProfileInput, type VerifyLoginCodeInput, type VoteInput, type DecideFriendRequestInput, type EditPostInput, type FriendRequestInput, type SaveDraftInput } from './contracts';
 
 type Client = SupabaseClient<Database>;
 type Rpc<Name extends keyof Database['public']['Functions']> = Database['public']['Functions'][Name]['Returns'];
-type PostCardRow = Rpc<'list_post_cards'>[number];
+type PostCardRow = Rpc<'list_posts'>[number];
 type DraftRow = Rpc<'list_post_drafts'>[number];
 type OrganizationRow = Rpc<'list_public_organizations'>[number];
 type EventRow = Rpc<'list_events'>[number];
@@ -24,7 +27,18 @@ type SessionRow =
       representations:{ id:string; organization_id:string; name:string; type:OrganizationType; organization_status?:OrganizationStatus; public_title:string; can_publish:boolean }[] };
 
 const AVATAR_BUCKET = 'public-avatars';
+const COVER_BUCKET = 'public-covers';
 const CONTENT_BUCKET = 'public-content';
+const extensionOf = (type:string)=>type==='image/jpeg'?'jpg':type.split('/')[1];
+/** Hvorfor process-media avviste en fil. */
+const mediaRejections:Record<string,string> = {
+  unknown_type:'Filen er ikke et bilde serveren godtar (WebP, JPEG eller PNG).',
+  type_mismatch:'Filtypen stemmer ikke med innholdet i filen.',
+  too_large:'Bildet er for stort.',
+  has_metadata:'Bildet har fortsatt metadata (EXIF eller GPS). Prøv igjen, eller velg et annet bilde.',
+  bad_dimensions:'Bildet er for stort. Maks 4096 piksler på hver side.',
+  corrupt:'Bildet kunne ikke leses. Prøv et annet bilde.',
+};
 /** Valgfrie argumenter sendes som null. De genererte typene kjenner ikke til at parameterne kan være null. */
 const orNull = <T,>(value:T|undefined)=>(value ?? null) as T;
 
@@ -80,6 +94,13 @@ const serverMessages:Record<string,string> = {
   'invalid audience':'Denne målgruppen passer ikke for avsenderen.',
   'invalid school level':'Ugyldig skoleform.',
   'event not found':'Fant ikke arrangementet, eller det er ikke publisert.',
+  'invalid poll':'Avstemningen trenger et spørsmål, 2–10 svaralternativer og eventuelt en sluttdato innen ett år.',
+  'poll exists':'Innlegget har allerede en avstemning.',
+  'poll closed or invalid option':'Avstemningen er avsluttet.',
+  'too many images':'Et innlegg kan ha maks fire bilder.',
+  'invalid alt text':'Bildeteksten kan ha maks 300 tegn.',
+  'image is locked':'Bildet er låst av en superadministrator.',
+  'post already reported':'Du har allerede rapportert dette innlegget.',
 
   'already connected':'Skolene er allerede venneråd.',
   'request already sent':'Dere har allerede sendt en forespørsel til denne skolen.',
@@ -135,6 +156,32 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
   }
   private async avatarUrl(path:string|null) {
     return path ? (await this.client).storage.from(AVATAR_BUCKET).getPublicUrl(path).data.publicUrl : undefined;
+  }
+  private async publicUrl(bucket:string,path:string|null|undefined) {
+    return path ? (await this.client).storage.from(bucket).getPublicUrl(path).data.publicUrl : undefined;
+  }
+  /**
+   * Ber serveren kontrollere en opplastet fil (process-media): filtype ut fra innholdet, størrelse, mål og at EXIF og GPS er borte.
+   * RPC-ene som tar bildet i bruk krever godkjent kontroll. Avviste filer slettes av serveren.
+   */
+  private async checkUpload(bucket:string,path:string) {
+    const { data,error } = await (await this.client).functions.invoke('process-media',{ body:{ action:'check', bucket, path } });
+    if (!error && (data as { status?:string })?.status==='ready') return;
+    let reason = '';
+    const response = (error as { context?:Response }|null)?.context;
+    if (response && typeof response.json==='function') reason = String((await response.json().catch(()=>({})) as { reason?:string }).reason ?? '');
+    throw new Error(mediaRejections[reason] ?? 'Bildet kunne ikke kontrolleres av serveren. Prøv igjen om litt.');
+  }
+  /** Ber serveren slette filer som hører til slettet innhold. Feiler det, prøves det igjen ved neste sletting. */
+  private cleanupStorage() {
+    void this.client.then(client=>client.functions.invoke('process-media',{ body:{ action:'cleanup' } })).catch(()=>{});
+  }
+  /** Laster opp et omkodet bilde og venter på kontrollen. Fjerner filen hvis noe går galt. */
+  private async uploadChecked(bucket:string,path:string,image:Blob) {
+    const storage = (await this.client).storage.from(bucket);
+    const upload = await storage.upload(path,image,{ contentType:image.type, upsert:false, cacheControl:'31536000' });
+    if (upload.error) throw toNorwegianError(upload.error,'Kunne ikke laste opp bildet. Prøv igjen.');
+    try { await this.checkUpload(bucket,path); } catch (error) { await storage.remove([path]).catch(()=>{}); throw error; }
   }
   /** Organisasjonen en representasjon (membership) gjelder. Lesingen er begrenset av RLS. */
   private async organizationOf(representationId:string) {
@@ -195,13 +242,34 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
     const rows = await run((await this.client).rpc('get_public_organization',{ p_org:organizationId }),'Kunne ikke hente organisasjonen.');
     return rows[0]?toOrganization(rows[0]):null;
   }
+  private async toPosts(rows:PostCardRow[]) {
+    const client = await this.client;
+    return rows.map(r=>toPost(r,path=>client.storage.from(CONTENT_BUCKET).getPublicUrl(path).data.publicUrl));
+  }
+  /**
+   * Innleggskort. Til migrasjonen fra prompt 7 er kjørt i prosjektet, finnes bare list_post_cards (uten bilder og egen stemme);
+   * da brukes den, så feeden virker i mellomtiden.
+   */
+  private async postCards(args:{ p_representation_id?:string; p_mode?:string; p_organization?:string; p_post?:string },fallback:string) {
+    const client = await this.client;
+    const { data,error } = await client.rpc('list_posts',args);
+    if (error && (error.code==='PGRST202' || /could not find the function/i.test(error.message))) {
+      if (args.p_post) return [];
+      const { p_post:_,...old } = args;
+      const rows = await run(client.rpc('list_post_cards',old),fallback);
+      return this.toPosts(rows.map(r=>({ ...r, media:[] })) as PostCardRow[]);
+    }
+    if (error) throw toNorwegianError(error,fallback);
+    return this.toPosts(data ?? []);
+  }
   async listFeed(input:{ representationId:string|null; mode:'recommended'|'chronological' }) {
-    const rows = await run((await this.client).rpc('list_post_cards',{ p_representation_id:input.representationId ?? undefined, p_mode:input.mode }),'Kunne ikke hente innleggene.');
-    return rows.map(toPost);
+    return this.postCards({ p_representation_id:input.representationId ?? undefined, p_mode:input.mode },'Kunne ikke hente innleggene.');
   }
   async listOrganizationPosts(organizationId:string) {
-    const rows = await run((await this.client).rpc('list_post_cards',{ p_organization:organizationId }),'Kunne ikke hente innleggene.');
-    return rows.map(toPost);
+    return this.postCards({ p_organization:organizationId },'Kunne ikke hente innleggene.');
+  }
+  async getPost(postId:string) {
+    return (await this.postCards({ p_post:idSchema.parse(postId) },'Kunne ikke hente innlegget.'))[0] ?? null;
   }
   async listEvents():Promise<Event[]> {
     const client = await this.client;
@@ -234,10 +302,9 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
     const client = await this.client;
     const userId = await this.userId();
     if (!userId) throw new Error('Du må logge inn først.');
-    const path = `${userId}/${crypto.randomUUID()}.${type==='image/jpeg'?'jpg':type.split('/')[1]}`;
+    const path = `${userId}/${crypto.randomUUID()}.${extensionOf(type)}`;
     const bucket = client.storage.from(AVATAR_BUCKET);
-    const upload = await bucket.upload(path,image,{ contentType:type, upsert:false, cacheControl:'31536000' });
-    if (upload.error) throw toNorwegianError(upload.error,'Kunne ikke laste opp bildet. Prøv igjen.');
+    await this.uploadChecked(AVATAR_BUCKET,path,image);
     const { data:previous,error } = await client.rpc('set_avatar',{ p_path:path });
     if (error) { await bucket.remove([path]); throw toNorwegianError(error); }
     await this.removeOldAvatar(previous,userId);
@@ -341,15 +408,43 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
     const rows = await run((await this.client).rpc('list_post_drafts',{ p_org:organizationId }),'Kunne ikke hente utkastene.');
     return rows.map(toDraft);
   }
-  async publishPost(input:PublishPostInput) {
-    const parsed = publishPostSchema.parse(input);
-    if (parsed.poll || parsed.withImage) throw new NotImplementedError('publishPost med avstemning eller bilde');
+  async publishPost(input:PublishPostInput,onProgress?:(progress:PublishProgress)=>void) {
+    const parsed = publishPostSchema.parse(publishPostFields(input));
+    const images = input.images ?? [];
     const client = await this.client;
-    const content = { p_body:parsed.body, p_audience:parsed.audience, p_school_level:parsed.schoolLevel, p_event:parsed.eventId, p_publish:true };
-    const saved = parsed.draftId
-      ? await run(client.rpc('update_post',{ p_post:parsed.draftId, ...content }),'Kunne ikke publisere utkastet.')
-      : await run(client.rpc('create_post',{ p_organization:await this.organizationOf(parsed.representationId), ...content }),'Kunne ikke publisere innlegget.');
-    return this.card(saved.organization_id,saved.id);
+    const content = { p_body:parsed.body, p_audience:parsed.audience, p_school_level:parsed.schoolLevel, p_event:parsed.eventId };
+    if (!parsed.poll && !images.length) {
+      const saved = parsed.draftId
+        ? await run(client.rpc('update_post',{ p_post:parsed.draftId, ...content, p_publish:true }),'Kunne ikke publisere utkastet.')
+        : await run(client.rpc('create_post',{ p_organization:await this.organizationOf(parsed.representationId), ...content, p_publish:true }),'Kunne ikke publisere innlegget.');
+      return this.card(saved.organization_id,saved.id);
+    }
+    // Med avstemning eller bilder: lagre som utkast, legg til avstemning og bilder, og publiser til slutt.
+    // Går noe galt med et nytt innlegg, slettes utkastet (og filene), så ingenting blir halvveis publisert.
+    onProgress?.({ step:'saving' });
+    const draft = parsed.draftId
+      ? await run(client.rpc('update_post',{ p_post:parsed.draftId, ...content, p_publish:false }),'Kunne ikke lagre innlegget.')
+      : await run(client.rpc('create_post',{ p_organization:await this.organizationOf(parsed.representationId), ...content, p_publish:false }),'Kunne ikke lagre innlegget.');
+    try {
+      if (parsed.poll) {
+        await run(client.rpc('add_post_poll',{ p_post:draft.id, p_question:parsed.poll.question, p_options:parsed.poll.options, p_closes_at:orNull(parsed.poll.closesAt) }),'Kunne ikke lagre avstemningen.');
+      }
+      for (const [index,image] of images.entries()) {
+        const path = `${draft.organization_id}/posts/${draft.id}/${crypto.randomUUID()}.${extensionOf(image.file.type)}`;
+        onProgress?.({ step:'uploading', index, count:images.length });
+        const upload = await client.storage.from(CONTENT_BUCKET).upload(path,image.file,{ contentType:image.file.type, upsert:false, cacheControl:'31536000' });
+        if (upload.error) throw toNorwegianError(upload.error,'Kunne ikke laste opp bildet. Prøv igjen.');
+        await run(client.rpc('add_post_media',{ p_post:draft.id, p_path:path, p_alt:parsed.images[index]?.alt ?? '' }),'Kunne ikke lagre bildet.');
+        onProgress?.({ step:'checking', index, count:images.length });
+        await this.checkUpload(CONTENT_BUCKET,path);
+      }
+      onProgress?.({ step:'publishing' });
+      await run(client.rpc('update_post',{ p_post:draft.id, ...content, p_publish:true }),'Kunne ikke publisere innlegget.');
+    } catch (error) {
+      if (!parsed.draftId) { await client.rpc('delete_post',{ p_post:draft.id }); this.cleanupStorage(); }
+      throw error;
+    }
+    return this.card(draft.organization_id,draft.id);
   }
   async saveDraft(input:SaveDraftInput) {
     const parsed = saveDraftSchema.parse(input);
@@ -370,6 +465,7 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
   }
   async deletePost(postId:string) {
     await run((await this.client).rpc('delete_post',{ p_post:idSchema.parse(postId) }),'Kunne ikke slette innlegget.');
+    this.cleanupStorage();
   }
   async listPostHistory(postId:string):Promise<PostRevision[]> {
     const rows = await run((await this.client).rpc('get_post_history',{ p_post:idSchema.parse(postId) }),'Kunne ikke hente endringshistorikken.');
@@ -381,13 +477,22 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
     const row = await run((await this.client).rpc('add_comment',{ p_post:parsed.postId, p_organization:organizationId, p_body:parsed.body }));
     return { id:row.id, organizationId, organizationName:'', actorName:'', createdAt:formatRelative(row.created_at), body:row.body };
   }
-  async setPostSupport():Promise<void> { throw new NotImplementedError('setPostSupport'); }
-  async vote(input:VoteInput) {
-    const parsed = voteSchema.parse(input);
-    const poll = await run((await this.client).from('polls').select('id').eq('post_id',parsed.postId).single());
-    await run((await this.client).rpc('cast_organization_vote',{ p_poll_id:poll.id, p_option_id:parsed.optionId, p_organization_id:parsed.organizationId }));
+  async setPostSupport(input:{ postId:string; supported:boolean }) {
+    return run((await this.client).rpc('set_post_support',{ p_post:idSchema.parse(input.postId), p_supported:input.supported }),'Kunne ikke lagre støtten.');
   }
-  async reportPost():Promise<void> { throw new NotImplementedError('reportPost'); }
+  async vote(input:VoteInput):Promise<Poll> {
+    const parsed = voteSchema.parse(input);
+    const client = await this.client;
+    const poll = await run(client.from('polls').select('id').eq('post_id',parsed.postId).single(),'Fant ikke avstemningen.');
+    await run(client.rpc('cast_organization_vote',{ p_poll_id:poll.id, p_option_id:parsed.optionId, p_organization_id:parsed.organizationId }),'Kunne ikke lagre stemmen.');
+    const post = await this.getPost(parsed.postId);
+    if (!post?.poll) throw new Error('Stemmen er lagret, men avstemningen kunne ikke vises.');
+    return post.poll;
+  }
+  async reportPost(input:ReportPostInput) {
+    const parsed = reportPostSchema.parse(input);
+    await run((await this.client).rpc('report_post',{ p_post:parsed.postId, p_category:parsed.category, p_description:orNull(parsed.description || undefined) }),'Kunne ikke sende rapporten.');
+  }
 
   // Venneråd
   async listFriendConnections(schoolId:string):Promise<FriendConnection[]> {
@@ -408,7 +513,31 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
   }
 
   // Organisasjoner
-  async setFollow():Promise<void> { throw new NotImplementedError('setFollow'); }
+  async setFollow(input:{ organizationId:string; following:boolean }) {
+    return run((await this.client).rpc('set_follow',{ p_org:idSchema.parse(input.organizationId), p_following:input.following }),'Kunne ikke endre følgingen.');
+  }
+  async getOrganizationImages(organizationId:string):Promise<OrganizationImages> {
+    const rows = await run((await this.client).rpc('get_organization_images',{ p_org:idSchema.parse(organizationId) }),'Kunne ikke hente bildene.');
+    const r = rows[0];
+    if (!r) return { profileSource:'none', coverSource:'none', locked:false, canChange:false };
+    return { profileUrl:await this.publicUrl(AVATAR_BUCKET,r.profile_image_path), profileSource:(r.profile_image_source ?? 'none') as ImageSource,
+      coverUrl:await this.publicUrl(COVER_BUCKET,r.cover_image_path), coverSource:(r.cover_image_source ?? 'none') as ImageSource, locked:r.locked, canChange:r.can_change };
+  }
+  async setOrganizationImage(input:{ organizationId:string; kind:'profile'|'cover'; image:Blob|null }) {
+    const organizationId = idSchema.parse(input.organizationId);
+    const bucket = input.kind==='profile'?AVATAR_BUCKET:COVER_BUCKET;
+    let path:string|undefined;
+    if (input.image) {
+      const { type } = organizationImageSchema.parse({ kind:input.kind, type:input.image.type, size:input.image.size });
+      path = `${organizationId}/${input.kind}/${crypto.randomUUID()}.${extensionOf(type)}`;
+      await this.uploadChecked(bucket,path,input.image);
+    }
+    const client = await this.client;
+    const { error } = await client.rpc('set_organization_image',{ p_org:organizationId, p_kind:input.kind, p_path:orNull(path) });
+    if (error) { if (path) await client.storage.from(bucket).remove([path]); throw toNorwegianError(error,'Kunne ikke lagre bildet.'); }
+    this.cleanupStorage();
+    return this.getOrganizationImages(organizationId);
+  }
 
   // Arrangementer
   async listEventOrganizers():Promise<EventOrganizer[]> {
@@ -436,9 +565,8 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
     if (image) {
       const { type } = eventImageSchema.parse({ type:image.type, size:image.size });
       // Stien må ligge under arrangøren, så storage-regelen og set_event_image godtar den.
-      path = `${event.hostId}/events/${event.id}/${crypto.randomUUID()}.${type==='image/jpeg'?'jpg':type.split('/')[1]}`;
-      const upload = await bucket.upload(path,image,{ contentType:type, upsert:false, cacheControl:'31536000' });
-      if (upload.error) throw toNorwegianError(upload.error,'Kunne ikke laste opp bildet. Prøv igjen.');
+      path = `${event.hostId}/events/${event.id}/${crypto.randomUUID()}.${extensionOf(type)}`;
+      await this.uploadChecked(CONTENT_BUCKET,path,image);
     }
     const { data:previous,error } = await client.rpc('set_event_image',{ p_event:event.id, p_path:orNull(path) });
     if (error) { if (path) await bucket.remove([path]); throw toNorwegianError(error); }
@@ -544,9 +672,17 @@ function toOrganization(r:OrganizationRow):Organization {
   };
 }
 
-function toPost(r:PostCardRow):Post {
+type PollJson = { id:string; question:string; closes_at:string|null; closed:boolean; my_vote:string|null; show_results:boolean; total:number|null;
+  results_visibility:'after_vote'|'after_close'|'always'; options:{ id:string; label:string; votes:number }[]|null };
+type MediaJson = { id:string; path:string; alt:string; status:'pending'|'ready'|'failed'; width:number|null; height:number|null };
+export function toPoll(poll:PollJson):Poll {
+  return { id:poll.id, question:poll.question, closesAt:poll.closes_at?formatDayMonth(poll.closes_at):'ingen frist', closed:poll.closed, myVote:poll.my_vote ?? undefined,
+    showResults:poll.show_results, totalVotes:poll.total ?? undefined, resultsVisibility:poll.results_visibility, options:poll.options ?? [] };
+}
+export function toPost(r:PostCardRow,mediaUrl:(path:string)=>string):Post {
   const comments = (r.comments as { id:string; organization_id:string; organization_name:string; created_at:string; body:string }[] | null) ?? [];
-  const poll = r.poll as { question:string; closes_at:string|null; results_visibility:'after_vote'|'after_close'|'always'; options:{ id:string; label:string; votes:number }[]|null } | null;
+  const poll = r.poll as PollJson|null;
+  const media = (r.media as MediaJson[]|null) ?? [];
   return {
     id:r.id, organizationId:r.organization_id, organizationName:r.organization_name, initials:initialsOf(r.organization_name),
     actorName:r.actor_name ?? '', actorRole:r.actor_title ?? '', createdAt:formatRelative(r.published_at), body:r.body, audience:r.audience,
@@ -555,7 +691,8 @@ function toPost(r:PostCardRow):Post {
     // Kortet legger til egen støtte selv, så tallet her er de andres.
     likes:r.support_count-(r.supported?1:0), supported:r.supported, comments:r.comment_count,
     commentItems:comments.map(c=>({ id:c.id, organizationId:c.organization_id, organizationName:c.organization_name, actorName:'', createdAt:formatRelative(c.created_at), body:c.body })),
-    poll:poll?{ question:poll.question, closesAt:poll.closes_at?formatDayMonth(poll.closes_at):'ingen frist', resultsVisibility:poll.results_visibility, options:poll.options ?? [] }:undefined,
+    poll:poll?toPoll(poll):undefined,
+    media:media.length?media.map(m=>({ id:m.id, type:'image', alt:m.alt, status:m.status, url:mediaUrl(m.path), width:m.width ?? undefined, height:m.height ?? undefined }) satisfies PostMedia):undefined,
   };
 }
 

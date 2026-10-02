@@ -8,7 +8,7 @@ Alle synlige knapper og kontroller i appen, per side, sammenholdt med designet i
 - **Demo**: går gjennom `ElevradsnettService` og virker mot `DemoElevradsnettService`, men er ikke ferdig mot Supabase. Kolonnen *Supabase* viser om metoden har en RPC eller tabelltilgang (`ja`) eller kaster `NotImplementedError` (`nei`).
 - **Mangler**: knappen vises, men gjør ingenting reelt (bare en melding, deaktivert eller statiske data).
 
-Fra prompt 3 laster appen mot Supabase: økt, organisasjoner, innlegg (fra prompt 5 via `list_post_cards`), arrangementer og tillitsvalgte hentes via RPC-er som også virker uten innlogging (§1). Fra prompt 10 er Meldinger koblet til Supabase (`supabase-messaging.ts`, migrasjonen `202610100001_meldinger.sql`).
+Fra prompt 3 laster appen mot Supabase: økt, organisasjoner, innlegg (fra prompt 5 via `list_post_cards`, fra prompt 7 via `list_posts` med bilder og egen stemme), arrangementer og tillitsvalgte hentes via RPC-er som også virker uten innlogging (§1). Fra prompt 10 er Meldinger koblet til Supabase (`supabase-messaging.ts`, migrasjonen `202610100001_meldinger.sql`).
 
 **Uten innlogging** kan alt offentlig leses. Kontroller som endrer noe (støtte, kommentere, følge, stemme, interesse for arrangementer, nytt innlegg, rapportere, kontakte) åpner innloggingsdialogen, og handlingen gjøres når brukeren er logget inn. Meldinger, Profil og Administrasjon viser innloggingen i stedet for siden.
 
@@ -45,14 +45,16 @@ All tekst renses for HTML, styretegn og usynlige retningstegn før lagring, båd
 | Utkast: Slett | Sletter utkastet etter bekreftelse | Fungerer | `deletePost` | ja (`delete_post`) | app | §7, §19 |
 | Skriv / Forhåndsvis | Viser innlegget slik det blir seende ut i feeden, med renset tekst, målgruppe og arrangement | Fungerer | – | – | app | §7 |
 | Tekstfelt | Innleggstekst, maks 6000 tegn | Fungerer | – | – | ja | §7 |
-| Legg til poll / fjern | Viser tre felt for svaralternativer. Skjult ved redigering | Demo | `publishPost` | nei (prompt 7) | ja | §7 |
-| Svaralternativ 1–3 | Minst to må fylles ut | Demo | `publishPost` | nei | ja | §7 |
-| Legg til bilde / fjern | Legger til et plassholderbilde, ingen opplasting | Mangler | `publishPost` | nei (prompt 6) | ja | §7, §11 |
+| Legg til poll / fjern | Viser spørsmål, svaralternativer og sluttdato (standard om 14 dager). Skjult ved redigering | Fungerer | `publishPost` | ja (`add_post_poll`) | ja | §7 |
+| Spørsmål, svaralternativ og «+ Legg til svaralternativ» | Minst to og maks ti alternativer. Tomme felt hoppes over | Fungerer | `publishPost` | ja (`add_post_poll`) | ja | §7 |
+| Avsluttes (dato) | Sluttdato for avstemningen, fra i morgen og innen ett år | Fungerer | `publishPost` | ja | app | §7 |
+| Legg til bilde / Fjern / bildetekst | Inntil fire bilder. Kodes om i nettleseren (maks 2048 px, WebP eller JPEG, EXIF og GPS fjernes), lastes opp til `public-content/<org>/posts/<innlegg>/` og kontrolleres av `process-media` før innlegget publiseres. Bildetekst for skjermlesere | Fungerer | `publishPost` | ja (`add_post_media`, `process-media`) | ja | §7, §11 |
+| Behandlingsstatus | Viser hvert steg mens innlegget lagres, bildene lastes opp og kontrolleres, og publiseres. Avvises et bilde, slettes det nye innlegget og årsaken vises | Fungerer | `publishPost` | ja | app | §11 |
 | Tagg arrangement | Kobler innlegget til et publisert arrangement, som vises på kortet | Fungerer | `publishPost`, `saveDraft`, `editPost` | ja | app | §7, §8 |
 | Synlig for | Målgrupper som passer avsenderen: skole (alle, fylket, lokallaget hvis skolen har et, venneråd), lokallag (alle, fylket, lokallaget), fylkesstyre (alle, fylket), EO (alle) | Fungerer | `publishPost` | ja (`audience_fits_organization`) | app | §7 |
 | Skoleform | Vgs og ungdomsskole, videregående eller ungdomsskole. Feeden skjuler innlegg rettet mot en annen skoleform | Fungerer | `publishPost` | ja | app | §6, §7 |
-| Lagre utkast | Lagrer nytt utkast eller oppdaterer det åpne. Deaktivert med poll eller bilde | Fungerer | `saveDraft` | ja (`create_post`, `update_post`) | app | §7 |
-| Publiser | Publiserer som aktiv representasjon, eller publiserer det åpne utkastet. Deaktivert uten publiseringsrett | Fungerer | `publishPost` | ja (`create_post`, `update_post`; poll og bilde nei) | ja | §3, §7 |
+| Lagre utkast | Lagrer nytt utkast eller oppdaterer det åpne. Deaktivert med poll eller bilde (de publiseres direkte) | Fungerer | `saveDraft` | ja (`create_post`, `update_post`) | app | §7 |
+| Publiser | Publiserer som aktiv representasjon, eller publiserer det åpne utkastet. Med poll eller bilder lagres innlegget først som utkast. Deaktivert uten publiseringsrett | Fungerer | `publishPost` | ja (`create_post`, `update_post`, `add_post_poll`, `add_post_media`) | ja | §3, §7 |
 | Lagre endringer (redigering) | Lagrer endringer i et publisert innlegg. Forrige versjon lagres, og innlegget merkes «redigert» | Fungerer | `editPost` | ja (`update_post`) | app | §7 |
 | Varsel om manglende publiseringsrett | Vises når aktiv representasjon ikke kan publisere (serveren regner ut retten i `get_my_session`) | Fungerer | `getSession` | ja | app | §3, §4 |
 
@@ -61,19 +63,20 @@ All tekst renses for HTML, styretegn og usynlige retningstegn før lagring, båd
 | Kontroll | Hva den gjør | Status | Tjenestemetode | Supabase | I designet | Kravpunkt |
 |---|---|---|---|---|---|---|
 | Avatar og organisasjonsnavn | Åpner organisasjonssiden. Styrer i EO (nasjonalt, fylkeslag, lokallag) har EO-logoen som standard profilbilde; elevråd viser initialer | Fungerer | – | – | ja | §7 |
-| Navn under avsender, «redigert» | Personen som publiserte. Er profilen deaktivert, står det «Tidligere tillitsvalgt». Redigerte innlegg merkes | Fungerer | `listFeed` | ja | ja | §1, §7, §10 |
+| Navn under avsender, tidspunkt, «redigert» | Personen som publiserte. Er profilen deaktivert, står det «Tidligere tillitsvalgt». Tidspunktet åpner innlegget (`#/innlegg/<id>`). Redigerte innlegg merkes | Fungerer | `listFeed` | ja | ja | §1, §7, §10 |
 | ··· (flere valg) | Åpner menyen. Vises også på organisasjonssider | Fungerer | – | – | ja | §7 |
-| Meny: Del innlegget | Deler via systemdeling, ellers kopieres lenken | Fungerer | – | – | app | §7 (Deling) |
-| Meny: Rapporter innlegg | Rapporterer til moderatorene | Demo | `reportPost` | nei | app | §15 |
+| Meny: Del innlegget | Bare offentlige innlegg. Deler lenken til innlegget via systemdeling (Web Share API), ellers kopieres lenken | Fungerer | – | – | app | §7 (Deling) |
+| Meny: Rapporter innlegg | Dialog med kategori og valgfri beskrivelse. Én åpen rapport per innlegg. Går til modereringskøen (prompt 12) | Fungerer | `reportPost` | ja (`report_post`) | app | §15 |
 | Meny: Rediger innlegg | Åpner innleggsdialogen med innlegget. Vises bare når serveren sier at brukeren kan endre det (`can_manage`) | Fungerer | `editPost` | ja (`update_post`) | app | §7 |
 | Meny: Vis endringshistorikk | Tidligere versjoner med dato, hvem som endret, målgruppe og skoleform. Bare for redigerte innlegg og administratorer | Fungerer | `listPostHistory` | ja (`get_post_history`) | app | §7 |
 | Meny: Slett innlegg | Sletter innlegget etter bekreftelse. Bare med `can_manage` | Fungerer | `deletePost` | ja (`delete_post`) | app | §7, §19 |
 | Målgruppe og skoleform | Merke når innlegget ikke er for alle | Fungerer | `listFeed` | ja | app | §7 |
-| Støtt (tommel) med antall | Gir eller fjerner støtte. Antall og egen støtte kommer fra serveren | Demo | `setPostSupport` | nei | ja | §7 (Kommentarer, reaksjoner og avstemninger) |
+| Bilder | Bildene i innlegget med bildetekst. Bilder som ikke er ferdig kontrollert eller er avvist, vises med status bare for dem som kan endre innlegget | Fungerer | `listFeed` | ja (`list_posts`) | ja | §7, §11 |
+| Støtt (tommel) med antall | Gir eller fjerner støtte. Bare antallet er offentlig; ingen kan se hvem som har støttet | Fungerer | `setPostSupport` | ja (`set_post_support`) | ja | §7 (Kommentarer, reaksjoner og avstemninger) |
 | Kommentarer med antall | Viser og skjuler kommentarer | Fungerer | – | – | ja | §7 (Kommentarer, reaksjoner og avstemninger) |
-| Kommentarfelt og Send | Kommenterer som aktiv representasjon. Teksten renses. Uten innlogging: knappen «Logg inn for å kommentere». Uten verv: forklaring | Demo | `addComment` | ja | ja | §7 (Kommentarer, reaksjoner og avstemninger) |
-| Del (pil) | Som «Del innlegget» | Fungerer | – | – | app | §7 (Deling) |
-| Avstemningsalternativ | Stemmer på vegne av aktiv organisasjon; kan endres | Demo | `vote` | ja | ja | §7 (Kommentarer, reaksjoner og avstemninger) |
+| Kommentarfelt og Send | Kommenterer som aktiv representasjon; krever aktivt verv. Teksten renses, maks 10 i minuttet. Uten innlogging: knappen «Logg inn for å kommentere». Uten verv: forklaring | Fungerer | `addComment` | ja (`add_comment`) | ja | §7 (Kommentarer, reaksjoner og avstemninger) |
+| Del (pil) | Som «Del innlegget». Vises bare på offentlige innlegg | Fungerer | – | – | app | §7 (Deling) |
+| Avstemningsalternativ | Stemmer på vegne av aktiv organisasjon (én stemme per organisasjon), kan endres til fristen. Resultatet vises etter egen stemme eller etter fristen. Avsluttede avstemninger kan ikke endres | Fungerer | `vote` | ja (`cast_organization_vote`, `list_posts`) | ja | §7 (Kommentarer, reaksjoner og avstemninger) |
 | Koblet arrangement | Åpner arrangementet | Fungerer | – | – | ja | §8 |
 
 ## Hjem (`#/`)
@@ -83,7 +86,7 @@ All tekst renses for HTML, styretegn og usynlige retningstegn før lagring, båd
 | Søkefelt og Søk | Går til Utforsk med søket | Fungerer | – | – | ja | §6 |
 | Nettverk: Se alle | Går til Utforsk | Fungerer | – | – | ja | §6 |
 | Nettverk: organisasjonsnavn | Åpner organisasjonssiden | Fungerer | – | – | ja | §6 |
-| Nettverk: Følg / Følger | Følger eller slutter å følge elevråd | Demo | `setFollow` | nei | ja | §6 |
+| Nettverk: Følg / Følger | Følger eller slutter å følge elevråd. Antallet kommer fra serveren | Fungerer | `setFollow` | ja (`set_follow`) | ja | §6 |
 | Nettverk: Åpne (fylkeslag og EO) | Åpner organisasjonssiden | Fungerer | – | – | ja | §6 |
 | Arrangementer: Se alle | Går til Arrangementer | Fungerer | – | – | ja | §8 |
 | Arrangementer: kort | Åpner arrangementet | Fungerer | – | – | ja | §8 |
@@ -96,7 +99,7 @@ All tekst renses for HTML, styretegn og usynlige retningstegn før lagring, båd
 |---|---|---|---|---|---|---|
 | Søkefelt | Filtrerer elevråd og innlegg i lastede data | Fungerer | – | – | ja | §6 |
 | Elevråd: navn og Se side | Åpner organisasjonssiden | Fungerer | – | – | ja | §6 |
-| Elevråd: Følg / Følger | Følger eller slutter å følge | Demo | `setFollow` | nei | ja | §6 |
+| Elevråd: Følg / Følger | Følger eller slutter å følge. Antallet kommer fra serveren | Fungerer | `setFollow` | ja (`set_follow`) | ja | §6 |
 | Fylkeslag og EO: navn og Åpne | Åpner organisasjonssiden | Fungerer | – | – | ja | §6 |
 | Nye innlegg: utdrag | Åpner organisasjonen som publiserte | Fungerer | – | – | ja | §6 |
 
@@ -156,6 +159,8 @@ Offentlig CV (§8). Kan leses uten innlogging. Deaktiverte personer har ingen of
 | Kommende arrangementer | Åpner arrangementet. Utkast og passerte arrangementer vises ikke | Fungerer | – | – | ja | §8 |
 | Deltakelse på arrangementer (skolens CV) | Arrangementer organisasjonen har deltatt på, med årstall, hvem som representerte den og vervet de hadde. Deaktiverte personer vises som «Tidligere tillitsvalgt» uten lenke | Fungerer | `getOrganizationCv` | ja (`get_organization_cv`) | app | §8 |
 | Innlegg | Innleggskort med meny (se over). Hentes for siden, også når de ikke er i feeden | Fungerer | `listOrganizationPosts` | ja (`list_post_cards`) | ja | §1, §7 |
+| Profil- og coverbilde | Bildene etter hierarkiet (eget → lokallag → fylke → global). Styrer uten eget bilde viser EO-logoen | Fungerer | `getOrganizationImages` | ja (`get_organization_images`) | ja | §14 |
+| Last opp / Bytt / Fjern profilbilde og coverbilde | Bare for skole- og styreadministrator (`can_change`). Viser om bildet er eget eller arvet. Kodes om i nettleseren og kontrolleres av `process-media`; den gamle filen slettes. Låste bilder kan ikke endres | Fungerer | `setOrganizationImage` | ja (`set_organization_image`) | app | §11, §14 |
 
 ## Meldinger (`#/meldinger`)
 
@@ -268,6 +273,15 @@ Uten innlogging vises innloggingen. Innlogget uten administratorrettigheter vise
 | Faner: Personvern, Vilkår, Informasjonskapsler, Kontakt | Bytter side | Fungerer | – | – | app | §16 |
 | E-postlenke teknisk@elev.no | Åpner e-postklient | Fungerer | – | – | app | §16 |
 
+## Innlegg (`#/innlegg/<id>`)
+
+Delte lenker. Viser ett innlegg hvis det er synlig for den som åpner lenken; ellers «Fant ikke siden».
+
+| Kontroll | Hva den gjør | Status | Tjenestemetode | Supabase | I designet | Kravpunkt |
+|---|---|---|---|---|---|---|
+| ← Til forsiden | Går til Hjem | Fungerer | – | – | app | §19 |
+| Innleggskortet | Som i feeden | Fungerer | `getPost` | ja (`list_posts`) | app | §7 |
+
 ## Fant ikke siden
 
 | Kontroll | Hva den gjør | Status | Tjenestemetode | Supabase | I designet | Kravpunkt |
@@ -282,4 +296,4 @@ Finnes i databasen (prompt 2), men er ikke koblet til en knapp. Kolonnen *Prompt
 |---|---|---|---|---|
 | `search` | Fulltekstsøk på norsk etter skoler, styrer, personer, arrangementer og innlegg, med filter for tidligere tillitsvalgte | Mangler kontroll | 8 | §6 |
 | `request_personal_data` | Forespørsel om eksport eller sletting av egne data | Mangler kontroll | 14 | §10, §16 |
-| `resolve_organization_images` | Bildehierarkiet eget → lokallag → fylke → global, med lås og kilde | Mangler kontroll | 6, 12 | §14 |
+| `resolve_organization_images` | Bildehierarkiet eget → lokallag → fylke → global, med lås og kilde. Vises på organisasjonssiden fra prompt 6 (`get_organization_images`); standardbilder og lås kommer i adminpanelet | Delvis | 12 | §14 |
