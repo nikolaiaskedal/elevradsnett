@@ -74,7 +74,7 @@ Supabase-koblingen fra Claude fikk ikke lov til å endre pilotprosjektet i denne
 - Administrasjonen har nå områdeavgrensede flater for brukere, organisasjoner, innhold, medier, placeholders, standardbilder, aggregert statistikk og moderering. Klienten viser bare data fra `get_admin_dashboard` og `list_moderation_queue`; alle rettigheter kontrolleres på nytt i RPC-ene.
 - Brukere kan flyttes til en annen skole, deaktiveres, reaktiveres eller anonymiseres. En administrator kan ikke administrere seg selv, og en profil brukeren selv deaktiverte kan ikke reaktiveres uten samtykke.
 - Moderering støtter skjuling, sletting, advarsel, sju dagers begrensning, deaktivering, gjenoppretting, ingen handling, klage og ny vurdering. En meldingssak deler fortsatt bare den konkrete rapporterte meldingen, og slike saker er begrenset til superadministrator.
-- Superadministratorrettigheten i databasen krever AAL2. Adminsiden har oppsett og kodekontroll for TOTP via Supabase Auth. Andre administratorer kan bruke TOTP frivillig.
+- Superadministratorrettigheten krever AAL2 når `super_admin_mfa_required()` er true. I piloten er den false, så e-postinnlogging er nok og adminsiden ber ikke om tofaktor. Må settes til true i en migrasjon før full lansering (KRAVSPEC: MFA kreves for superadministratorer). Oppsett og kodekontroll for TOTP finnes allerede. Andre administratorer kan bruke TOTP frivillig.
 - Migrasjonen `supabase/migrations/202610120003_admin_moderering.sql` må kjøres i pilotprosjektet før de nye flatene brukes. Den inneholder sletting av placeholdermetadata og må derfor kjøres manuelt i SQL Editor dersom databasekoblingen krever bekreftelse.
 - Databasetestene ligger i `supabase/tests/admin_moderering.sql`.
 

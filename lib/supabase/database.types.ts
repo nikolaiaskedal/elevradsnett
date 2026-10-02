@@ -1591,6 +1591,9 @@ isOneToOne: false
 "admin_manage_user":
 { Args: { "p_action": string,"p_reason"?: string,"p_school"?: string,"p_scope": string,"p_user": string }; Returns: undefined
                            },
+"admin_mfa_required":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
 "admin_scope_allows":
 { Args: { "p_scope": string,"p_target": string }; Returns: boolean
                            },
@@ -2202,6 +2205,12 @@ isOneToOne: false
                            },
 "start_handover":
 { Args: { "p_activation_date": string,"p_handover_on": string,"p_invites": Json,"p_old_board_ends_on": string,"p_org": string,"p_recovery_reason"?: string }; Returns: string
+                           },
+"super_admin_mfa_required":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"super_admin_session_ok":
+{ Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "super_admins":
 { Args: Record<PropertyKey, never>; Returns: string[]

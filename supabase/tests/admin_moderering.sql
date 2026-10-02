@@ -38,12 +38,18 @@ do $$ declare scope uuid:=(select id from organizations where type='county_board
   if (select moderation_status from posts where id='c2000000-0000-4000-8000-000000000001')<>'hidden' or (select status from moderation_reports where id=report_id)<>'resolved' then raise exception 'modereringshandlingen ble ikke brukt'; end if;
 end $$;
 
--- Superadministrator har konto, men ingen superrettigheter ved AAL1.
+-- Ved AAL1: uten superrettigheter når MFA kreves. I piloten kreves det ikke, og da gjelder rettighetene og porten vises ikke.
 select set_config('request.jwt.claim.sub','c1000000-0000-4000-8000-000000000003',true);
 select set_config('request.jwt.claims','{"sub":"c1000000-0000-4000-8000-000000000003","aal":"aal1"}',true);
 do $$ begin
   if not public.is_super_admin_account() then raise exception 'superkontoen gjenkjennes ikke'; end if;
-  if exists(select 1 from public.list_my_admin_organizations()) then raise exception 'superadministrator fikk tilgang uten MFA'; end if;
+  if public.super_admin_mfa_required() then
+    if not public.admin_mfa_required() then raise exception 'administrasjonen ber ikke om MFA'; end if;
+    if exists(select 1 from public.list_my_admin_organizations()) then raise exception 'superadministrator fikk tilgang uten MFA'; end if;
+  else
+    if public.admin_mfa_required() then raise exception 'administrasjonen ber om MFA i piloten'; end if;
+    if not exists(select 1 from public.list_my_admin_organizations() where type='national') then raise exception 'superadministrator fikk ikke tilgang i piloten'; end if;
+  end if;
 end $$;
 select set_config('request.jwt.claims','{"sub":"c1000000-0000-4000-8000-000000000003","aal":"aal2"}',true);
 do $$ begin
