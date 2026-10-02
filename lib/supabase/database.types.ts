@@ -610,6 +610,7 @@ isOneToOne: false
                     "body"?: string,"id"?: string,"kind"?: string,"published_at"?: string,"version"?: string
                   }
                   Relationships: [
+                    
                   ]
                 },"media_checks": {
                   Row: {
@@ -1232,6 +1233,49 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"profile_restrictions": {
+                  Row: {
+                    "created_at": string,"created_by": string,"ends_at": string,"id": string,"reason": string,"report_id": string,"starts_at": string,"user_id": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"created_by": string,"ends_at"?: string,"id"?: string,"reason": string,"report_id": string,"starts_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string,"ends_at"?: string,"id"?: string,"reason"?: string,"report_id"?: string,"starts_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "profile_restrictions_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "profile_restrictions_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "public_profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "profile_restrictions_report_id_fkey"
+      columns: ["report_id"]
+isOneToOne: false
+      referencedRelation: "moderation_reports"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "profile_restrictions_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "profile_restrictions_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "public_profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"profile_school_history": {
                   Row: {
                     "ended_at": string | null,"id": string,"school_id": string,"started_at": string,"user_id": string
@@ -1434,6 +1478,7 @@ isOneToOne: false
                     "bucket"?: string,"created_at"?: string,"done_at"?: string | null,"id"?: never,"path"?: string,"reason"?: string
                   }
                   Relationships: [
+                    
                   ]
                 },"tags": {
                   Row: {
@@ -1510,9 +1555,6 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "admin_manage_user":
-{ Args: { "p_action": string,"p_reason"?: string,"p_school"?: string,"p_scope": string,"p_user": string }; Returns: undefined
-                           },
             "activate_handover":
 { Args: { "p_handover": string }; Returns: undefined
                            },
@@ -1537,21 +1579,6 @@ isOneToOne: false
 "add_conversation_members":
 { Args: { "p_conversation": string,"p_members": (string)[] }; Returns: undefined
                            },
-"appeal_moderation_report":
-{ Args: { "p_reason": string,"p_report": string }; Returns: undefined
-                           },
-"delete_all_placeholders":
-{ Args: { "p_scope": string }; Returns: Json
-                           },
-"delete_placeholder":
-{ Args: { "p_id": string,"p_scope": string,"p_type": string }; Returns: (string)[]
-                           },
-"get_admin_dashboard":
-{ Args: { "p_scope": string }; Returns: Json
-                           },
-"is_super_admin_account":
-{ Args: Record<PropertyKey, never>; Returns: boolean
-                           },
 "add_event_delegate":
 { Args: { "p_registration": string,"p_user": string }; Returns: string
                            },
@@ -1560,6 +1587,15 @@ isOneToOne: false
                            },
 "add_post_poll":
 { Args: { "p_closes_at"?: string,"p_options": (string)[],"p_post": string,"p_question": string }; Returns: string
+                           },
+"admin_manage_user":
+{ Args: { "p_action": string,"p_reason"?: string,"p_school"?: string,"p_scope": string,"p_user": string }; Returns: undefined
+                           },
+"admin_scope_allows":
+{ Args: { "p_scope": string,"p_target": string }; Returns: boolean
+                           },
+"appeal_moderation_report":
+{ Args: { "p_reason": string,"p_report": string }; Returns: undefined
                            },
 "apply_handover_invite":
 { Args: { "p_invite": string }; Returns: undefined
@@ -1694,6 +1730,12 @@ isOneToOne: false
 "decide_school_admin_request":
 { Args: { "p_approve": boolean,"p_reason"?: string,"p_request": string }; Returns: undefined
                            },
+"delete_all_placeholders":
+{ Args: { "p_scope": string }; Returns: Json
+                           },
+"delete_placeholder":
+{ Args: { "p_id": string,"p_scope": string,"p_type": string }; Returns: (string)[]
+                           },
 "delete_post":
 { Args: { "p_post": string }; Returns: undefined
                            },
@@ -1733,6 +1775,9 @@ isOneToOne: false
                            },
 "expire_roles":
 { Args: { "p_today"?: string }; Returns: number
+                           },
+"get_admin_dashboard":
+{ Args: { "p_scope": string }; Returns: Json
                            },
 "get_conversation_messages":
 { Args: { "p_before"?: string,"p_conversation": string,"p_limit"?: number }; Returns: {
@@ -1841,6 +1886,9 @@ isOneToOne: false
 "is_event_participant":
 { Args: { "p_event": string }; Returns: boolean
                            },
+"is_super_admin_account":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
 "leave_conversation":
 { Args: { "p_conversation": string }; Returns: undefined
                            },
@@ -1874,13 +1922,13 @@ isOneToOne: false
               "approved_at": string,"can_decide": boolean,"county": string,"created_at": string,"direction": string,"id": string,"school_id": string,"school_name": string,"status": string
             }[]
                            },
+"list_moderation_queue":
+{ Args: { "p_scope": string }; Returns: Json
+                           },
 "list_my_admin_organizations":
 { Args: Record<PropertyKey, never>; Returns: {
               "county": string,"grantable_roles": (Database["public"]['Enums']["admin_role"])[],"id": string,"my_role": Database["public"]['Enums']["admin_role"],"name": string,"school_name": string,"status": Database["public"]['Enums']["organization_status"],"type": Database["public"]['Enums']["organization_type"]
             }[]
-                           },
-"list_moderation_queue":
-{ Args: { "p_scope": string }; Returns: Json
                            },
 "list_my_blocks":
 { Args: Record<PropertyKey, never>; Returns: {
@@ -1973,6 +2021,9 @@ isOneToOne: false
 "media_ready":
 { Args: { "p_bucket": string,"p_path": string }; Returns: boolean
                            },
+"moderation_report_in_scope":
+{ Args: { "p_report": string,"p_scope": string }; Returns: boolean
+                           },
 "notification_category":
 { Args: { "p_type": string }; Returns: string
                            },
@@ -2040,12 +2091,6 @@ isOneToOne: false
 "report_post":
 { Args: { "p_category": string,"p_description"?: string,"p_post": string }; Returns: string
                            },
-"set_admin_images":
-{ Args: { "p_default_cover": string,"p_default_profile": string,"p_locked": boolean,"p_organization": string,"p_scope": string }; Returns: undefined
-                           },
-"set_organization_status":
-{ Args: { "p_organization": string,"p_reason": string,"p_scope": string,"p_status": Database["public"]['Enums']["organization_status"] }; Returns: undefined
-                           },
 "request_friend_school":
 { Args: { "p_school": string,"p_target": string }; Returns: string
                            },
@@ -2110,6 +2155,9 @@ isOneToOne: false
 "set_active_representation":
 { Args: { "p_membership_id": string }; Returns: undefined
                            },
+"set_admin_images":
+{ Args: { "p_default_cover": string,"p_default_profile": string,"p_locked": boolean,"p_organization": string,"p_scope": string }; Returns: undefined
+                           },
 "set_avatar":
 { Args: { "p_path"?: string }; Returns: string
                            },
@@ -2139,6 +2187,9 @@ isOneToOne: false
                            },
 "set_organization_image":
 { Args: { "p_kind": string,"p_org": string,"p_path"?: string }; Returns: string
+                           },
+"set_organization_status":
+{ Args: { "p_organization": string,"p_reason": string,"p_scope": string,"p_status": Database["public"]['Enums']["organization_status"] }; Returns: undefined
                            },
 "set_post_support":
 { Args: { "p_post": string,"p_supported": boolean }; Returns: number
