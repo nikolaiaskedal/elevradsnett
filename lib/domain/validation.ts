@@ -13,9 +13,40 @@ export const POST_MAX_LENGTH = 6000;
 export const COMMENT_MAX_LENGTH = 3000;
 export const MESSAGE_MAX_LENGTH = 5000;
 
+export const POLL_MAX_OPTIONS = 10;
+/** Avstemning i et nytt innlegg. Sluttdato er valgfri, men må være frem i tid og innen ett år (som add_post_poll). */
 export const pollInputSchema = z.object({
-  options:z.array(z.string().trim().min(1).max(200)).min(2, 'En avstemning trenger minst to svaralternativer.').max(10),
+  question:z.string().transform(v=>cleanText(v)).pipe(z.string().min(1,'Skriv et spørsmål til avstemningen.').max(300,'Spørsmålet kan ha maks 300 tegn.')),
+  options:z.array(z.string().trim().max(200,'Et svaralternativ kan ha maks 200 tegn.')).transform(list=>list.filter(Boolean))
+    .pipe(z.array(z.string()).min(2, 'En avstemning trenger minst to svaralternativer.').max(POLL_MAX_OPTIONS, `Maks ${POLL_MAX_OPTIONS} svaralternativer.`)),
+  closesAt:z.iso.datetime({ offset:true, message:'Ugyldig sluttdato.' }).optional()
+    .refine(v=>!v || (new Date(v).getTime()>Date.now() && new Date(v).getTime()<=Date.now()+366*24*3600*1000),'Sluttdatoen må være frem i tid og innen ett år.'),
 });
+export type PollInput = z.input<typeof pollInputSchema>;
+
+/** Bilder i innlegg kodes om i nettleseren (EXIF og GPS fjernes), og serveren kontrollerer filen (process-media). */
+export const POST_IMAGE_MAX_BYTES = 10*1024*1024;
+export const POST_IMAGE_MAX_COUNT = 4;
+export const ALT_TEXT_MAX_LENGTH = 300;
+export const postImageSchema = z.object({
+  type:z.enum(['image/webp','image/jpeg'],'Bildet må være WebP eller JPEG.'),
+  size:z.number().int().positive('Bildet er tomt.').max(POST_IMAGE_MAX_BYTES,'Bildet kan være maks 10 MB.'),
+  alt:z.string().transform(v=>cleanText(v)).pipe(z.string().max(ALT_TEXT_MAX_LENGTH,`Bildeteksten kan ha maks ${ALT_TEXT_MAX_LENGTH} tegn.`)),
+});
+/** Profil- og coverbilde for organisasjoner. */
+export const organizationImageSchema = z.object({
+  kind:z.enum(['profile','cover']),
+  type:z.enum(['image/webp','image/jpeg','image/png'],'Bildet må være WebP, JPEG eller PNG.'),
+  size:z.number().int().positive('Bildet er tomt.').max(5*1024*1024,'Bildet kan være maks 5 MB.'),
+});
+
+export const REPORT_CATEGORIES = ['harassment','spam','inappropriate','other'] as const;
+export const reportPostSchema = z.object({
+  postId:idSchema,
+  category:z.enum(REPORT_CATEGORIES, 'Velg hva rapporten gjelder.'),
+  description:z.string().trim().max(1000, 'Beskrivelsen kan ha maks 1000 tegn.').optional(),
+});
+export type ReportPostInput = z.input<typeof reportPostSchema>;
 
 /**
  * Rensing av tekst før lagring (XSS, §7): fjerner HTML-tagger, styretegn og usynlige retningstegn, og trimmer.
@@ -45,9 +76,13 @@ export const publishPostSchema = postContentSchema.extend({
   representationId:idSchema,
   draftId:idSchema.optional(),
   poll:pollInputSchema.optional(),
-  withImage:z.boolean().optional(),
+  images:z.array(postImageSchema).max(POST_IMAGE_MAX_COUNT,`Et innlegg kan ha maks ${POST_IMAGE_MAX_COUNT} bilder.`).default([]),
 });
-export type PublishPostInput = z.input<typeof publishPostSchema>;
+/** Bildene er ferdig omkodet (preparePostImage) og lastes opp av tjenesten; skjemaet sjekker type, størrelse og bildetekst. */
+export type PostImageInput = { file:Blob; alt:string };
+export type PublishPostInput = Omit<z.input<typeof publishPostSchema>,'images'> & { images?:PostImageInput[] };
+/** Skjemaets form av et innlegg med bilder. */
+export const publishPostFields = (input:PublishPostInput)=>({ ...input, images:(input.images ?? []).map(i=>({ type:i.file.type, size:i.file.size, alt:i.alt })) });
 export const saveDraftSchema = postContentSchema.extend({ representationId:idSchema, draftId:idSchema.optional() });
 export type SaveDraftInput = z.input<typeof saveDraftSchema>;
 export const editPostSchema = postContentSchema.extend({ postId:idSchema });

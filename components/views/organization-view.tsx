@@ -6,15 +6,22 @@ import { OrganizationCvSection } from '@/components/shared/cv';
 import { EventMini } from '@/components/shared/event-mini';
 import { NotFound } from '@/components/shared/not-found';
 import { PostCard } from '@/components/shared/post-card';
-import { Avatar, Status, usesEoAvatar } from '@/components/shared/ui';
+import { prepareAvatar, prepareEventImage } from '@/components/shared/image';
+import { Avatar, ConfirmButton, Status, usesEoAvatar } from '@/components/shared/ui';
 import { isPastEvent } from '@/lib/domain/events';
-import type { Organization, OrganizationCvEntry, PublicOfficer } from '@/lib/domain/types';
+import type { ImageSource, Organization, OrganizationCvEntry, OrganizationImages, PublicOfficer } from '@/lib/domain/types';
+import { errorMessage } from '@/lib/domain/validation';
+
+/** Om bildet er eget eller arvet (§14). */
+const imageSourceLabel:Record<ImageSource,string> = { own:'Eget bilde', local_board:'Arvet fra lokallaget', county:'Arvet fra fylket', global:'Standard fra EO', none:'Ingen bilde' };
 
 export function OrganizationView({id,onContact}:{id:string;onContact:(o:Organization)=>void}) {
   const service = useService();
-  const { events, org, posts, activeRep, openComposer, loadOrganizationPosts } = useApp();
+  const { events, org, posts, activeRep, openComposer, loadOrganizationPosts, notify } = useApp();
   const [officers,setOfficers] = useState<{ id:string; list:PublicOfficer[] }|null>(null);
   const [cv,setCv] = useState<{ id:string; list:OrganizationCvEntry[] }|null>(null);
+  const [images,setImages] = useState<{ id:string; images:OrganizationImages }|null>(null);
+  const [imageBusy,setImageBusy] = useState<'profile'|'cover'|null>(null);
   // Deaktiverte organisasjoner er ikke i listen, men siden skal fortsatt kunne åpnes fra gamle innlegg og lenker.
   const [fetched,setFetched] = useState<{ id:string; org:Organization|null }|null>(null);
   const listed = org(id);
@@ -38,7 +45,22 @@ export function OrganizationView({id,onContact}:{id:string;onContact:(o:Organiza
     service.getOrganizationCv(id).then(list=>{ if (!cancelled) setCv({ id, list }); }).catch(()=>{});
     return ()=>{ cancelled = true; };
   },[id,exists,service]);
+  useEffect(()=>{
+    if (!exists) return;
+    let cancelled = false;
+    service.getOrganizationImages(id).then(found=>{ if (!cancelled) setImages({ id, images:found }); }).catch(()=>{});
+    return ()=>{ cancelled = true; };
+  },[id,exists,service]);
   if (!o) return fetched?.id===id?<NotFound/>:<div className="page"><p className="muted">Henter …</p></div>;
+  const pictures = images?.id===o.id?images.images:null;
+  const changeImage = async(kind:'profile'|'cover',file:File|null)=>{
+    setImageBusy(kind);
+    try {
+      const prepared = file?(kind==='profile'?await prepareAvatar(file):await prepareEventImage(file)):null;
+      setImages({ id:o.id, images:await service.setOrganizationImage({ organizationId:o.id, kind, image:prepared }) });
+      notify(file?(kind==='profile'?'Profilbildet er oppdatert':'Coverbildet er oppdatert'):'Bildet er fjernet');
+    } catch (e) { notify(errorMessage(e)); } finally { setImageBusy(null); }
+  };
   const inactive = o.status!=='active';
   const people = officers?.id===o.id?officers.list:o.officers ?? [];
   const own = posts.filter(p=>p.organizationId===o.id);
@@ -50,10 +72,12 @@ export function OrganizationView({id,onContact}:{id:string;onContact:(o:Organiza
   const isActiveOrg = activeRep?.organizationId===o.id;
   return <div className="page">
     <div className="org-hero">
-      <div className={`org-cover ${o.type}`}/>
+      <div className={`org-cover ${o.type} ${pictures?.coverUrl?'has-image':''}`}>{pictures?.coverUrl&&<img src={pictures.coverUrl} alt=""/>}</div>
       <div className="org-hero-body">
         <div className="org-identity">
-          <span className={`org-avatar ${o.type==='national'?'coral':''} ${usesEoAvatar(o.type)?'eo':''}`} aria-hidden="true">{usesEoAvatar(o.type)?<Avatar initials={o.initials} orgType={o.type} size="xl"/>:o.initials}</span>
+          <span className={`org-avatar ${o.type==='national'?'coral':''} ${usesEoAvatar(o.type)&&!pictures?.profileUrl?'eo':''} ${pictures?.profileUrl?'has-image':''}`} aria-hidden="true">
+            {pictures?.profileUrl?<img src={pictures.profileUrl} alt=""/>:usesEoAvatar(o.type)?<Avatar initials={o.initials} orgType={o.type} size="xl"/>:o.initials}
+          </span>
           <div className="names"><h1>{o.name}</h1><p>{orgLine(o)}</p></div>
           {o.status!=='active'&&<Status tone="gray">Deaktivert</Status>}
         </div>
@@ -63,6 +87,20 @@ export function OrganizationView({id,onContact}:{id:string;onContact:(o:Organiza
           {isActiveOrg&&activeRep?.canPublish
             ?<button className="btn ghost large" onClick={openComposer}>Nytt innlegg som {o.name}</button>
             :<button className="btn ghost large" onClick={()=>onContact(o)}>{contactLabel(o)}</button>}
+        </div>}
+        {pictures?.canChange&&<div className="org-image-controls" aria-label="Bilder">
+          {(['profile','cover'] as const).map(kind=>{
+            const url = kind==='profile'?pictures.profileUrl:pictures.coverUrl;
+            const source = kind==='profile'?pictures.profileSource:pictures.coverSource;
+            const name = kind==='profile'?'profilbilde':'coverbilde';
+            return <div className="org-image-control" key={kind}>
+              <span className="grow"><strong>{kind==='profile'?'Profilbilde':'Coverbilde'}</strong><small>{imageSourceLabel[source]}</small></span>
+              <label className={`btn small ${imageBusy?'disabled':''}`}>{imageBusy===kind?'Behandler …':source==='own'?`Bytt ${name}`:`Last opp ${name}`}
+                <input type="file" accept="image/*" className="sr-only" disabled={!!imageBusy} onChange={e=>{ const f = e.target.files?.[0]; e.target.value=''; if (f) void changeImage(kind,f); }}/>
+              </label>
+              {source==='own'&&url&&<ConfirmButton label="Fjern" question={`Fjerne ${name}et?`} confirmLabel="Fjern" disabled={!!imageBusy} onConfirm={()=>void changeImage(kind,null)}/>}
+            </div>;
+          })}
         </div>}
         <div className="org-stats">{stats.map(([value,label])=><div key={label}><strong>{formatNumber(value)}</strong><span>{label}</span></div>)}</div>
       </div>

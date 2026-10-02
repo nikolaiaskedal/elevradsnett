@@ -3,6 +3,10 @@ import { DemoMessaging, type DemoMessagingHost } from './demo-messaging';
 import * as demo from '@/lib/demo-data';
 import { presentEvent } from '@/lib/domain/events';
 import { initialsOf } from '@/lib/domain/labels';
+import { formatDayMonth } from '@/lib/domain/time';
+import type { OrganizationImages, Poll } from '@/lib/domain/types';
+import { organizationImageSchema, publishPostFields, reportPostSchema } from '@/lib/domain/validation';
+import type { PublishProgress, ReportPostInput } from './contracts';
 import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, CurrentUser, DelegateCandidate, DelegateStatus, Event, EventDelegate, EventOrganizer, EventParticipation, GrantStatus, InternalRole, Message, MyRole, Organization, OrganizationCvEntry, OrganizationRoleEntry, PersonCv, Post, RegistrationStatus, Representation, SchoolAdminRequest, SchoolHistoryEntry, Session, Audience, FriendConnection, PostDraft, PostRevision } from '@/lib/domain/types';
 import { addDelegateSchema, assignPublicOfficeSchema, assignRoleSchema, attendanceSchema, avatarSchema, changeSchoolSchema, commentSchema, decideSchoolAdminRequestSchema, delegationResponseSchema, eventImageSchema, eventInputSchema, eventInterestSchema, eventRegistrationSchema, eventStatusChangeSchema, idSchema, isoDate, onboardingSchema, publishPostSchema, requestLoginCodeSchema, schoolAdminRequestSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema, audiencesFor, decideFriendRequestSchema, editPostSchema, friendRequestSchema, saveDraftSchema } from '@/lib/domain/validation';
 import type { AddCommentInput, AddDelegateInput, AssignPublicOfficeInput, AttendanceInput, DelegationResponseInput, EventInput, EventInterestInput, EventRegistrationInput, EventStatusChangeInput, AssignRoleInput, ChangeSchoolInput, DecideSchoolAdminRequestInput, ElevradsnettService, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SchoolAdminRequestInput, SendMessageInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput, DecideFriendRequestInput, EditPostInput, FriendRequestInput, SaveDraftInput } from './contracts';
@@ -54,6 +58,7 @@ export class DemoElevradsnettService implements ElevradsnettService {
   /** Varsler som ville blitt sendt (prompt 11 viser dem). Brukes i testene. */
   readonly notifications:{ userId:string; type:string; title:string; link:string }[] = [];
   private reported = new Set<string>();
+  private organizationImages = new Map<string,{ profile?:string; cover?:string }>();
   private people = new Map<string,Person>();
   private memberships:Membership[] = [];
   private grants:Grant[] = [];
@@ -170,7 +175,31 @@ export class DemoElevradsnettService implements ElevradsnettService {
   private canManagePost(organizationId:string) {
     return this.status==='active' && this.hasRole(this.user.id,organizationId,['content_manager','school_admin','board_admin']);
   }
-  private cards(posts:Post[]) { return structuredClone(posts.map(p=>({ ...p, canManage:this.canManagePost(p.organizationId) }))); }
+  /** Organisasjonen som stemmer for brukeren: aktiv representasjon, som voter i list_posts. */
+  private voterOrganization() {
+    if (this.status!=='active' || !this.activeRepresentationId) return null;
+    return this.representations().find(r=>r.id===this.activeRepresentationId)?.organizationId ?? null;
+  }
+  /** Avstemningen slik list_posts viser den: stemmetall bare etter egen stemme, etter fristen eller når de alltid vises. */
+  private pollView(p:Post):Poll|undefined {
+    if (!p.poll) return undefined;
+    const voter = this.voterOrganization();
+    const myVote = voter?this.votes.get(`${p.id}:${voter}`):undefined;
+    const closed = !!p.poll.closed;
+    const show = p.poll.resultsVisibility==='always' || closed || (p.poll.resultsVisibility!=='after_close' && !!myVote);
+    return { ...p.poll, closed, myVote, showResults:show, totalVotes:show?p.poll.options.reduce((n,o)=>n+o.votes,0):undefined,
+      options:p.poll.options.map(o=>({ ...o, votes:show?o.votes:0 })) };
+  }
+  private cards(posts:Post[]) {
+    return structuredClone(posts.map(p=>{
+      const canManage = this.canManagePost(p.organizationId);
+      // Bilder som ikke er klare vises bare for dem som kan endre innlegget.
+      const media = p.media?.filter(m=>canManage || !m.status || m.status==='ready');
+      // Som i Supabase-adapteren: likes er de andres støtter, og kortet legger til egen støtte.
+      const supported = this.status==='active' && this.supported.has(p.id);
+      return { ...p, canManage, supported, likes:p.likes-(supported?1:0), poll:this.pollView(p), media:media?.length?media:undefined };
+    }));
+  }
   /** check_post_content: målgruppen må passe avsenderen, og et tagget arrangement må være publisert. */
   private checkContent(organizationId:string,audience:Audience,eventId?:string) {
     const o = this.organization(organizationId);
@@ -486,18 +515,28 @@ export class DemoElevradsnettService implements ElevradsnettService {
   }
 
   // ---- Innlegg ----
-  async publishPost(input:PublishPostInput):Promise<Post> {
-    const parsed = publishPostSchema.parse(input);
+  async publishPost(input:PublishPostInput,onProgress?:(progress:PublishProgress)=>void):Promise<Post> {
+    const parsed = publishPostSchema.parse(publishPostFields(input));
     const rep = this.publisher(parsed.representationId);
     const draft = parsed.draftId?this.drafts.find(d=>d.id===parsed.draftId):undefined;
     if (parsed.draftId && (!draft || draft.organizationId!==rep.organizationId)) throw new Error('Fant ikke innlegget.');
     this.checkContent(rep.organizationId,parsed.audience,parsed.eventId);
+    const images = input.images ?? [];
+    if (parsed.poll || images.length) onProgress?.({ step:'saving' });
+    // Bildene «lastes opp» som lokale lenker. Serverens kontroll (process-media) finnes bare i Supabase.
+    const media = images.map((image,index)=>{
+      onProgress?.({ step:'uploading', index, count:images.length });
+      onProgress?.({ step:'checking', index, count:images.length });
+      return { id:this.nextId('m'), type:'image' as const, alt:parsed.images[index]?.alt ?? '', url:URL.createObjectURL(image.file), status:'ready' as const };
+    });
+    if (parsed.poll || images.length) onProgress?.({ step:'publishing' });
     const post:Post = {
       id:draft?.id ?? this.nextId('post'), organizationId:rep.organizationId, initials:rep.initials, organizationName:rep.name,
       actorName:this.user.name, actorRole:rep.publicRole, createdAt:'Akkurat nå', body:parsed.body, audience:parsed.audience, schoolLevel:parsed.schoolLevel,
       eventId:parsed.eventId, likes:0, comments:0, commentItems:[],
-      media:parsed.withImage?[{ id:this.nextId('m'), type:'image', alt:'foto: lastet opp av elevrådet' }]:undefined,
-      poll:parsed.poll?{ question:parsed.body.split('\n')[0], closesAt:'om 14 dager', resultsVisibility:'after_vote', options:parsed.poll.options.map((label,i)=>({ id:String(i), label, votes:0 })) }:undefined,
+      media:media.length?media:undefined,
+      poll:parsed.poll?{ id:this.nextId('poll'), question:parsed.poll.question, closesAt:parsed.poll.closesAt?formatDayMonth(parsed.poll.closesAt):'ingen frist', resultsVisibility:'after_vote',
+        options:parsed.poll.options.map((label,i)=>({ id:String(i), label, votes:0 })) }:undefined,
     };
     if (draft) this.drafts = this.drafts.filter(d=>d!==draft);
     this.posts.unshift(post);
@@ -566,19 +605,30 @@ export class DemoElevradsnettService implements ElevradsnettService {
     post.comments += 1;
     return structuredClone(comment);
   }
+  async getPost(postId:string) {
+    const post = this.posts.find(p=>p.id===postId);
+    return post && this.canView(post)?this.cards([post])[0]:null;
+  }
   async setPostSupport(input:{ postId:string; supported:boolean }) {
     this.requireUser();
     const post = this.post(input.postId);
+    if (!this.canView(post)) throw new Error('Fant ikke innlegget.');
     const had = this.supported.has(post.id);
-    if (input.supported===had) return;
-    if (input.supported) this.supported.add(post.id); else this.supported.delete(post.id);
-    post.likes += input.supported?1:-1;
+    if (input.supported!==had) {
+      if (input.supported) this.supported.add(post.id); else this.supported.delete(post.id);
+      post.likes += input.supported?1:-1;
+    }
+    return post.likes;
   }
-  async vote(input:VoteInput) {
+  async vote(input:VoteInput):Promise<Poll> {
     const parsed = voteSchema.parse(input);
     this.requireUser();
     const post = this.post(parsed.postId);
+    if (!this.canView(post)) throw new Error('Fant ikke innlegget.');
     if (!post.poll) throw new Error('Innlegget har ingen avstemning.');
+    if (post.poll.closed) throw new Error('Avstemningen er avsluttet.');
+    // Som has_active_membership: bare med aktivt verv i organisasjonen.
+    if (!this.representations().some(r=>r.organizationId===parsed.organizationId && r.organizationStatus==='active')) throw new Error('Du har ikke tilgang til å gjøre dette.');
     const option = post.poll.options.find(o=>o.id===parsed.optionId);
     if (!option) throw new Error('Ukjent svaralternativ.');
     const key = `${post.id}:${parsed.organizationId}`;
@@ -586,8 +636,15 @@ export class DemoElevradsnettService implements ElevradsnettService {
     if (previous) previous.votes -= 1;
     option.votes += 1;
     this.votes.set(key,option.id);
+    return this.cards([post])[0].poll!;
   }
-  async reportPost(input:{ postId:string }) { this.requireUser(); this.reported.add(this.post(input.postId).id); }
+  async reportPost(input:ReportPostInput) {
+    const parsed = reportPostSchema.parse(input);
+    this.requireUser();
+    const post = this.post(parsed.postId);
+    if (this.reported.has(post.id)) throw new Error('Du har allerede rapportert dette innlegget.');
+    this.reported.add(post.id);
+  }
 
   // ---- Venneråd ----
   async listFriendConnections(schoolId:string):Promise<FriendConnection[]> {
@@ -641,9 +698,29 @@ export class DemoElevradsnettService implements ElevradsnettService {
   async setFollow(input:{ organizationId:string; following:boolean }) {
     this.requireUser();
     const o = this.organization(input.organizationId);
-    if (!!o.following===input.following) return;
-    o.following = input.following;
-    o.followers += input.following?1:-1;
+    if (!!o.following!==input.following) {
+      o.following = input.following;
+      o.followers += input.following?1:-1;
+    }
+    return o.followers;
+  }
+  /** Bildehierarkiet (§14) i demoen: eget bilde, ellers ingen (styrene har EO-logoen som standard i grensesnittet). */
+  async getOrganizationImages(organizationId:string):Promise<OrganizationImages> {
+    const o = this.organization(organizationId);
+    const own = this.organizationImages.get(o.id) ?? {};
+    return { profileUrl:own.profile, profileSource:own.profile?'own':'none', coverUrl:own.cover, coverSource:own.cover?'own':'none', locked:false,
+      canChange:this.status==='active' && o.status==='active' && this.hasRole(this.user.id,o.id,['school_admin','board_admin']) };
+  }
+  async setOrganizationImage(input:{ organizationId:string; kind:'profile'|'cover'; image:Blob|null }) {
+    this.requireUser();
+    if (!(await this.getOrganizationImages(input.organizationId)).canChange) throw new Error('Du har ikke tilgang til å gjøre dette.');
+    if (input.image) organizationImageSchema.parse({ kind:input.kind, type:input.image.type, size:input.image.size });
+    const own = this.organizationImages.get(input.organizationId) ?? {};
+    const previous = own[input.kind];
+    if (previous?.startsWith('blob:')) URL.revokeObjectURL(previous);
+    this.organizationImages.set(input.organizationId,{ ...own, [input.kind]:input.image?URL.createObjectURL(input.image):undefined });
+    this.log(input.organizationId,'organization.image_changed',undefined,{ kind:input.kind, removed:!input.image });
+    return this.getOrganizationImages(input.organizationId);
   }
   // ---- Arrangementer, som i databasen (202610090001_arrangementer_cv.sql) ----
   private me() { return this.status==='active'?this.user.id:null; }

@@ -11,11 +11,34 @@ Planen deler `docs/KRAVSPEC.md` inn i prompter som sendes én om gangen, hver i 
 | 3. Innlogging, profiler og offentlig lesing | Ferdig, med manuelle steg (se *Før prompt 4*) | PR #13 |
 | 4. Medlemskap, roller og aktiv representasjon | Ferdig | PR #14 |
 | 5. Innlegg | Ferdig | PR #16 |
-| 6. Bilder | Neste | – |
+| 6. Bilder | Ferdig, med manuelle steg (se *Før neste prompt (etter prompt 6 og 7)*) | se git-loggen |
+| 7. Kommentarer, reaksjoner, avstemninger, følging og deling | Ferdig, med de samme manuelle stegene | se git-loggen |
 | 9. Arrangementer og CV | Ferdig, med ett manuelt steg (se *Før neste prompt*) | se git-loggen |
 | 10. Meldinger | Ferdig, med ett manuelt steg (migrasjonen med `drop policy`, se *Utgangspunkt etter prompt 10*) | se git-loggen |
 
-Neste prompt som skal sendes er **prompt 6** (Bilder), deretter 7 (kommentarer, reaksjoner, avstemninger) og 8 (feed og søk), så 11 (varsler og styreoverføring). Prompt 9 og 10 er gjort før 6–8 etter ønske. Kjør først `supabase/manual/gjenstar_fra_prompt9.sql` i SQL Editor i pilotprosjektet, kjør `supabase/migrations/202610100001_meldinger.sql` i SQL Editor, og sjekk at stegene 3–6 under *Før prompt 4* er gjort (e-postmal, OTP-innstillinger og GitHub-variablene).
+Prompt 6 og 7 er ferdige. Neste prompter er 8 (feed og søk) og 11 (varsler og styreoverføring), som bygges i en egen økt. Kjør først stegene under *Før neste prompt (etter prompt 6 og 7)*, `supabase/manual/gjenstar_fra_prompt9.sql` og `supabase/migrations/202610100001_meldinger.sql` i SQL Editor i pilotprosjektet, og sjekk at stegene 3–6 under *Før prompt 4* er gjort (e-postmal, OTP-innstillinger og GitHub-variablene).
+
+## Utgangspunkt etter prompt 6 og 7 (2. oktober 2026)
+
+- **Bilder (§11, §14):** Innlegg kan ha inntil fire bilder med bildetekst. Alle bilder (innlegg, profilbilder, arrangementer og organisasjoner) kodes om i nettleseren, og edge-funksjonen `process-media` kontrollerer filen på serveren: filtype ut fra innholdet, størrelse, mål og at EXIF, XMP og GPS er borte (`supabase/functions/_shared/media-check.ts`, testet i `tests/media-check.test.ts`). RPC-ene som tar bildet i bruk krever godkjent kontroll (`media_checks`).
+- Innlegg med bilder eller avstemning lagres først som utkast og publiseres når alt er lastet opp og kontrollert. Behandlingsstatusen vises i dialogen; bilder som ikke er klare vises med status bare for dem som kan endre innlegget.
+- Filer slettes når innholdet slettes: databasen legger stiene i `storage_deletions`, og `process-media` (`action:'cleanup'`) sletter dem. Appen ber om opprydding etter sletting av innlegg og bytte av organisasjonsbilder. Prompt 16 bør legge opprydding inn i den nattlige jobben.
+- Organisasjonssiden viser profil- og coverbilde etter hierarkiet, og skole- og styreadministratorer kan laste opp, bytte og fjerne egne bilder. Standardbilder og lås kommer i adminpanelet (prompt 12).
+- Lagringsområdene tar bare bilder. Video kommer i prompt 20.
+- **Aktivitet (§6, §7):** Støtte, følging og rapportering av innlegg går nå mot Supabase (`set_post_support`, `set_follow`, `report_post`). Bare antall reaksjoner er offentlig; RLS lot tidligere alle lese hvem som hadde reagert. Kommentarer, reaksjoner, følging og stemmer kan ikke lenger skrives direkte i tabellene, og kommentarer er begrenset til 10 i minuttet.
+- Avstemninger har spørsmål, 2–10 alternativer og sluttdato (`add_post_poll`). Én stemme per organisasjon (aktiv representasjon), som kan endres til fristen. Resultatet vises etter egen stemme eller frist (`list_posts`, som erstatter `list_post_cards`).
+- Deling gjelder bare offentlige innlegg, og lenken går til innlegget (`#/innlegg/<id>`).
+- Til migrasjonene er kjørt, faller appen tilbake til `list_post_cards`, så feeden virker. Opplasting av bilder (også profilbilder og arrangementsbilder) virker først når både migrasjonene og den nye `process-media` er på plass.
+- Databasetestene ligger i `supabase/tests/bilder_aktivitet.sql`. De er ikke kjørt lokalt (Docker startet ikke på utviklermaskinen), og `lib/supabase/database.types.ts` er oppdatert for hånd. Kjør `npm run test:db` og `npm run db:types` når Docker virker, og rett eventuelle avvik.
+
+### Før neste prompt (etter prompt 6 og 7, manuelt, ca. 10 minutter)
+
+Supabase-koblingen fra Claude fikk ikke lov til å endre pilotprosjektet i denne økten, så alt gjøres manuelt.
+
+1. Lim inn hele `supabase/migrations/202610110001_bilder.sql` i SQL Editor i Supabase og kjør den.
+2. Lim inn hele `supabase/migrations/202610110002_aktivitet.sql` og kjør den.
+3. Publiser edge-funksjonen: `npx supabase login`, deretter `npx supabase functions deploy process-media --project-ref ibipqyombdmtfvgthugz`. JWT-sjekken skal være på (standard). Service role-nøkkelen finnes automatisk i funksjonen og skal ikke legges noe annet sted.
+4. Test: last opp et profilbilde, publiser et innlegg med bilde og avstemning, stem og slett innlegget.
 
 ## Utgangspunkt etter prompt 9 (1. oktober 2026)
 
@@ -209,13 +232,13 @@ Gjør stegene i denne rekkefølgen. Settes variablene i steg 5 før migrasjonen 
    - Utkast, forhåndsvisning, redigering merket «redigert» med historikk for administratorer, sletting og tagging av arrangementer.
    - XSS-rensing.
    - Venneråd: forespørsel og godkjenning mellom skoler.
-6. **Bilder** (§11)
+6. ✅ **Bilder** (§11)
    - Opplasting til de fire lagringsområdene, med grenser for størrelse og filtype og kontroll av faktisk MIME-type i `process-media`.
    - Bildene kodes om i nettleseren, noe som fjerner EXIF og GPS, og serveren kontrollerer at det er gjort.
    - Behandlingsstatus vises.
    - Filer slettes når innholdet de hører til slettes.
    - Video kommer etter piloten (prompt 20) på grunn av lagringsgrensen.
-7. **Kommentarer, reaksjoner, avstemninger, følging og deling** (§7)
+7. ✅ **Kommentarer, reaksjoner, avstemninger, følging og deling** (§7)
    - Kommentarer skrives på vegne av den aktive organisasjonen og krever aktivt verv.
    - Bare antall reaksjoner vises offentlig.
    - Avstemninger gir én stemme per organisasjon, som kan endres før fristen. Resultatet vises etter stemme eller frist.

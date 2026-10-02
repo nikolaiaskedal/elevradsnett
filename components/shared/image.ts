@@ -20,6 +20,15 @@ export async function prepareEventImage(file:File):Promise<Blob> {
   return draw(bitmap,width,height,context=>context.drawImage(bitmap,0,0,width,height));
 }
 
+const POST_IMAGE_SIDE = 2048;
+/** Bilde i innlegg: beholder formatet, skalerer ned til maks 2048 px på lengste side og lagrer som WebP (eller JPEG). */
+export async function preparePostImage(file:File):Promise<Blob> {
+  const bitmap = await readImage(file);
+  const scale = Math.min(1,POST_IMAGE_SIDE/Math.max(bitmap.width,bitmap.height));
+  const width = Math.round(bitmap.width*scale), height = Math.round(bitmap.height*scale);
+  return draw(bitmap,width,height,context=>context.drawImage(bitmap,0,0,width,height));
+}
+
 async function readImage(file:File) {
   if (!file.type.startsWith('image/')) throw new Error('Velg en bildefil.');
   if (file.size>MAX_INPUT_BYTES) throw new Error('Bildet er for stort. Velg et bilde under 25 MB.');

@@ -17,6 +17,7 @@ import { LoginView } from '@/components/views/login-view';
 import { MessagesView } from '@/components/views/messages-view';
 import { OrganizationView } from '@/components/views/organization-view';
 import { PersonView } from '@/components/views/person-view';
+import { PostView } from '@/components/views/post-view';
 import { ProfileView } from '@/components/views/profile-view';
 import type { Conversation, Event, Organization, Post, Representation, Session } from '@/lib/domain/types';
 import { errorMessage } from '@/lib/domain/validation';
@@ -48,7 +49,6 @@ export default function ElevradsnettApp() {
   const [liked,setLiked] = useState<string[]>([]);
   const [openComments,setOpenComments] = useState<string[]>([]);
   const [drafts,setDrafts] = useState<Record<string,string>>({});
-  const [votes,setVotes] = useState<Record<string,string>>({});
   const [events,setEvents] = useState<Event[]>([]);
   const [query,setQuery] = useState('');
   const [conversations,setConversations] = useState<Conversation[]>([]);
@@ -82,7 +82,6 @@ export default function ElevradsnettApp() {
       setOrganizations(orgs);
       setPosts(feed);
       setLiked(feed.filter(p=>p.supported).map(p=>p.id));
-      setVotes({});
       setConversations([]); setConversationsError(''); setConversationId(''); setContactOrganizationId(null);
       setLoadedKey(reloadKey);
       if (signedIn) {
@@ -203,8 +202,10 @@ export default function ElevradsnettApp() {
         setDrafts(all=>({ ...all, [postId]:'' }));
       }).catch(fail);
     };
+    /** Bare offentlige innlegg deles (§7). Lenken går til innlegget, som også kan åpnes uten innlogging. */
     const share = async (post:Post)=>{
-      const url=`${window.location.href.split('#')[0]}${routeHash({ view:'organization', id:post.organizationId })}`;
+      if (post.audience!=='public') { notify('Bare offentlige innlegg kan deles.'); return; }
+      const url=`${window.location.href.split('#')[0]}${routeHash({ view:'post', id:post.id })}`;
       const shareFn=(navigator as Navigator & { share?:(data:ShareData)=>Promise<void> }).share;
       try {
         if (shareFn) { await shareFn.call(navigator,{ title:`${post.organizationName} på Elevrådsnett`, text:post.body.slice(0,100), url }); }
@@ -216,13 +217,13 @@ export default function ElevradsnettApp() {
       service.switchRepresentation(rep.id)
         .then(()=>service.listFeed({ representationId:rep.id, mode:'chronological' }))
         .then(feed=>{
-          setActiveRepId(rep.id); setPosts(feed); setLiked(feed.filter(p=>p.supported).map(p=>p.id)); setVotes({});
+          setActiveRepId(rep.id); setPosts(feed); setLiked(feed.filter(p=>p.supported).map(p=>p.id));
           notify(`Du representerer nå ${rep.name}`);
         }).catch(fail);
     };
     app = {
       session, signedIn, switchRepresentation:switchTo, currentUser, representations, events,
-      organizations, posts, activeRep, liked, openComments, drafts, votes, org, go, notify, reload,
+      organizations, posts, activeRep, liked, openComments, drafts, org, go, notify, reload,
       requireLogin:(reason,then)=>{ if (!needLogin(reason ?? 'Logg inn for å fortsette.',then ?? (()=>{}))) then?.(app!); },
       signOut:()=>{ service.signOut().then(()=>{ go({ view:'feed' }); notify('Du er logget ut'); reload(); }).catch(fail); },
       loadOrganizationPosts:id=>{
@@ -235,24 +236,34 @@ export default function ElevradsnettApp() {
       toggleFollow:id=>{
         if (needLogin(`Logg inn for å følge ${org(id)?.name ?? 'organisasjonen'}.`,a=>{ if (!a.org(id)?.following) a.toggleFollow(id); })) return;
         const following=!org(id)?.following;
-        service.setFollow({ organizationId:id, following }).then(()=>setOrganizations(all=>all.map(o=>o.id===id?{ ...o, following, followers:o.followers+(following?1:-1) }:o))).catch(fail);
+        service.setFollow({ organizationId:id, following }).then(followers=>setOrganizations(all=>all.map(o=>o.id===id?{ ...o, following, followers }:o))).catch(fail);
       },
       toggleLike:id=>{
         if (needLogin('Logg inn for å støtte innlegget.',a=>{ if (!a.liked.includes(id)) a.toggleLike(id); })) return;
-        service.setPostSupport({ postId:id, supported:!liked.includes(id) }).then(()=>setLiked(all=>toggle(all,id))).catch(fail);
+        const supported = !liked.includes(id);
+        // Kortet viser de andres støtter pluss egen, så antallet fra serveren justeres for egen støtte.
+        service.setPostSupport({ postId:id, supported }).then(count=>{
+          setLiked(all=>supported?[...all.filter(x=>x!==id),id]:all.filter(x=>x!==id));
+          setPosts(all=>all.map(p=>p.id===id?{ ...p, likes:count-(supported?1:0) }:p));
+        }).catch(fail);
       },
       toggleComments:id=>setOpenComments(all=>toggle(all,id)),
       setDraft:(id,text)=>setDrafts(all=>({ ...all, [id]:text })),
       sendComment, share:post=>void share(post),
-      report:post=>{
-        if (needLogin('Logg inn for å rapportere innlegget.',a=>a.report(post))) return;
-        service.reportPost({ postId:post.id }).then(()=>notify('Innlegget er rapportert til moderatorene')).catch(fail);
+      report:async (post,input)=>{
+        await service.reportPost({ postId:post.id, ...input });
+        notify('Innlegget er rapportert til moderatorene');
+      },
+      rememberPost:post=>{
+        setPosts(all=>all.some(p=>p.id===post.id)?all.map(p=>p.id===post.id?post:p):[...all,post]);
+        if (post.supported) setLiked(all=>[...new Set([...all,post.id])]);
       },
       vote:(postId,optionId)=>{
         if (needLogin('Logg inn for å stemme på vegne av elevrådet.',a=>a.vote(postId,optionId))) return;
         const rep = needRep('stemme');
         if (!rep) return;
-        service.vote({ postId, optionId, organizationId:rep.organizationId }).then(()=>setVotes(all=>({ ...all, [postId]:optionId }))).catch(fail);
+        service.vote({ postId, optionId, organizationId:rep.organizationId })
+          .then(poll=>{ setPosts(all=>all.map(p=>p.id===postId?{ ...p, poll }:p)); notify(`Stemmen er lagret for ${rep.name}`); }).catch(fail);
       },
       reloadEvents:()=>service.listEvents().then(setEvents).catch(fail),
       toggleInterest:event=>{
@@ -287,6 +298,7 @@ export default function ElevradsnettApp() {
       case 'explore': page=<ExploreView query={query} setQuery={setQuery}/>; break;
       case 'events': page=<EventsView/>; break;
       case 'event': page=<EventDetailView id={route.id}/>; break;
+      case 'post': page=<PostView id={route.id}/>; break;
       case 'organization': page=<OrganizationView id={route.id} onContact={openConversationWith}/>; break;
       case 'person': page=<PersonView id={route.id}/>; break;
       case 'messages': page=<MessagesView conversations={conversations} setConversations={setConversations} refresh={refreshConversations} selectedId={conversationId} onSelect={setConversationId} error={conversationsError}
