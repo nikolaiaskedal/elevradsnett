@@ -45,13 +45,16 @@ do $$ declare p posts; v_poll uuid; begin
   insert into ids values('post',p.id);
   v_poll:=public.add_post_poll(p.id,'<b>Hvilken sak?</b>',array['Fravær',' ','Skolemat'],now()+interval '7 days');
   insert into ids values('poll',v_poll);
-  if (select count(*) from poll_options where poll_id=v_poll)<>2 or (select question from polls where id=v_poll)<>'Hvilken sak?' then raise exception 'feil avstemning'; end if;
+  -- Avstemningen på et utkast er skjult av RLS (polls_visible_read krever can_view_post), også for A.
+  if exists(select 1 from polls where id=v_poll) then raise exception 'avstemning på utkast er synlig'; end if;
   begin perform public.add_post_poll(p.id,'Igjen',array['a','b']); raise exception 'to avstemninger';
   exception when raise_exception then if sqlerrm<>'poll exists' then raise; end if; end;
   -- Bilde som ikke finnes i Storage avvises.
   begin perform public.add_post_media(p.id,'00000000-0000-4000-8000-000000000020/posts/'||p.id||'/finnes-ikke.webp','Bilde'); raise exception 'bilde uten fil';
   exception when raise_exception then if sqlerrm<>'invalid image' then raise; end if; end;
   perform public.update_post(p.id,'Hva synes dere?','public','both',null,true);
+  -- Etter publisering er den synlig, renset og uten tomme alternativer.
+  if (select count(*) from poll_options where poll_id=v_poll)<>2 or (select question from polls where id=v_poll)<>'Hvilken sak?' then raise exception 'feil avstemning'; end if;
   begin perform public.add_post_poll(p.id,'Etterpå',array['a','b']); raise exception 'avstemning på publisert innlegg';
   exception when raise_exception then if sqlerrm<>'post not found' then raise; end if; end;
 end $$;
