@@ -700,3 +700,78 @@ label.btn { cursor: pointer; }
 input:focus-visible + label.btn { outline: 2px solid var(--accent); outline-offset: 2px; }
 .stars { color: var(--accent); letter-spacing: 1px; white-space: nowrap; }
 h1 .stars { font-size: 0.7em; vertical-align: middle; }
+
+/* Prompt 6–7: bilder i innlegg, organisasjonsbilder, avstemning og behandlingsstatus */
+.post-media { display: grid; gap: 4px; margin: 14px 20px 0; border-radius: 10px; overflow: hidden; }
+.post-media.count-2, .post-media.count-4 { grid-template-columns: 1fr 1fr; }
+.post-media.count-3 { grid-template-columns: 1fr 1fr; }
+.post-media.count-3 > :first-child { grid-column: 1 / -1; }
+.post-media .media-ph { margin: 0; }
+.media-img { display: block; width: 100%; height: auto; max-height: 520px; object-fit: cover; background: var(--navy-100); }
+.post-media:not(.count-1) .media-img { aspect-ratio: 4 / 3; height: 100%; }
+.post.plain .post-media { margin: 14px 0 0; }
+.time-link { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+.time-link:hover { text-decoration: underline; }
+.back-link { margin-bottom: 14px; }
+.dash-btn.disabled { opacity: 0.55; cursor: not-allowed; }
+.dash-btn { cursor: pointer; }
+.image-inputs { display: flex; flex-direction: column; gap: 8px; }
+.image-input { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.image-input img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; flex: none; background: var(--navy-100); }
+.image-input input { flex: 1; min-width: 0; border: 1px solid var(--navy-100); border-radius: 8px; padding: 10px 12px; color: var(--navy); outline: none; }
+.image-input input:focus { border-color: var(--accent-300); }
+.small-note { font-size: 13px; margin: 0; }
+.progress-note { color: var(--navy); background: var(--accent-100); border-radius: 8px; padding: 10px 12px; margin: 0; }
+.poll-option:disabled { cursor: default; }
+.poll-option:disabled:hover { border-color: var(--navy-200); }
+.poll-option.chosen:disabled:hover { border-color: var(--accent); }
+.org-cover { position: relative; overflow: hidden; }
+.org-cover.has-image { background: var(--navy-100); height: 180px; }
+.org-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.org-avatar.has-image { padding: 0; overflow: hidden; background: var(--white); }
+.org-avatar.has-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.org-image-controls { display: flex; flex-direction: column; gap: 8px; margin: 14px 0; padding: 12px; border: 1px dashed var(--navy-200); border-radius: 10px; }
+.org-image-control { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.org-image-control .grow { display: flex; flex-direction: column; min-width: 140px; }
+.org-image-control small { color: var(--navy-300); }
+.btn.disabled { opacity: 0.55; pointer-events: none; }
+label.btn { cursor: pointer; }
+@media (max-width: 720px) {
+  .post-media { margin-left: 16px; margin-right: 16px; }
+  .org-cover.has-image { height: 130px; }
+}
+
+/* Varsler og styreoverføring (prompt 11) */
+.warm-card { border-color: var(--accent-200); background: var(--accent-50); }
+.notification-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.notification { display: flex; gap: 12px; align-items: flex-start; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--hair); background: none; padding: 12px 4px; color: var(--navy); cursor: pointer; }
+.notification:hover { background: var(--soft); }
+.notification strong { display: block; font-weight: 500; }
+.notification.unread strong { font-weight: 600; }
+.notification small { display: block; color: var(--navy-300); margin-top: 2px; }
+.notification-body { display: block; color: var(--slate); line-height: 1.5; margin-top: 2px; overflow-wrap: anywhere; }
+.notification-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; background: transparent; }
+.notification.unread .notification-dot { background: var(--accent); }
+.notification-list li:last-child .notification { border-bottom: 0; }
+.pref-table { border: 1px solid var(--navy-100); border-radius: 9px; padding: 4px 14px 8px; margin: 4px 0 0; min-width: 0; }
+.pref-table legend { font-weight: 600; padding: 0 4px; }
+.pref-row { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--hair); }
+.pref-row:last-child { border-bottom: 0; }
+.pref-row.head { color: var(--navy-300); font-weight: 600; padding: 6px 0; }
+.pref-row > span:not(.grow), .pref-row > input { width: 52px; flex: none; text-align: center; }
+.pref-row input { width: 20px; height: 20px; margin: 0 16px; accent-color: var(--accent); }
+.pref-row small { display: block; color: var(--navy-300); line-height: 1.4; }
+.pref-row .grow { min-width: 0; }
+.field.compact { min-width: 0; flex: 1 1 180px; }
+.field.compact select, .field.compact input { width: 100%; }
+
+/* Feed og søk (prompt 8) */
+.feed-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.search-options { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
+.result-list { display: flex; flex-direction: column; gap: 8px; }
+.result-row { display: flex; gap: 12px; align-items: center; width: 100%; text-align: left; border: 1px solid var(--navy-100); background: var(--white); border-radius: 9px; padding: 12px 14px; color: var(--navy); }
+button.result-row { cursor: pointer; }
+button.result-row:hover { border-color: var(--navy-200); background: var(--soft); }
+.result-row strong { display: block; font-weight: 600; overflow-wrap: anywhere; }
+.result-row small { display: block; color: var(--navy-300); line-height: 1.5; overflow-wrap: anywhere; }
+.result-row .grow { min-width: 0; }

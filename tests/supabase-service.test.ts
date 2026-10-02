@@ -14,7 +14,18 @@ function fakeClient(rpcs:Record<string,unknown>, userId:string|null = 'u1') {
   const client = {
     auth,
     rpc:async(name:string,args?:unknown)=>{ calls.push({ name,args }); const value = rpcs[name]; return value instanceof Error ? { data:null, error:{ message:value.message, code:(value as Error & { code?:string }).code } } : { data:value ?? null, error:null }; },
-    storage:{ from:()=>({ getPublicUrl:(path:string)=>({ data:{ publicUrl:`https://cdn.test/${path}` } }) }) },
+    storage:{ from:(bucket:string)=>({
+      getPublicUrl:(path:string)=>({ data:{ publicUrl:`https://cdn.test/${path}` } }),
+      upload:async(path:string)=>{ calls.push({ name:'storage.upload', args:{ bucket,path } }); return { data:{ path }, error:null }; },
+      remove:async(paths:string[])=>{ calls.push({ name:'storage.remove', args:{ bucket,paths } }); return { data:[], error:null }; },
+    }) },
+    // process-media svarer «ready», med mindre testen har lagt inn et avslag.
+    functions:{ invoke:async(name:string,options:{ body:{ action:string } })=>{
+      calls.push({ name:`function.${name}`, args:options.body });
+      const rejection = rpcs['process-media'] as string|undefined;
+      if (options.body.action==='check' && rejection) return { data:null, error:{ context:new Response(JSON.stringify({ status:'failed', reason:rejection }),{ status:422 }) } };
+      return { data:{ status:'ready' }, error:null };
+    } },
     // Representasjonen s1-m1 gjelder organisasjonen s1 (memberships leses med RLS).
     from:()=>({ select:()=>({ eq:()=>({ single:async()=>({ data:{ organization_id:'s1' }, error:null }) }) }) }),
   };
@@ -61,17 +72,19 @@ describe('SupabaseElevradsnettService: innlogging',()=>{
 
 describe('SupabaseElevradsnettService: offentlig lesing',()=>{
   it('lager innleggskort uten å telle egen støtte to ganger',async()=>{
-    const { client,calls } = fakeClient({ list_post_cards:[{
+    const { client,calls } = fakeClient({ list_posts:[{
       id:'p1', organization_id:'s1', organization_name:'Elvebakken vgs', actor_name:'Ida Halvorsen', actor_title:'Elevrådsleder', body:'Hei', audience:'public',
       school_level:'upper_secondary', event_id:'e1', can_manage:true, priority:false, edited:true, published_at:new Date().toISOString(), support_count:3, comment_count:1, supported:true,
       comments:[{ id:'c1', organization_id:'s2', organization_name:'Kuben vgs', created_at:new Date().toISOString(), body:'Bra!' }],
-      poll:{ question:'Ja?', closes_at:null, results_visibility:'always', options:[{ id:'o1', label:'Ja', votes:2 }] } }] });
+      poll:{ id:'pl1', question:'Ja?', closes_at:null, closed:false, my_vote:'o1', show_results:true, total:2, results_visibility:'after_vote', options:[{ id:'o1', label:'Ja', votes:2 }] },
+      media:[{ id:'m1', path:'s1/posts/p1/a.webp', alt:'Stand', status:'ready', width:800, height:600 }] }] });
     const [post] = await new SupabaseElevradsnettService(client).listFeed({ representationId:null, mode:'chronological' });
-    expect(calls[0]).toEqual({ name:'list_post_cards', args:{ p_representation_id:undefined, p_mode:'chronological' } });
+    expect(calls[0]).toEqual({ name:'list_posts', args:{ p_representation_id:undefined, p_mode:'chronological' } });
     expect(post).toMatchObject({ id:'p1', initials:'EV', actorName:'Ida Halvorsen', actorRole:'Elevrådsleder', edited:true, likes:2, supported:true, comments:1, createdAt:'nå',
       schoolLevel:'upper_secondary', eventId:'e1', canManage:true });
     expect(post.commentItems?.[0]).toMatchObject({ organizationName:'Kuben vgs', body:'Bra!' });
-    expect(post.poll).toMatchObject({ question:'Ja?', closesAt:'ingen frist', options:[{ id:'o1', votes:2 }] });
+    expect(post.poll).toMatchObject({ id:'pl1', question:'Ja?', closesAt:'ingen frist', closed:false, myVote:'o1', showResults:true, totalVotes:2, options:[{ id:'o1', votes:2 }] });
+    expect(post.media).toEqual([{ id:'m1', type:'image', alt:'Stand', status:'ready', url:'https://cdn.test/s1/posts/p1/a.webp', width:800, height:600 }]);
   });
   it('henter organisasjoner med tall fra serveren',async()=>{
     const { client } = fakeClient({ list_public_organizations:[{ id:'s1', type:'school', name:'Elvebakken videregående skole', school_name:'Elvebakken videregående skole', slug:'elvebakken',
@@ -84,18 +97,66 @@ describe('SupabaseElevradsnettService: offentlig lesing',()=>{
 
 const card = { id:'p9', organization_id:'s1', organization_name:'Elvebakken vgs', actor_name:'Ida', actor_title:'Leder', body:'Hei alle', audience:'county',
   school_level:'both', event_id:null, can_manage:true, priority:false, edited:false, published_at:new Date().toISOString(), support_count:0, comment_count:0,
-  supported:false, comments:[], poll:null };
+  supported:false, comments:[], poll:null, media:[] };
 const draftRow = { id:'d1', organization_id:'s1', body:'Utkast', audience:'public', school_level:'both', event_id:null, updated_at:new Date().toISOString(), actor_name:'Ida' };
 
 describe('SupabaseElevradsnettService: innlegg',()=>{
   it('publiserer renset tekst med målgruppe, skoleform og arrangement, og viser kortet fra serveren',async()=>{
-    const { client,calls } = fakeClient({ create_post:{ id:'p9', organization_id:'s1' }, list_post_cards:[card] });
+    const { client,calls } = fakeClient({ create_post:{ id:'p9', organization_id:'s1' }, list_posts:[card] });
     const post = await new SupabaseElevradsnettService(client).publishPost({ representationId:'s1-m1', body:' <b>Hei</b> alle ', audience:'county', eventId:'e1' });
     expect(calls[0]).toEqual({ name:'create_post', args:{ p_organization:'s1', p_body:'Hei alle', p_audience:'county', p_school_level:'both', p_event:'e1', p_publish:true } });
     expect(post).toMatchObject({ id:'p9', body:'Hei alle', canManage:true });
   });
+  it('lagrer innlegg med avstemning og bilde som utkast, kontrollerer bildet og publiserer til slutt',async()=>{
+    const { client,calls } = fakeClient({ create_post:{ id:'p9', organization_id:'s1' }, update_post:{ id:'p9', organization_id:'s1' }, add_post_poll:'pl1', add_post_media:'m1', list_posts:[card] });
+    const steps:string[] = [];
+    const image = new Blob([new Uint8Array([1,2,3])],{ type:'image/webp' });
+    await new SupabaseElevradsnettService(client).publishPost({ representationId:'s1-m1', body:'Hva mener dere?', audience:'public',
+      poll:{ question:' Hvilken sak? ', options:['Ja','','Nei'] }, images:[{ file:image, alt:'Stand i kantina' }] }, p=>steps.push(p.step));
+    expect(calls.map(c=>c.name)).toEqual(['create_post','add_post_poll','storage.upload','add_post_media','function.process-media','update_post','list_posts']);
+    expect(calls[0]).toMatchObject({ args:{ p_publish:false } });
+    expect(calls[1]).toMatchObject({ args:{ p_post:'p9', p_question:'Hvilken sak?', p_options:['Ja','Nei'], p_closes_at:null } });
+    expect((calls[2].args as { path:string }).path).toMatch(/^s1\/posts\/p9\/[0-9a-f-]+\.webp$/);
+    expect(calls[3]).toMatchObject({ args:{ p_post:'p9', p_alt:'Stand i kantina' } });
+    expect(calls[4]).toMatchObject({ args:{ action:'check', bucket:'public-content' } });
+    expect(calls[5]).toMatchObject({ args:{ p_post:'p9', p_publish:true } });
+    expect(steps).toEqual(['saving','uploading','checking','publishing']);
+  });
+  it('sletter det nye utkastet når serveren avviser bildet',async()=>{
+    const { client,calls } = fakeClient({ create_post:{ id:'p9', organization_id:'s1' }, add_post_media:'m1', 'process-media':'has_metadata' });
+    const image = new Blob([new Uint8Array([1])],{ type:'image/jpeg' });
+    await expect(new SupabaseElevradsnettService(client).publishPost({ representationId:'s1-m1', body:'Bilde', audience:'public', images:[{ file:image, alt:'' }] }))
+      .rejects.toThrow('metadata');
+    expect(calls.some(c=>c.name==='update_post')).toBe(false);
+    expect(calls).toContainEqual({ name:'delete_post', args:{ p_post:'p9' } });
+  });
+  it('avviser bilder som ikke er omkodet til WebP eller JPEG, og for mange bilder',async()=>{
+    const { client } = fakeClient({});
+    const service = new SupabaseElevradsnettService(client);
+    const gif = new Blob([new Uint8Array([1])],{ type:'image/gif' });
+    await expect(service.publishPost({ representationId:'s1-m1', body:'Bilde', audience:'public', images:[{ file:gif, alt:'' }] })).rejects.toThrow('WebP eller JPEG');
+    const webp = { file:new Blob([new Uint8Array([1])],{ type:'image/webp' }), alt:'' };
+    await expect(service.publishPost({ representationId:'s1-m1', body:'Bilde', audience:'public', images:[webp,webp,webp,webp,webp] })).rejects.toThrow('maks 4 bilder');
+  });
+  it('gir og fjerner støtte, følger og rapporterer via RPC-er',async()=>{
+    const { client,calls } = fakeClient({ set_post_support:4, set_follow:12, report_post:'r1' });
+    const service = new SupabaseElevradsnettService(client);
+    expect(await service.setPostSupport({ postId:'p1', supported:true })).toBe(4);
+    expect(await service.setFollow({ organizationId:'s2', following:true })).toBe(12);
+    await service.reportPost({ postId:'p1', category:'spam' });
+    expect(calls).toEqual([
+      { name:'set_post_support', args:{ p_post:'p1', p_supported:true } },
+      { name:'set_follow', args:{ p_org:'s2', p_following:true } },
+      { name:'report_post', args:{ p_post:'p1', p_category:'spam', p_description:null } },
+    ]);
+  });
+  it('henter organisasjonsbilder med kilde fra hierarkiet',async()=>{
+    const { client } = fakeClient({ get_organization_images:[{ profile_image_path:null, profile_image_source:'none', cover_image_path:'c1/cover/a.webp', cover_image_source:'county', locked:false, can_change:true }] });
+    expect(await new SupabaseElevradsnettService(client).getOrganizationImages('s1')).toEqual({ profileUrl:undefined, profileSource:'none',
+      coverUrl:'https://cdn.test/c1/cover/a.webp', coverSource:'county', locked:false, canChange:true });
+  });
   it('publiserer et utkast via update_post',async()=>{
-    const { client,calls } = fakeClient({ update_post:{ id:'p9', organization_id:'s1' }, list_post_cards:[card] });
+    const { client,calls } = fakeClient({ update_post:{ id:'p9', organization_id:'s1' }, list_posts:[card] });
     await new SupabaseElevradsnettService(client).publishPost({ representationId:'s1-m1', draftId:'p9', body:'Hei alle', audience:'county' });
     expect(calls[0]).toMatchObject({ name:'update_post', args:{ p_post:'p9', p_publish:true } });
   });
@@ -107,14 +168,17 @@ describe('SupabaseElevradsnettService: innlegg',()=>{
     expect(await service.listDrafts('s1-m1')).toHaveLength(1);
   });
   it('redigerer, sletter og henter historikk',async()=>{
-    const { client,calls } = fakeClient({ update_post:{ id:'p9', organization_id:'s1' }, list_post_cards:[{ ...card, edited:true }],
+    const { client,calls } = fakeClient({ update_post:{ id:'p9', organization_id:'s1' }, list_posts:[{ ...card, edited:true }],
       get_post_history:[{ id:'r1', body:'Før', audience:'public', school_level:'both', edited_by_name:'Ida', created_at:'2026-10-01T10:00:00Z' }] });
     const service = new SupabaseElevradsnettService(client);
     expect(await service.editPost({ postId:'p9', body:'Etter', audience:'public' })).toMatchObject({ edited:true });
     expect(calls[0]).toMatchObject({ name:'update_post', args:{ p_post:'p9', p_body:'Etter' } });
     expect(await service.listPostHistory('p9')).toEqual([{ id:'r1', body:'Før', audience:'public', schoolLevel:'both', editedByName:'Ida', createdAt:'2026-10-01T10:00:00Z' }]);
     await service.deletePost('p9');
-    expect(calls.at(-1)).toEqual({ name:'delete_post', args:{ p_post:'p9' } });
+    expect(calls.at(-2)).toEqual({ name:'delete_post', args:{ p_post:'p9' } });
+    // Bildene til innlegget slettes av serveren (storage_deletions).
+    await new Promise(resolve=>setTimeout(resolve,0));
+    expect(calls.at(-1)).toEqual({ name:'function.process-media', args:{ action:'cleanup' } });
   });
   it('oversetter feil om målgruppe og arrangement',async()=>{
     const { client } = fakeClient({ create_post:new Error('invalid audience') });

@@ -4,7 +4,14 @@ import type { AdminDashboard, MfaStatus, ModerationReport, TotpEnrollment } from
 import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, DelegateCandidate, Event, EventOrganizer, EventParticipation, FriendConnection, Message, MyRole, Organization, OrganizationCvEntry, OrganizationRoleEntry, PersonCv, Post, PostDraft, PostRevision, PublicOfficer, SchoolAdminRequest, SchoolHistoryEntry, Session } from '@/lib/domain/types';
 import type { AddCommentInput, AddDelegateInput, AdminImagesInput, AdminUserActionInput, AssignPublicOfficeInput, AssignRoleInput, AttendanceInput, ChangeSchoolInput, DecideFriendRequestInput, DecideSchoolAdminRequestInput, DelegationResponseInput, EditPostInput, EventInput, EventInterestInput, EventRegistrationInput, EventStatusChangeInput, FriendRequestInput, ModerationActionInput, ModerationAppealInput, OnboardingInput, OrganizationStatusActionInput, PublishPostInput, RequestLoginCodeInput, SaveDraftInput, SchoolAdminRequestInput, SendMessageInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput } from '@/lib/domain/validation';
 
-export type { AddMembersInput, CreateGroupInput, ReportMessageInput };
+import type { OrganizationImages, Poll } from '@/lib/domain/types';
+import type { ReportPostInput } from '@/lib/domain/validation';
+import type { AppNotification, HandoverOverview, MyHandoverInvite, NotificationPreferences } from '@/lib/domain/notifications';
+import type { HandoverResponseInput, NotificationPreferencesInput, RescheduleHandoverInput, SearchInput, SetElectionDateInput, StartHandoverInput } from '@/lib/domain/validation';
+import type { SearchResult } from '@/lib/domain/search';
+
+export type { AddMembersInput, CreateGroupInput, ReportMessageInput, ReportPostInput };
+export type { HandoverResponseInput, NotificationPreferencesInput, RescheduleHandoverInput, SearchInput, SetElectionDateInput, StartHandoverInput };
 export type { AddCommentInput, AddDelegateInput, AdminImagesInput, AdminUserActionInput, AssignPublicOfficeInput, AssignRoleInput, AttendanceInput, ChangeSchoolInput, DecideFriendRequestInput, DecideSchoolAdminRequestInput, DelegationResponseInput, EditPostInput, EventInput, EventInterestInput, EventRegistrationInput, EventStatusChangeInput, FriendRequestInput, ModerationActionInput, ModerationAppealInput, OnboardingInput, OrganizationStatusActionInput, PublishPostInput, RequestLoginCodeInput, SaveDraftInput, SchoolAdminRequestInput, SendMessageInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput };
 
 /**
@@ -80,8 +87,13 @@ export interface ElevradsnettService {
   challengeTotp(input:{ factorId:string; code:string }):Promise<void>;
 
   // Innlegg (§7). Serveren avgjør hvem som kan publisere, redigere og slette, og hvem som ser hva.
-  /** Publiserer et nytt innlegg, eller et utkast når draftId er satt. */
-  publishPost(input:PublishPostInput):Promise<Post>;
+  /**
+   * Publiserer et nytt innlegg, eller et utkast når draftId er satt. Med avstemning eller bilder lagres innlegget først som utkast,
+   * bildene lastes opp og kontrolleres, og så publiseres det. onProgress sier hva som skjer, så behandlingsstatusen kan vises.
+   */
+  publishPost(input:PublishPostInput, onProgress?:(progress:PublishProgress)=>void):Promise<Post>;
+  /** Ett innlegg (delte lenker). null hvis det ikke finnes eller ikke er synlig for brukeren. */
+  getPost(postId:string):Promise<Post|null>;
   /** Lagrer et nytt utkast, eller oppdaterer et eksisterende (draftId). */
   saveDraft(input:SaveDraftInput):Promise<PostDraft>;
   /** Utkastene til organisasjonen representasjonen gjelder. */
@@ -93,9 +105,12 @@ export interface ElevradsnettService {
   /** Tidligere versjoner av et innlegg, nyeste først. */
   listPostHistory(postId:string):Promise<PostRevision[]>;
   addComment(input:AddCommentInput):Promise<Comment>;
-  setPostSupport(input:{ postId:string; supported:boolean }):Promise<void>;
-  vote(input:VoteInput):Promise<void>;
-  reportPost(input:{ postId:string }):Promise<void>;
+  /** Gir eller fjerner støtte. Returnerer antall støtter; bare antallet er offentlig. */
+  setPostSupport(input:{ postId:string; supported:boolean }):Promise<number>;
+  /** Stemmer, eller endrer stemmen, på vegne av organisasjonen. Returnerer avstemningen slik serveren viser den nå. */
+  vote(input:VoteInput):Promise<Poll>;
+  /** Rapporterer et innlegg til moderatorene (§15). */
+  reportPost(input:ReportPostInput):Promise<void>;
 
   // Venneråd: gjensidig godkjent forbindelse mellom to skoler. Skoleadministratorer styrer dem.
   listFriendConnections(schoolId:string):Promise<FriendConnection[]>;
@@ -105,7 +120,12 @@ export interface ElevradsnettService {
   endFriendConnection(connectionId:string):Promise<void>;
 
   // Organisasjoner
-  setFollow(input:{ organizationId:string; following:boolean }):Promise<void>;
+  /** Følger eller slutter å følge. Returnerer antall følgere. */
+  setFollow(input:{ organizationId:string; following:boolean }):Promise<number>;
+  /** Profil- og coverbilde etter bildehierarkiet (§14), og om brukeren kan endre dem. */
+  getOrganizationImages(organizationId:string):Promise<OrganizationImages>;
+  /** Laster opp et ferdig omkodet bilde som organisasjonens eget, eller fjerner det (null). */
+  setOrganizationImage(input:{ organizationId:string; kind:'profile'|'cover'; image:Blob|null }):Promise<OrganizationImages>;
 
   // Arrangementer (§8). Interesse, påmelding, delegater og bekreftet oppmøte er adskilte handlinger.
   /** Organisasjonene brukeren kan opprette arrangementer for. Tom liste uten rettigheter. */
@@ -165,7 +185,38 @@ export interface ElevradsnettService {
   getAttachmentUrl(path:string):Promise<string>;
   /** Kalles når det kommer nye meldinger eller endringer i samtalene. Returnerer en funksjon som avslutter lyttingen. */
   subscribeToMessages(listener:()=>void):()=>void;
+
+  // Søk (§6, prompt 8). Virker uten innlogging; serveren avgjør hva som er synlig.
+  /** Skoler, styrer, personer, arrangementer og innlegg. includeFormer tar med deaktiverte skoler og tidligere tillitsvalgte. */
+  search(input:SearchInput):Promise<SearchResult[]>;
+
+  // Varsler (§5, prompt 11). Lagres på serveren; e-post sendes som ett daglig sammendrag.
+  /** Egne varsler i plattformen, nyeste først. */
+  listNotifications():Promise<AppNotification[]>;
+  /** Merker varslene som lest. Uten liste: alle uleste. */
+  markNotificationsRead(ids?:string[]):Promise<void>;
+  getNotificationPreferences():Promise<NotificationPreferences>;
+  setNotificationPreferences(input:NotificationPreferencesInput):Promise<void>;
+  /** Kalles når det kommer nye varsler. Returnerer en funksjon som avslutter lyttingen. */
+  subscribeToNotifications(listener:()=>void):()=>void;
+
+  // Styreoverføring (§5). Serveren avgjør hvem som kan starte, gjenopprette og godta.
+  getHandoverOverview(organizationId:string):Promise<HandoverOverview>;
+  /** Dato for neste styreskifte. Kan endres hvis valget utsettes. */
+  setElectionDate(input:SetElectionDateInput):Promise<void>;
+  /** Starter overføringen og sender invitasjonene. Med recoveryReason er det en gjenoppretting fra styret. Returnerer id-en. */
+  startHandover(input:StartHandoverInput):Promise<string>;
+  rescheduleHandover(input:RescheduleHandoverInput):Promise<void>;
+  cancelHandover(handoverId:string):Promise<void>;
+  /** Aktiverer en planlagt overføring nå i stedet for på aktiveringsdatoen. */
+  activateHandoverNow(handoverId:string):Promise<void>;
+  /** Invitasjoner til den innloggede som venter på svar. */
+  listMyHandoverInvites():Promise<MyHandoverInvite[]>;
+  respondToHandoverInvite(input:HandoverResponseInput):Promise<void>;
 }
+
+/** Steg i publiseringen, så grensesnittet kan vise behandlingsstatus. */
+export type PublishProgress = { step:'saving' } | { step:'uploading'|'checking'; index:number; count:number } | { step:'publishing' };
 
 /** Kastes av adaptere for operasjoner som ennå ikke har en RPC på serveren. */
 export class NotImplementedError extends Error {

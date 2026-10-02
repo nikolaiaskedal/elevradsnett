@@ -266,23 +266,6 @@ begin
   insert into audit_logs(actor_user_id,organization_id,action,target_type,target_id,details) values(auth.uid(),scope,'moderation.applied',r.target_type,r.target_id::text,jsonb_build_object('action',p_action,'reason',trim(p_reason),'report_id',r.id));
 end $$;
 
-create or replace function public.report_content(p_target_type text,p_target uuid,p_category text,p_description text default null) returns uuid
-language plpgsql security definer set search_path=public as $$
-declare report_id uuid;
-begin
-  if not public.is_active_user() then raise exception 'not authorized'; end if;
-  if p_target_type not in ('post','comment','profile','media') then raise exception 'invalid target type'; end if;
-  if char_length(trim(coalesce(p_category,'')))<2 or char_length(coalesce(p_description,''))>1000 then raise exception 'invalid report'; end if;
-  if (p_target_type='post' and not exists(select 1 from posts p where p.id=p_target and public.can_view_post(p,auth.uid())))
-    or (p_target_type='comment' and not exists(select 1 from comments c where c.id=p_target and c.moderation_status='visible' and exists(select 1 from posts p where p.id=c.post_id and public.can_view_post(p,auth.uid()))))
-    or (p_target_type='profile' and not exists(select 1 from profiles p where p.id=p_target and p.status='active'))
-    or (p_target_type='media' and not exists(select 1 from post_media pm join posts p on p.id=pm.post_id where pm.id=p_target and public.can_view_post(p,auth.uid()))) then raise exception 'content not found'; end if;
-  if exists(select 1 from moderation_reports r where r.reporter_id=auth.uid() and r.target_type=p_target_type and r.target_id=p_target and r.status in ('open','reviewing')) then raise exception 'already reported'; end if;
-  insert into moderation_reports(reporter_id,target_type,target_id,category,description,status)
-    values(auth.uid(),p_target_type,p_target,trim(p_category),nullif(trim(p_description),''),'open') returning id into report_id;
-  return report_id;
-end $$;
-
 create or replace function public.appeal_moderation_report(p_report uuid,p_reason text) returns void
 language plpgsql security definer set search_path=public as $$
 declare r moderation_reports;
@@ -305,5 +288,3 @@ revoke all on function public.is_super_admin_account(),public.admin_scope_allows
 grant execute on function public.is_super_admin_account(),public.get_admin_dashboard(uuid),public.admin_manage_user(uuid,uuid,text,uuid,text),
   public.set_organization_status(uuid,uuid,organization_status,text),public.set_admin_images(uuid,uuid,text,text,boolean),public.delete_placeholder(uuid,text,uuid),
   public.delete_all_placeholders(uuid),public.list_moderation_queue(uuid),public.apply_moderation_action(uuid,text,text),public.appeal_moderation_report(uuid,text) to authenticated;
-revoke all on function public.report_content(text,uuid,text,text) from public;
-grant execute on function public.report_content(text,uuid,text,text) to authenticated;

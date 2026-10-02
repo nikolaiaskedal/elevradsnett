@@ -9,8 +9,15 @@ export type PublicOfficer = { id:string; name:string; publicTitle:string };
 export type OrganizationPriority = { id:string; title:string; description:string };
 export type Organization = { id:string; type:OrganizationType; name:string; schoolName?:string; initials:string; county:string; place?:string; localBoard?:string; schoolLevel?:'upper_secondary'|'lower_secondary'; status:OrganizationStatus; bio:string; contactEmail?:string; studentCount?:number; memberCount?:number; followers:number; following?:boolean; officersTitle?:string; officers?:PublicOfficer[]; officerCount?:number; prioritiesTitle?:string; priorities?:OrganizationPriority[] };
 export type Comment = { id:string; organizationId:string; organizationName:string; actorName:string; createdAt:string; body:string };
-export type PostMedia = { id:string; type:'image'|'video'; alt:string; url?:string };
-export type Post = { id:string; organizationId:string; initials:string; organizationName:string; actorName:string; actorRole:string; createdAt:string; body:string; audience:Audience; priority?:boolean; edited?:boolean; likes:number; supported?:boolean; comments:number; commentItems?:Comment[]; tags?:string[]; media?:PostMedia[]; poll?:{ question:string; options:{ id:string; label:string; votes:number }[]; closesAt:string; resultsVisibility?:'after_vote'|'after_close'|'always' }; eventId?:string;
+/** Bilde i et innlegg. status er behandlingsstatusen fra serveren; bilder som ikke er klare vises bare for dem som kan endre innlegget. */
+export type PostMedia = { id:string; type:'image'|'video'; alt:string; url?:string; status?:'pending'|'ready'|'failed'; width?:number; height?:number };
+/**
+ * Avstemning (§7). Én stemme per organisasjon; myVote er stemmen til organisasjonen brukeren representerer.
+ * Stemmetallene er bare med når showResults er sann (etter egen stemme eller frist), ellers er de 0.
+ */
+export type Poll = { id?:string; question:string; options:{ id:string; label:string; votes:number }[]; closesAt:string; closed?:boolean; myVote?:string;
+  showResults?:boolean; totalVotes?:number; resultsVisibility?:'after_vote'|'after_close'|'always' };
+export type Post = { id:string; organizationId:string; initials:string; organizationName:string; actorName:string; actorRole:string; createdAt:string; body:string; audience:Audience; priority?:boolean; edited?:boolean; likes:number; supported?:boolean; comments:number; commentItems?:Comment[]; tags?:string[]; media?:PostMedia[]; poll?:Poll; eventId?:string;
   /** Skoleform innlegget er rettet mot. */
   schoolLevel?:SchoolLevelTarget;
   /** Serverens svar: kan brukeren redigere og slette innlegget og se historikken? */
@@ -52,6 +59,9 @@ export type PersonCv = { id:string; name:string; initials:string; avatarUrl?:str
 /** Skolens CV: én rad per person som representerte skolen på et arrangement. userId mangler for deaktiverte personer. */
 export type OrganizationCvEntry = { eventId:string; title:string; startsAt:string; category:EventCategory; organizerName:string; elevtinget:boolean; userId?:string; name:string; officeTitle?:string };
 export type { Conversation, Message } from '@/lib/domain/messaging';
+/** Profil- og coverbilde for en organisasjon etter bildehierarkiet (§14). source sier om bildet er eget eller arvet. canChange er serverens svar. */
+export type ImageSource = 'own'|'local_board'|'county'|'global'|'none';
+export type OrganizationImages = { profileUrl?:string; profileSource:ImageSource; coverUrl?:string; coverSource:ImageSource; locked:boolean; canChange:boolean };
 export type CurrentUser = { id:string; name:string; initials:string; schoolId:string|null; email:string; avatarUrl?:string };
 /**
  * Hvem som bruker appen. «onboarding» betyr innlogget uten profil: brukeren må velge skole og navn først.

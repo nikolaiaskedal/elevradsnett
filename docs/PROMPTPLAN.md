@@ -11,12 +11,63 @@ Planen deler `docs/KRAVSPEC.md` inn i prompter som sendes én om gangen, hver i 
 | 3. Innlogging, profiler og offentlig lesing | Ferdig, med manuelle steg (se *Før prompt 4*) | PR #13 |
 | 4. Medlemskap, roller og aktiv representasjon | Ferdig | PR #14 |
 | 5. Innlegg | Ferdig | PR #16 |
-| 6. Bilder | Neste | – |
+| 6. Bilder | Ferdig, med manuelle steg (se *Før neste prompt (etter prompt 6 og 7)*) | se git-loggen |
+| 7. Kommentarer, reaksjoner, avstemninger, følging og deling | Ferdig, med de samme manuelle stegene | se git-loggen |
+| 8. Feed og søk | Ferdig, med manuelle steg (se *Før neste prompt (etter prompt 8 og 11)*) | se git-loggen |
 | 9. Arrangementer og CV | Ferdig, med ett manuelt steg (se *Før neste prompt*) | se git-loggen |
-| 10. Meldinger | Ferdig, migrasjon må kjøres manuelt | se git-loggen |
+| 10. Meldinger | Ferdig, med ett manuelt steg (migrasjonen med `drop policy`, se *Utgangspunkt etter prompt 10*) | se git-loggen |
+| 11. Varsler og styreoverføring | Ferdig, med manuelle steg (se *Før neste prompt (etter prompt 8 og 11)*) | se git-loggen |
 | 12. Adminpanel og moderering | Ferdig, migrasjon må kjøres manuelt | se git-loggen |
 
-Neste prompt som skal sendes er **prompt 6**. Prompt 9 er gjort før 6–8 etter ønske. Kjør først `supabase/manual/gjenstar_fra_prompt9.sql` i SQL Editor i pilotprosjektet, og sjekk at stegene 3–6 under *Før prompt 4* er gjort (e-postmal, OTP-innstillinger og GitHub-variablene).
+Prompt 1–12 er ferdige. Neste prompt er **13** (CSV-import). Kjør først de manuelle stegene i rekkefølge: *Før neste prompt (etter prompt 6 og 7)*, deretter *Før neste prompt (etter prompt 8 og 11)*, `supabase/manual/gjenstar_fra_prompt9.sql`, `supabase/migrations/202610100001_meldinger.sql` og `supabase/migrations/202610120003_admin_moderering.sql` i SQL Editor i pilotprosjektet. Sjekk også at stegene 3–6 under *Før prompt 4* er gjort (e-postmal, OTP-innstillinger og GitHub-variablene).
+
+## Utgangspunkt etter prompt 8 og 11 (2. oktober 2026)
+
+Prompt 8 og 11 ble bygd i samme økt, etter at 6 og 7 var merget.
+
+- **Feed (§6):** Rangeringen ligger i `get_ranked_feed` og er dokumentert i `docs/FEED.md`: prioritering, geografi (egen skole, lokallag, venneråd, fylke, EO), følging, skoleform, ferskhet og begrenset vekt på engasjement. Innloggede uten verv får nå feeden rangert for skolen sin, ikke bare offentlige innlegg. Hjem har valget Anbefalt / Nyeste, og valget huskes i nettleseren. Feeden hentes på nytt ved bytte av skole eller representasjon.
+- **Søk (§6):** Utforsk søker på serveren (`search_directory`) i skoler, styrer, personer, arrangementer og innlegg, med norsk fulltekstsøk og prefikssøk på navn. Filteret «Vis tidligere tillitsvalgte og deaktiverte skoler» tar med deaktiverte skoler og personer med avsluttede verv. Personer som har deaktivert kontoen selv, vises aldri. Begrensning av antall søk kommer i prompt 16.
+- **Varsler (§5):** Varsler lages av serverfunksjoner og triggere: nye meldinger (ett ulest varsel per samtale, ikke for dempede samtaler eller blokkerte, uten meldingsinnhold), verv og rettigheter, forespørsler om skoleadministrator, venneråd, arrangementer og styreoverføring. Triggeren `prepare_notification` setter kategori, følger innstillingene og slår sammen uleste varsler om det samme. Siden `#/varsler` viser varslene, invitasjoner til nytt styre og innstillinger per kategori og kanal. Menyen viser antall uleste i sanntid. Pushvarsler er merket «Kommer senere» og har egne kolonner (`send_push`, `push_sent_at`), så de kan kobles på i prompt 19.
+- **E-post:** Ett daglig sammendrag per bruker med uleste varsler, sendt av Edge-funksjonen `send-digest` via Gmail SMTP (maks 300 per kjøring, så grensen på ca. 500 per døgn holder sammen med engangskodene). Invitasjoner til nye brukere sendes samme vei. Meldingsinnhold sendes aldri på e-post.
+- **Styreoverføring (§5):** Administrasjon → Styreoverføring viser datoen for styreskiftet (kan endres), styreperioden og antall skoleadministratorer, og har en veiviser i fire steg: datoer, nytt styre (elever ved skolen eller nye brukere på e-post), rettigheter og forhåndsvisning. De inviterte godtar selv under Varsler. Overføringen blir planlagt når minst én ny skoleadministrator har godtatt, og aktiveres på aktiveringsdatoen (eller med «Aktiver nå»): nye verv og rettigheter gis, verv og rettigheter som ikke videreføres får sluttdato, og ny styreperiode starter. Gamle administratorer beholder tilgangen til da. Neste styreskifte settes til ett år etter.
+- **Påminnelser og eskalering:** pg_cron kjører `run_daily_jobs` hver natt kl. 03.00 UTC. Skoleadministratorene får påminnelse 14, 7 og 1 dag før styreskiftet og deretter ukentlig. Etter 7 dager varsles styreadministratorene i området, som kan starte en gjenoppretting med begrunnelse; etter 21 dager varsles superadministratorene. Skoler med en planlagt overføring får ingen påminnelser.
+- **Rolleutløp:** `expire_roles` (i nattjobben) setter status «ended» på verv og rettigheter med passert sluttdato, logger det og varsler styret hvis en skole mister siste skoleadministrator. Invitasjoner som ikke er besvart innen 30 dager etter aktiveringsdatoen, utløper.
+- Databasetestene ligger i `supabase/tests/feed_sok.sql` og `supabase/tests/varsler_overforing.sql`. Alle databasetestene (også `bilder_aktivitet.sql`) er kjørt lokalt med Docker og går gjennom, og `lib/supabase/database.types.ts` er generert på nytt fra den lokale databasen.
+- Migrasjonene `202610120001_feed_sok.sql` og `202610120002_varsler_overforing.sql` har ingen `drop`.
+
+### Før neste prompt (etter prompt 8 og 11, manuelt, ca. 15 minutter)
+
+Gjør dette etter stegene under *Før neste prompt (etter prompt 6 og 7)*, siden migrasjonene bygger på dem.
+
+1. Lim inn hele `supabase/migrations/202610120001_feed_sok.sql` i SQL Editor i Supabase og kjør den.
+2. Lim inn hele `supabase/migrations/202610120002_varsler_overforing.sql` og kjør den. Den slår på pg_cron og planlegger nattjobben. Kontroller med `select jobname,schedule from cron.job;`.
+3. Lag en tilfeldig hemmelighet på minst 24 tegn, f.eks. med `openssl rand -hex 32`.
+4. Under *Edge Functions → Secrets* i Supabase: legg inn `CRON_SECRET` (hemmeligheten), `SMTP_HOST` = `smtp.gmail.com`, `SMTP_PORT` = `465`, `SMTP_USER` = Gmail-adressen, `SMTP_PASS` = appassordet fra *Før prompt 3*, `SMTP_FROM` = `Elevrådsnett <Gmail-adressen>` og `APP_URL` = `https://nikolaiaskedal.github.io/elevradsnett/`.
+5. Publiser funksjonen uten JWT-sjekk (den sjekker hemmeligheten selv): `npx supabase functions deploy send-digest --project-ref ibipqyombdmtfvgthugz --no-verify-jwt`.
+6. Åpne `supabase/manual/varsler_epost.sql`, bytt `HEMMELIGHET` med samme verdi som `CRON_SECRET`, og kjør innholdet i SQL Editor. Kontrollspørringen nederst skal gi to jobber. Ikke lagre hemmeligheten i filen i repoet.
+7. Test: start en styreoverføring, godta invitasjonen som den nye administratoren, og sjekk at varselet kommer med en gang og e-postsammendraget samme dag kl. 14 UTC.
+
+## Utgangspunkt etter prompt 6 og 7 (2. oktober 2026)
+
+- **Bilder (§11, §14):** Innlegg kan ha inntil fire bilder med bildetekst. Alle bilder (innlegg, profilbilder, arrangementer og organisasjoner) kodes om i nettleseren, og edge-funksjonen `process-media` kontrollerer filen på serveren: filtype ut fra innholdet, størrelse, mål og at EXIF, XMP og GPS er borte (`supabase/functions/_shared/media-check.ts`, testet i `tests/media-check.test.ts`). RPC-ene som tar bildet i bruk krever godkjent kontroll (`media_checks`).
+- Innlegg med bilder eller avstemning lagres først som utkast og publiseres når alt er lastet opp og kontrollert. Behandlingsstatusen vises i dialogen; bilder som ikke er klare vises med status bare for dem som kan endre innlegget.
+- Filer slettes når innholdet slettes: databasen legger stiene i `storage_deletions`, og `process-media` (`action:'cleanup'`) sletter dem. Appen ber om opprydding etter sletting av innlegg og bytte av organisasjonsbilder. Prompt 16 bør legge opprydding inn i den nattlige jobben.
+- Organisasjonssiden viser profil- og coverbilde etter hierarkiet, og skole- og styreadministratorer kan laste opp, bytte og fjerne egne bilder. Standardbilder og lås kommer i adminpanelet (prompt 12).
+- Lagringsområdene tar bare bilder. Video kommer i prompt 20.
+- **Aktivitet (§6, §7):** Støtte, følging og rapportering av innlegg går nå mot Supabase (`set_post_support`, `set_follow`, `report_post`). Bare antall reaksjoner er offentlig; RLS lot tidligere alle lese hvem som hadde reagert. Kommentarer, reaksjoner, følging og stemmer kan ikke lenger skrives direkte i tabellene, og kommentarer er begrenset til 10 i minuttet.
+- Avstemninger har spørsmål, 2–10 alternativer og sluttdato (`add_post_poll`). Én stemme per organisasjon (aktiv representasjon), som kan endres til fristen. Resultatet vises etter egen stemme eller frist (`list_posts`, som erstatter `list_post_cards`).
+- Deling gjelder bare offentlige innlegg, og lenken går til innlegget (`#/innlegg/<id>`).
+- Til migrasjonene er kjørt, faller appen tilbake til `list_post_cards`, så feeden virker. Opplasting av bilder (også profilbilder og arrangementsbilder) virker først når både migrasjonene og den nye `process-media` er på plass.
+- Databasetestene ligger i `supabase/tests/bilder_aktivitet.sql`. De er kjørt lokalt i økten for prompt 8 og 11 og går gjennom, og `lib/supabase/database.types.ts` er generert på nytt der.
+
+### Før neste prompt (etter prompt 6 og 7, manuelt, ca. 10 minutter)
+
+Supabase-koblingen fra Claude fikk ikke lov til å endre pilotprosjektet i denne økten, så alt gjøres manuelt.
+
+1. Lim inn hele `supabase/migrations/202610110001_bilder.sql` i SQL Editor i Supabase og kjør den.
+2. Lim inn hele `supabase/migrations/202610110002_aktivitet.sql` og kjør den.
+3. Publiser edge-funksjonen: `npx supabase login`, deretter `npx supabase functions deploy process-media --project-ref ibipqyombdmtfvgthugz`. JWT-sjekken skal være på (standard). Service role-nøkkelen finnes automatisk i funksjonen og skal ikke legges noe annet sted.
+4. Test: last opp et profilbilde, publiser et innlegg med bilde og avstemning, stem og slett innlegget.
 
 ## Utgangspunkt etter prompt 12 (2. oktober 2026)
 
@@ -24,7 +75,7 @@ Neste prompt som skal sendes er **prompt 6**. Prompt 9 er gjort før 6–8 etter
 - Brukere kan flyttes til en annen skole, deaktiveres, reaktiveres eller anonymiseres. En administrator kan ikke administrere seg selv, og en profil brukeren selv deaktiverte kan ikke reaktiveres uten samtykke.
 - Moderering støtter skjuling, sletting, advarsel, sju dagers begrensning, deaktivering, gjenoppretting, ingen handling, klage og ny vurdering. En meldingssak deler fortsatt bare den konkrete rapporterte meldingen, og slike saker er begrenset til superadministrator.
 - Superadministratorrettigheten i databasen krever AAL2. Adminsiden har oppsett og kodekontroll for TOTP via Supabase Auth. Andre administratorer kan bruke TOTP frivillig.
-- Migrasjonen `supabase/migrations/202610120001_admin_moderering.sql` må kjøres i pilotprosjektet før de nye flatene brukes. Den inneholder sletting av placeholdermetadata og må derfor kjøres manuelt i SQL Editor dersom databasekoblingen krever bekreftelse.
+- Migrasjonen `supabase/migrations/202610120003_admin_moderering.sql` må kjøres i pilotprosjektet før de nye flatene brukes. Den inneholder sletting av placeholdermetadata og må derfor kjøres manuelt i SQL Editor dersom databasekoblingen krever bekreftelse.
 - Databasetestene ligger i `supabase/tests/admin_moderering.sql`.
 
 ## Utgangspunkt etter prompt 9 (1. oktober 2026)
@@ -219,19 +270,19 @@ Gjør stegene i denne rekkefølgen. Settes variablene i steg 5 før migrasjonen 
    - Utkast, forhåndsvisning, redigering merket «redigert» med historikk for administratorer, sletting og tagging av arrangementer.
    - XSS-rensing.
    - Venneråd: forespørsel og godkjenning mellom skoler.
-6. **Bilder** (§11)
+6. ✅ **Bilder** (§11)
    - Opplasting til de fire lagringsområdene, med grenser for størrelse og filtype og kontroll av faktisk MIME-type i `process-media`.
    - Bildene kodes om i nettleseren, noe som fjerner EXIF og GPS, og serveren kontrollerer at det er gjort.
    - Behandlingsstatus vises.
    - Filer slettes når innholdet de hører til slettes.
    - Video kommer etter piloten (prompt 20) på grunn av lagringsgrensen.
-7. **Kommentarer, reaksjoner, avstemninger, følging og deling** (§7)
+7. ✅ **Kommentarer, reaksjoner, avstemninger, følging og deling** (§7)
    - Kommentarer skrives på vegne av den aktive organisasjonen og krever aktivt verv.
    - Bare antall reaksjoner vises offentlig.
    - Avstemninger gir én stemme per organisasjon, som kan endres før fristen. Resultatet vises etter stemme eller frist.
    - Følging.
    - Deling via Web Share API eller kopiert lenke, kun for offentlig innhold.
-8. **Feed og søk** (§6)
+8. ✅ **Feed og søk** (§6). Ferdig, se *Utgangspunkt etter prompt 8 og 11*.
    - Rangeringen fra planen, inkludert skoleform. Feeden beregnes på nytt ved bytte av skole eller representasjon.
    - Valg mellom anbefalt og kronologisk feed.
    - Fulltekstsøk på norsk etter skoler, styrer, personer, arrangementer og innlegg.
@@ -246,7 +297,7 @@ Gjør stegene i denne rekkefølgen. Settes variablene i steg 5 før migrasjonen 
     - Søk etter organisasjon viser kontaktpersoner og tilbud om å opprette en gruppe.
     - Sanntid, uleste meldinger, valgfri lest-status, demping og vedlegg via tidsbegrensede lenker.
     - Slette for egen visning, rapportere innhold valgt av brukeren, blokkere og forlate grupper.
-11. **Varsler og styreoverføring** (§5)
+11. ✅ **Varsler og styreoverføring** (§5). Ferdig, se *Utgangspunkt etter prompt 8 og 11*.
     - Varsler i plattformen og på e-post, med egne innstillinger. Bygget slik at push kan kobles på senere.
     - Varsler på e-post samles i ett daglig sammendrag per bruker, så gratisgrensen for e-post holder (ca. 500 per dag i Gmail, 100 per dag i Resend etter piloten).
     - `pg_cron` sender påminnelser 14, 7 og 1 dag før, deretter ukentlig, og eskalerer etter 7 dager.

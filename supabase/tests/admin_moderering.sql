@@ -32,7 +32,7 @@ do $$ declare scope uuid:=(select id from organizations where type='county_board
   if (select status from profiles where id='c1000000-0000-4000-8000-000000000002')<>'deactivated' then raise exception 'bruker ble ikke deaktivert'; end if;
   perform public.admin_manage_user(scope,'c1000000-0000-4000-8000-000000000002','restore',null,'Nytt verv bekreftet');
 
-  report_id:=public.report_content('post','c2000000-0000-4000-8000-000000000001','upassende','Test');
+  report_id:=public.report_post('c2000000-0000-4000-8000-000000000001','inappropriate','Test');
   if jsonb_array_length(public.list_moderation_queue(scope))=0 then raise exception 'modereringssaken vises ikke'; end if;
   perform public.apply_moderation_action(report_id,'hide','Bryter retningslinjene');
   if (select moderation_status from posts where id='c2000000-0000-4000-8000-000000000001')<>'hidden' or (select status from moderation_reports where id=report_id)<>'resolved' then raise exception 'modereringshandlingen ble ikke brukt'; end if;

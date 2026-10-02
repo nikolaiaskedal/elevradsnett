@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { COUNTIES } from '@/lib/domain/counties';
 import type { Audience, OrganizationType } from '@/lib/domain/types';
+import { NOTIFICATION_CATEGORIES } from '@/lib/domain/notifications';
+import { SEARCH_MAX_LENGTH } from '@/lib/domain/search';
 
 // Valideringsskjemaer for alt som skrives. Delt mellom web, iOS og Android; databasen validerer i tillegg.
 
@@ -13,9 +15,40 @@ export const POST_MAX_LENGTH = 6000;
 export const COMMENT_MAX_LENGTH = 3000;
 export const MESSAGE_MAX_LENGTH = 5000;
 
+export const POLL_MAX_OPTIONS = 10;
+/** Avstemning i et nytt innlegg. Sluttdato er valgfri, men må være frem i tid og innen ett år (som add_post_poll). */
 export const pollInputSchema = z.object({
-  options:z.array(z.string().trim().min(1).max(200)).min(2, 'En avstemning trenger minst to svaralternativer.').max(10),
+  question:z.string().transform(v=>cleanText(v)).pipe(z.string().min(1,'Skriv et spørsmål til avstemningen.').max(300,'Spørsmålet kan ha maks 300 tegn.')),
+  options:z.array(z.string().trim().max(200,'Et svaralternativ kan ha maks 200 tegn.')).transform(list=>list.filter(Boolean))
+    .pipe(z.array(z.string()).min(2, 'En avstemning trenger minst to svaralternativer.').max(POLL_MAX_OPTIONS, `Maks ${POLL_MAX_OPTIONS} svaralternativer.`)),
+  closesAt:z.iso.datetime({ offset:true, message:'Ugyldig sluttdato.' }).optional()
+    .refine(v=>!v || (new Date(v).getTime()>Date.now() && new Date(v).getTime()<=Date.now()+366*24*3600*1000),'Sluttdatoen må være frem i tid og innen ett år.'),
 });
+export type PollInput = z.input<typeof pollInputSchema>;
+
+/** Bilder i innlegg kodes om i nettleseren (EXIF og GPS fjernes), og serveren kontrollerer filen (process-media). */
+export const POST_IMAGE_MAX_BYTES = 10*1024*1024;
+export const POST_IMAGE_MAX_COUNT = 4;
+export const ALT_TEXT_MAX_LENGTH = 300;
+export const postImageSchema = z.object({
+  type:z.enum(['image/webp','image/jpeg'],'Bildet må være WebP eller JPEG.'),
+  size:z.number().int().positive('Bildet er tomt.').max(POST_IMAGE_MAX_BYTES,'Bildet kan være maks 10 MB.'),
+  alt:z.string().transform(v=>cleanText(v)).pipe(z.string().max(ALT_TEXT_MAX_LENGTH,`Bildeteksten kan ha maks ${ALT_TEXT_MAX_LENGTH} tegn.`)),
+});
+/** Profil- og coverbilde for organisasjoner. */
+export const organizationImageSchema = z.object({
+  kind:z.enum(['profile','cover']),
+  type:z.enum(['image/webp','image/jpeg','image/png'],'Bildet må være WebP, JPEG eller PNG.'),
+  size:z.number().int().positive('Bildet er tomt.').max(5*1024*1024,'Bildet kan være maks 5 MB.'),
+});
+
+export const REPORT_CATEGORIES = ['harassment','spam','inappropriate','other'] as const;
+export const reportPostSchema = z.object({
+  postId:idSchema,
+  category:z.enum(REPORT_CATEGORIES, 'Velg hva rapporten gjelder.'),
+  description:z.string().trim().max(1000, 'Beskrivelsen kan ha maks 1000 tegn.').optional(),
+});
+export type ReportPostInput = z.input<typeof reportPostSchema>;
 
 /**
  * Rensing av tekst før lagring (XSS, §7): fjerner HTML-tagger, styretegn og usynlige retningstegn, og trimmer.
@@ -45,9 +78,13 @@ export const publishPostSchema = postContentSchema.extend({
   representationId:idSchema,
   draftId:idSchema.optional(),
   poll:pollInputSchema.optional(),
-  withImage:z.boolean().optional(),
+  images:z.array(postImageSchema).max(POST_IMAGE_MAX_COUNT,`Et innlegg kan ha maks ${POST_IMAGE_MAX_COUNT} bilder.`).default([]),
 });
-export type PublishPostInput = z.input<typeof publishPostSchema>;
+/** Bildene er ferdig omkodet (preparePostImage) og lastes opp av tjenesten; skjemaet sjekker type, størrelse og bildetekst. */
+export type PostImageInput = { file:Blob; alt:string };
+export type PublishPostInput = Omit<z.input<typeof publishPostSchema>,'images'> & { images?:PostImageInput[] };
+/** Skjemaets form av et innlegg med bilder. */
+export const publishPostFields = (input:PublishPostInput)=>({ ...input, images:(input.images ?? []).map(i=>({ type:i.file.type, size:i.file.size, alt:i.alt })) });
 export const saveDraftSchema = postContentSchema.extend({ representationId:idSchema, draftId:idSchema.optional() });
 export type SaveDraftInput = z.input<typeof saveDraftSchema>;
 export const editPostSchema = postContentSchema.extend({ postId:idSchema });
@@ -249,3 +286,62 @@ export function errorMessage(error:unknown) {
   if (error instanceof Error) return error.message;
   return 'Noe gikk galt.';
 }
+
+// ---- Varsler og styreoverføring (§5, prompt 11) ----
+const notificationCategorySchema = z.enum(NOTIFICATION_CATEGORIES, 'Ukjent varseltype.');
+export const notificationPreferencesSchema = z.object({
+  inApp:z.boolean(), email:z.boolean(),
+  inAppOff:z.array(notificationCategorySchema).max(NOTIFICATION_CATEGORIES.length),
+  emailOff:z.array(notificationCategorySchema).max(NOTIFICATION_CATEGORIES.length),
+});
+export type NotificationPreferencesInput = z.input<typeof notificationPreferencesSchema>;
+
+const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Ugyldig dato.');
+const daysFromToday = (days:number)=>{ const d = new Date(); return isoDate(new Date(d.getFullYear(),d.getMonth(),d.getDate()+days)); };
+/** Dato for styreskiftet. Kan være litt tilbake i tid hvis overføringen er forsinket. Databasen sjekker det samme. */
+export const handoverDateSchema = dateString.refine(v=>v>=daysFromToday(-60) && v<=daysFromToday(MAX_ELECTION_DAYS_AHEAD), 'Velg en dato fra to måneder tilbake og inntil to år frem.');
+export const setElectionDateSchema = z.object({ organizationId:idSchema, date:handoverDateSchema });
+export type SetElectionDateInput = z.input<typeof setElectionDateSchema>;
+
+export const HANDOVER_MAX_INVITES = 40;
+export const handoverInviteSchema = z.object({
+  userId:z.string().trim().min(1).optional(),
+  email:emailSchema.optional(),
+  /** Navnet vises bare for invitasjoner på e-post, til personen har laget profil. */
+  name:z.string().trim().max(120, 'Navnet kan ha maks 120 tegn.').optional(),
+  publicTitle:officeTitleSchema.optional(),
+  adminRole:z.enum(['school_admin','content_manager'], 'Ukjent rettighet.').optional(),
+}).refine(v=>!!v.userId !== !!v.email, 'Velg en person, eller skriv inn e-postadressen til en ny bruker.')
+  .refine(v=>!!v.publicTitle || !!v.adminRole, 'Gi hver person et verv eller en rettighet.');
+export type HandoverInviteInput = z.input<typeof handoverInviteSchema>;
+
+/** Rekkefølgen er styreskifte, sluttdato for det gamle styret og aktivering: det gamle styret slutter senest når det nye aktiveres. */
+const handoverDatesSchema = z.object({
+  activationDate:dateString.refine(v=>v>=daysFromToday(0) && v<=daysFromToday(365), 'Aktiveringsdatoen må være fra i dag og inntil ett år frem.'),
+  oldBoardEndsOn:dateString.refine(v=>v>=daysFromToday(-60), 'Sluttdatoen kan ikke være mer enn to måneder tilbake.'),
+});
+export const startHandoverSchema = z.object({
+  organizationId:idSchema,
+  handoverOn:handoverDateSchema,
+  ...handoverDatesSchema.shape,
+  invites:z.array(handoverInviteSchema).min(1, 'Velg det nye styret.').max(HANDOVER_MAX_INVITES, `Maks ${HANDOVER_MAX_INVITES} personer i én overføring.`)
+    .refine(list=>list.some(i=>i.adminRole==='school_admin'), 'Velg minst én ny skoleadministrator.')
+    .refine(list=>new Set(list.map(i=>i.userId ?? i.email?.trim().toLowerCase())).size===list.length, 'Samme person er valgt to ganger.'),
+  /** Bare ved gjenoppretting (styreadministrator i området). */
+  recoveryReason:z.string().transform(v=>cleanText(v)).pipe(z.string().min(5, 'Skriv en begrunnelse på minst fem tegn.').max(1000, 'Begrunnelsen kan ha maks 1000 tegn.')).optional(),
+}).refine(v=>v.oldBoardEndsOn<=v.activationDate, { message:'Det gamle styret må slutte senest den dagen det nye aktiveres.', path:['oldBoardEndsOn'] });
+export type StartHandoverInput = z.input<typeof startHandoverSchema>;
+
+export const rescheduleHandoverSchema = z.object({ handoverId:idSchema, ...handoverDatesSchema.shape })
+  .refine(v=>v.oldBoardEndsOn<=v.activationDate, { message:'Det gamle styret må slutte senest den dagen det nye aktiveres.', path:['oldBoardEndsOn'] });
+export type RescheduleHandoverInput = z.input<typeof rescheduleHandoverSchema>;
+export const handoverResponseSchema = z.object({ inviteId:idSchema, accept:z.boolean() });
+export type HandoverResponseInput = z.input<typeof handoverResponseSchema>;
+
+// ---- Søk (§6, prompt 8) ----
+export const searchInputSchema = z.object({
+  query:z.string().transform(v=>v.trim().slice(0,SEARCH_MAX_LENGTH)),
+  kinds:z.array(z.enum(['national','county_board','local_board','school','person','event','post'])).optional(),
+  includeFormer:z.boolean().optional(),
+});
+export type SearchInput = z.input<typeof searchInputSchema>;
