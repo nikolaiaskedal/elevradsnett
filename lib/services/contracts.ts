@@ -1,6 +1,6 @@
 import type { BlockedUser, ConversationMember, MessageSettings, OrganizationContact, RecipientSearchResult } from '@/lib/domain/messaging';
 import type { AddMembersInput, CreateGroupInput, ReportMessageInput } from '@/lib/domain/validation';
-import type { AdminDashboard, MfaStatus, ModerationReport, TotpEnrollment } from '@/lib/domain/admin';
+import type { AdminDashboard, MfaStatus, PlaceholderContentStatus, ModerationReport, TotpEnrollment } from '@/lib/domain/admin';
 import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, DelegateCandidate, Event, EventOrganizer, EventParticipation, FriendConnection, Message, MyRole, Organization, OrganizationCvEntry, OrganizationRoleEntry, PersonCv, Post, PostDraft, PostRevision, PublicOfficer, SchoolAdminRequest, SchoolHistoryEntry, Session } from '@/lib/domain/types';
 import type { AddCommentInput, AddDelegateInput, AdminImagesInput, AdminUserActionInput, AssignPublicOfficeInput, AssignRoleInput, AttendanceInput, ChangeSchoolInput, DecideFriendRequestInput, DecideSchoolAdminRequestInput, DelegationResponseInput, EditPostInput, EventInput, EventInterestInput, EventRegistrationInput, EventStatusChangeInput, FriendRequestInput, ModerationActionInput, ModerationAppealInput, OnboardingInput, OrganizationStatusActionInput, PublishPostInput, RequestLoginCodeInput, SaveDraftInput, SchoolAdminRequestInput, SendMessageInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput } from '@/lib/domain/validation';
 
@@ -76,6 +76,10 @@ export interface ElevradsnettService {
   setAdminImages(input:AdminImagesInput):Promise<void>;
   deletePlaceholder(input:{ scopeId:string; type:'organization'|'post_media'|'event'; id:string }):Promise<void>;
   deleteAllPlaceholders(scopeId:string):Promise<number>;
+  /** Om eksempelinnholdet er skrudd på. Bare superadministrator. */
+  getPlaceholderContentStatus():Promise<PlaceholderContentStatus>;
+  /** Skrur eksempelinnholdet på (oppretter det) eller av (sletter alt, også svar og reaksjoner på det). Bare superadministrator. */
+  setPlaceholderContent(enabled:boolean):Promise<PlaceholderContentStatus>;
   listModerationReports(organizationId:string):Promise<ModerationReport[]>;
   applyModerationAction(input:ModerationActionInput):Promise<void>;
   appealModerationReport(input:ModerationAppealInput):Promise<void>;

@@ -23,6 +23,11 @@ describe('Adminpanel og moderering',()=>{
     expect((await service.listAuditLog('oslo-fylke')).map(entry=>entry.action)).toEqual(expect.arrayContaining(['user.change_school','user.deactivate']));
   });
 
+  it('lar bare superadministrator skru eksempelinnholdet av og på',async()=>{
+    await expect(service.getPlaceholderContentStatus()).rejects.toThrow('tilgang');
+    await expect(service.setPlaceholderContent(true)).rejects.toThrow('tilgang');
+  });
+
   it('deaktiverer og reaktiverer en skole uten å fjerne historikken',async()=>{
     await service.setOrganizationStatus({ scopeId:'oslo-fylke',organizationId:'kuben',status:'deactivated',reason:'Midlertidig uten elevråd' });
     expect((await service.getOrganization('kuben'))?.status).toBe('deactivated');

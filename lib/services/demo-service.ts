@@ -12,7 +12,7 @@ import type { OrganizationImages, Poll } from '@/lib/domain/types';
 import { organizationImageSchema, publishPostFields, reportPostSchema } from '@/lib/domain/validation';
 import type { PublishProgress, ReportPostInput } from './contracts';
 import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, CurrentUser, DelegateCandidate, DelegateStatus, Event, EventDelegate, EventOrganizer, EventParticipation, GrantStatus, InternalRole, Message, MyRole, Organization, OrganizationCvEntry, OrganizationRoleEntry, PersonCv, Post, RegistrationStatus, Representation, SchoolAdminRequest, SchoolHistoryEntry, Session, Audience, FriendConnection, PostDraft, PostRevision } from '@/lib/domain/types';
-import type { AdminDashboard, AdminImages, MfaStatus, ModerationReport, TotpEnrollment } from '@/lib/domain/admin';
+import type { AdminDashboard, AdminImages, MfaStatus, PlaceholderContentStatus, ModerationReport, TotpEnrollment } from '@/lib/domain/admin';
 import { addDelegateSchema, adminImagesSchema, adminUserActionSchema, assignPublicOfficeSchema, assignRoleSchema, attendanceSchema, avatarSchema, changeSchoolSchema, commentSchema, decideSchoolAdminRequestSchema, delegationResponseSchema, eventImageSchema, eventInputSchema, eventInterestSchema, eventRegistrationSchema, eventStatusChangeSchema, idSchema, isoDate, moderationActionSchema, moderationAppealSchema, onboardingSchema, organizationStatusActionSchema, publishPostSchema, requestLoginCodeSchema, schoolAdminRequestSchema, totpCodeSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema, audiencesFor, decideFriendRequestSchema, editPostSchema, friendRequestSchema, saveDraftSchema } from '@/lib/domain/validation';
 import type { AddCommentInput, AddDelegateInput, AdminImagesInput, AdminUserActionInput, AssignPublicOfficeInput, AttendanceInput, DelegationResponseInput, EventInput, EventInterestInput, EventRegistrationInput, EventStatusChangeInput, AssignRoleInput, ChangeSchoolInput, DecideSchoolAdminRequestInput, ElevradsnettService, ModerationActionInput, ModerationAppealInput, OnboardingInput, OrganizationStatusActionInput, PublishPostInput, RequestLoginCodeInput, SchoolAdminRequestInput, SendMessageInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput, DecideFriendRequestInput, EditPostInput, FriendRequestInput, SaveDraftInput } from './contracts';
 
@@ -64,6 +64,7 @@ export class DemoElevradsnettService implements ElevradsnettService {
   private moderation:ModerationReport[] = [{ id:'report-demo-1',targetType:'post',targetId:'post-2',targetSummary:'Dette innlegget har upassende språk.',category:'Upassende innhold',description:'Språket oppleves krenkende.',status:'open',reporterName:'Omar Haddad',createdAt:'2026-10-01T09:30:00.000Z',actions:[] }];
   private adminImages = new Map<string,AdminImages>();
   private mfa:MfaStatus = { required:false,enrolled:false,verified:false };
+  private placeholderContent:PlaceholderContentStatus = { enabled:false,profiles:0,posts:0,events:0,conversations:0 };
   private organizationImages = new Map<string,{ profile?:string; cover?:string }>();
   private people = new Map<string,Person>();
   private memberships:Membership[] = [];
@@ -580,6 +581,14 @@ export class DemoElevradsnettService implements ElevradsnettService {
     this.requireAreaAdmin(input.scopeId); if (!this.isSuper(this.user.id)) throw new Error('Du har ikke tilgang til å gjøre dette.');
   }
   async deleteAllPlaceholders(scopeId:string) { this.requireAreaAdmin(scopeId); if (!this.isSuper(this.user.id)) throw new Error('Du har ikke tilgang til å gjøre dette.'); return 0; }
+  async getPlaceholderContentStatus() { this.requireSuperAdmin(); return { ...this.placeholderContent }; }
+  async setPlaceholderContent(enabled:boolean) {
+    this.requireSuperAdmin();
+    // Demoen har allerede eksempelinnhold, så her endres bare bryteren og tallene.
+    this.placeholderContent = enabled?{ enabled:true,profiles:6,posts:8,events:4,conversations:3 }:{ enabled:false,profiles:0,posts:0,events:0,conversations:0 };
+    return { ...this.placeholderContent };
+  }
+  private requireSuperAdmin() { this.requireUser(); if (!this.isSuper(this.user.id)) throw new Error('Du har ikke tilgang til å gjøre dette.'); }
   async listModerationReports(organizationId:string) { this.requireAreaAdmin(organizationId); return structuredClone(this.moderation); }
   async applyModerationAction(input:ModerationActionInput) {
     const value=moderationActionSchema.parse(input); const report=this.moderation.find(r=>r.id===value.reportId); if (!report) throw new Error('Fant ikke saken.');

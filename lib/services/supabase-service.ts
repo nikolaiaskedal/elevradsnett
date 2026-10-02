@@ -10,7 +10,7 @@ import { presentEvent, toEventCategory } from '@/lib/domain/events';
 import { initialsOf } from '@/lib/domain/labels';
 import { formatDayMonth, formatRelative } from '@/lib/domain/time';
 import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, CurrentUser, DelegateCandidate, DelegateStatus, Event, EventOrganizer, EventParticipation, GrantStatus, Message, MyRole, Organization, OrganizationCvEntry, OrganizationRoleEntry, OrganizationStatus, OrganizationType, PersonCv, Post, RegistrationStatus, PublicOfficer, Representation, SchoolAdminRequest, SchoolHistoryEntry, Session, FriendConnection, PostDraft, PostRevision, SchoolLevelTarget } from '@/lib/domain/types';
-import type { AdminDashboard, MfaStatus, ModerationReport, TotpEnrollment } from '@/lib/domain/admin';
+import type { AdminDashboard, MfaStatus, PlaceholderContentStatus, ModerationReport, TotpEnrollment } from '@/lib/domain/admin';
 import { adminImagesSchema, adminUserActionSchema, assignPublicOfficeSchema, assignRoleSchema, avatarSchema, addDelegateSchema, attendanceSchema, changeSchoolSchema, commentSchema, decideSchoolAdminRequestSchema, delegationResponseSchema, eventImageSchema, eventInputSchema, eventInterestSchema, eventRegistrationSchema, eventStatusChangeSchema, idSchema, isoDate, moderationActionSchema, moderationAppealSchema, onboardingSchema, organizationStatusActionSchema, publishPostSchema, requestLoginCodeSchema, schoolAdminRequestSchema, totpCodeSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema, decideFriendRequestSchema, editPostSchema, friendRequestSchema, saveDraftSchema } from '@/lib/domain/validation';
 import type { Database } from '@/lib/supabase/database.types';
 import type { ImageSource, OrganizationImages, Poll, PostMedia } from '@/lib/domain/types';
@@ -428,6 +428,12 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
     const result = await run(client.rpc('delete_all_placeholders',{ p_scope:idSchema.parse(scopeId) }),'Kunne ikke slette placeholderne.') as unknown as { count:number; paths:string[] };
     if (result.paths.length) await Promise.all([client.storage.from(CONTENT_BUCKET).remove(result.paths),client.storage.from(AVATAR_BUCKET).remove(result.paths)]);
     return result.count;
+  }
+  async getPlaceholderContentStatus() {
+    return await run((await this.client).rpc('get_placeholder_content_status'),'Kunne ikke hente status for eksempelinnholdet.') as unknown as PlaceholderContentStatus;
+  }
+  async setPlaceholderContent(enabled:boolean) {
+    return await run((await this.client).rpc('set_placeholder_content',{ p_enabled:enabled }),'Kunne ikke endre eksempelinnholdet.') as unknown as PlaceholderContentStatus;
   }
   async listModerationReports(organizationId:string):Promise<ModerationReport[]> {
     return await run((await this.client).rpc('list_moderation_queue',{ p_scope:idSchema.parse(organizationId) }),'Kunne ikke hente modereringskøen.') as unknown as ModerationReport[];
