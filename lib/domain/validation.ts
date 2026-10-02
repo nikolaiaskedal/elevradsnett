@@ -162,6 +162,32 @@ export const eventImageSchema = z.object({
   size:z.number().int().positive('Bildet er tomt.').max(EVENT_IMAGE_MAX_BYTES,'Bildet kan være maks 5 MB.'),
 });
 
+export const ADMIN_REASON_MAX_LENGTH = 1000;
+export const adminReasonSchema = z.string().trim().min(3,'Skriv en begrunnelse på minst tre tegn.').max(ADMIN_REASON_MAX_LENGTH,'Begrunnelsen kan ha maks 1000 tegn.');
+export const adminUserActionSchema = z.object({
+  scopeId:idSchema,
+  userId:idSchema,
+  action:z.enum(['change_school','deactivate','delete','restore']),
+  schoolId:idSchema.optional(),
+  reason:adminReasonSchema,
+}).refine(value=>value.action!=='change_school' || !!value.schoolId,{ message:'Velg en skole.', path:['schoolId'] });
+export type AdminUserActionInput = z.input<typeof adminUserActionSchema>;
+export const organizationStatusActionSchema = z.object({ scopeId:idSchema, organizationId:idSchema, status:z.enum(['active','deactivated']), reason:adminReasonSchema });
+export type OrganizationStatusActionInput = z.input<typeof organizationStatusActionSchema>;
+export const adminImagesSchema = z.object({
+  scopeId:idSchema,
+  organizationId:idSchema,
+  defaultProfilePath:z.string().trim().max(500).optional(),
+  defaultCoverPath:z.string().trim().max(500).optional(),
+  locked:z.boolean(),
+});
+export type AdminImagesInput = z.input<typeof adminImagesSchema>;
+export const moderationActionSchema = z.object({ reportId:idSchema, action:z.enum(['hide','delete','warn','restrict','deactivate','restore','no_action']), reason:adminReasonSchema });
+export type ModerationActionInput = z.input<typeof moderationActionSchema>;
+export const moderationAppealSchema = z.object({ reportId:idSchema, reason:adminReasonSchema });
+export type ModerationAppealInput = z.input<typeof moderationAppealSchema>;
+export const totpCodeSchema = z.string().trim().regex(/^\d{6}$/,'Koden har seks sifre.');
+
 export const displayNameSchema = z.string().trim().min(2, 'Navnet må ha minst to tegn.').max(120, 'Navnet kan ha maks 120 tegn.');
 export const emailSchema = z.string().trim().toLowerCase().pipe(z.email('Skriv inn en gyldig e-postadresse.'));
 export const LOGIN_CODE_LENGTH = 6;

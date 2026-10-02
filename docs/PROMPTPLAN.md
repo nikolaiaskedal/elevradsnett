@@ -13,8 +13,19 @@ Planen deler `docs/KRAVSPEC.md` inn i prompter som sendes én om gangen, hver i 
 | 5. Innlegg | Ferdig | PR #16 |
 | 6. Bilder | Neste | – |
 | 9. Arrangementer og CV | Ferdig, med ett manuelt steg (se *Før neste prompt*) | se git-loggen |
+| 10. Meldinger | Ferdig, migrasjon må kjøres manuelt | se git-loggen |
+| 12. Adminpanel og moderering | Ferdig, migrasjon må kjøres manuelt | se git-loggen |
 
 Neste prompt som skal sendes er **prompt 6**. Prompt 9 er gjort før 6–8 etter ønske. Kjør først `supabase/manual/gjenstar_fra_prompt9.sql` i SQL Editor i pilotprosjektet, og sjekk at stegene 3–6 under *Før prompt 4* er gjort (e-postmal, OTP-innstillinger og GitHub-variablene).
+
+## Utgangspunkt etter prompt 12 (2. oktober 2026)
+
+- Administrasjonen har nå områdeavgrensede flater for brukere, organisasjoner, innhold, medier, placeholders, standardbilder, aggregert statistikk og moderering. Klienten viser bare data fra `get_admin_dashboard` og `list_moderation_queue`; alle rettigheter kontrolleres på nytt i RPC-ene.
+- Brukere kan flyttes til en annen skole, deaktiveres, reaktiveres eller anonymiseres. En administrator kan ikke administrere seg selv, og en profil brukeren selv deaktiverte kan ikke reaktiveres uten samtykke.
+- Moderering støtter skjuling, sletting, advarsel, sju dagers begrensning, deaktivering, gjenoppretting, ingen handling, klage og ny vurdering. En meldingssak deler fortsatt bare den konkrete rapporterte meldingen, og slike saker er begrenset til superadministrator.
+- Superadministratorrettigheten i databasen krever AAL2. Adminsiden har oppsett og kodekontroll for TOTP via Supabase Auth. Andre administratorer kan bruke TOTP frivillig.
+- Migrasjonen `supabase/migrations/202610120001_admin_moderering.sql` må kjøres i pilotprosjektet før de nye flatene brukes. Den inneholder sletting av placeholdermetadata og må derfor kjøres manuelt i SQL Editor dersom databasekoblingen krever bekreftelse.
+- Databasetestene ligger i `supabase/tests/admin_moderering.sql`.
 
 ## Utgangspunkt etter prompt 9 (1. oktober 2026)
 

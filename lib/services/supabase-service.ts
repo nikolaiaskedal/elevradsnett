@@ -6,9 +6,10 @@ import { presentEvent, toEventCategory } from '@/lib/domain/events';
 import { initialsOf } from '@/lib/domain/labels';
 import { formatDayMonth, formatRelative } from '@/lib/domain/time';
 import type { AdminOrganization, AssignablePerson, AuditEntry, Comment, Conversation, CurrentUser, DelegateCandidate, DelegateStatus, Event, EventOrganizer, EventParticipation, GrantStatus, Message, MyRole, Organization, OrganizationCvEntry, OrganizationRoleEntry, OrganizationStatus, OrganizationType, PersonCv, Post, RegistrationStatus, PublicOfficer, Representation, SchoolAdminRequest, SchoolHistoryEntry, Session, FriendConnection, PostDraft, PostRevision, SchoolLevelTarget } from '@/lib/domain/types';
-import { assignPublicOfficeSchema, assignRoleSchema, avatarSchema, addDelegateSchema, attendanceSchema, changeSchoolSchema, commentSchema, decideSchoolAdminRequestSchema, delegationResponseSchema, eventImageSchema, eventInputSchema, eventInterestSchema, eventRegistrationSchema, eventStatusChangeSchema, idSchema, isoDate, onboardingSchema, publishPostSchema, requestLoginCodeSchema, schoolAdminRequestSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema, decideFriendRequestSchema, editPostSchema, friendRequestSchema, saveDraftSchema } from '@/lib/domain/validation';
+import type { AdminDashboard, MfaStatus, ModerationReport, TotpEnrollment } from '@/lib/domain/admin';
+import { adminImagesSchema, adminUserActionSchema, assignPublicOfficeSchema, assignRoleSchema, avatarSchema, addDelegateSchema, attendanceSchema, changeSchoolSchema, commentSchema, decideSchoolAdminRequestSchema, delegationResponseSchema, eventImageSchema, eventInputSchema, eventInterestSchema, eventRegistrationSchema, eventStatusChangeSchema, idSchema, isoDate, moderationActionSchema, moderationAppealSchema, onboardingSchema, organizationStatusActionSchema, publishPostSchema, requestLoginCodeSchema, schoolAdminRequestSchema, totpCodeSchema, updateProfileSchema, verifyLoginCodeSchema, voteSchema, decideFriendRequestSchema, editPostSchema, friendRequestSchema, saveDraftSchema } from '@/lib/domain/validation';
 import type { Database } from '@/lib/supabase/database.types';
-import { NotImplementedError, type AddCommentInput, type AddDelegateInput, type AttendanceInput, type DelegationResponseInput, type EventInput, type EventInterestInput, type EventRegistrationInput, type EventStatusChangeInput, type AssignPublicOfficeInput, type AssignRoleInput, type ChangeSchoolInput, type DecideSchoolAdminRequestInput, type ElevradsnettService, type OnboardingInput, type SchoolAdminRequestInput, type PublishPostInput, type RequestLoginCodeInput, type SendMessageInput, type UpdateProfileInput, type VerifyLoginCodeInput, type VoteInput, type DecideFriendRequestInput, type EditPostInput, type FriendRequestInput, type SaveDraftInput } from './contracts';
+import { NotImplementedError, type AddCommentInput, type AddDelegateInput, type AdminImagesInput, type AdminUserActionInput, type AttendanceInput, type DelegationResponseInput, type EventInput, type EventInterestInput, type EventRegistrationInput, type EventStatusChangeInput, type AssignPublicOfficeInput, type AssignRoleInput, type ChangeSchoolInput, type DecideSchoolAdminRequestInput, type ElevradsnettService, type ModerationActionInput, type ModerationAppealInput, type OnboardingInput, type OrganizationStatusActionInput, type SchoolAdminRequestInput, type PublishPostInput, type RequestLoginCodeInput, type SendMessageInput, type UpdateProfileInput, type VerifyLoginCodeInput, type VoteInput, type DecideFriendRequestInput, type EditPostInput, type FriendRequestInput, type SaveDraftInput } from './contracts';
 
 type Client = SupabaseClient<Database>;
 type Rpc<Name extends keyof Database['public']['Functions']> = Database['public']['Functions'][Name]['Returns'];
@@ -58,7 +59,11 @@ const serverMessages:Record<string,string> = {
   'event closed':'Påmeldingen er stengt.',
   'post not found':'Fant ikke innlegget.',
   'self escalation is not allowed':'Du kan ikke gi deg selv rettigheter.',
+  'cannot administer yourself':'Du kan ikke administrere din egen bruker her.',
   'last administrator':'Organisasjonen må ha minst én administrator. Gi rollen til en etterfølger før denne fjernes.',
+  'user consent required':'Brukeren deaktiverte profilen selv og må samtykke før den kan reaktiveres.',
+  'only super administrator can lock images':'Bare superadministrator kan låse standardbilder.',
+  'already reported':'Innholdet er allerede rapportert og venter på behandling.',
   'role already assigned':'Personen har allerede denne rettigheten.',
   'office already assigned':'Personen har allerede dette vervet.',
   'invalid role':'Denne rettigheten finnes ikke for denne typen organisasjon.',
@@ -324,6 +329,70 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
     return rows.map(r=>({ id:String(r.id), createdAt:r.created_at, actorName:r.actor_name ?? '', action:r.action, subjectName:r.subject_name ?? undefined,
       details:(r.details && typeof r.details==='object' && !Array.isArray(r.details) ? r.details : {}) as Record<string,unknown> }));
   }
+  async getAdminDashboard(organizationId:string):Promise<AdminDashboard> {
+    return await run((await this.client).rpc('get_admin_dashboard',{ p_scope:idSchema.parse(organizationId) }),'Kunne ikke hente administrasjonsdata.') as unknown as AdminDashboard;
+  }
+  async manageAdminUser(input:AdminUserActionInput) {
+    const value = adminUserActionSchema.parse(input);
+    await run((await this.client).rpc('admin_manage_user',{ p_scope:value.scopeId,p_user:value.userId,p_action:value.action,p_school:value.schoolId,p_reason:value.reason }),'Kunne ikke endre brukeren.');
+  }
+  async setOrganizationStatus(input:OrganizationStatusActionInput) {
+    const value = organizationStatusActionSchema.parse(input);
+    await run((await this.client).rpc('set_organization_status',{ p_scope:value.scopeId,p_organization:value.organizationId,p_status:value.status,p_reason:value.reason }),'Kunne ikke endre organisasjonen.');
+  }
+  async setAdminImages(input:AdminImagesInput) {
+    const value = adminImagesSchema.parse(input);
+    await run((await this.client).rpc('set_admin_images',{ p_scope:value.scopeId,p_organization:value.organizationId,p_default_profile:value.defaultProfilePath ?? '',p_default_cover:value.defaultCoverPath ?? '',p_locked:value.locked }),'Kunne ikke lagre standardbildene.');
+  }
+  async deletePlaceholder(input:{ scopeId:string; type:'organization'|'post_media'|'event'; id:string }) {
+    const client = await this.client;
+    const paths = await run(client.rpc('delete_placeholder',{ p_scope:idSchema.parse(input.scopeId),p_type:input.type,p_id:idSchema.parse(input.id) }),'Kunne ikke slette placeholderen.');
+    if (paths.length) await Promise.all([client.storage.from(CONTENT_BUCKET).remove(paths),client.storage.from(AVATAR_BUCKET).remove(paths)]);
+  }
+  async deleteAllPlaceholders(scopeId:string) {
+    const client = await this.client;
+    const result = await run(client.rpc('delete_all_placeholders',{ p_scope:idSchema.parse(scopeId) }),'Kunne ikke slette placeholderne.') as unknown as { count:number; paths:string[] };
+    if (result.paths.length) await Promise.all([client.storage.from(CONTENT_BUCKET).remove(result.paths),client.storage.from(AVATAR_BUCKET).remove(result.paths)]);
+    return result.count;
+  }
+  async listModerationReports(organizationId:string):Promise<ModerationReport[]> {
+    return await run((await this.client).rpc('list_moderation_queue',{ p_scope:idSchema.parse(organizationId) }),'Kunne ikke hente modereringskøen.') as unknown as ModerationReport[];
+  }
+  async applyModerationAction(input:ModerationActionInput) {
+    const value = moderationActionSchema.parse(input);
+    await run((await this.client).rpc('apply_moderation_action',{ p_report:value.reportId,p_action:value.action,p_reason:value.reason }),'Kunne ikke behandle saken.');
+  }
+  async appealModerationReport(input:ModerationAppealInput) {
+    const value = moderationAppealSchema.parse(input);
+    await run((await this.client).rpc('appeal_moderation_report',{ p_report:value.reportId,p_reason:value.reason }),'Kunne ikke sende klagen.');
+  }
+
+  async getMfaStatus():Promise<MfaStatus> {
+    const client = await this.client;
+    const [required,levels,factors] = await Promise.all([
+      run(client.rpc('is_super_admin_account')),
+      client.auth.mfa.getAuthenticatorAssuranceLevel(),
+      client.auth.mfa.listFactors(),
+    ]);
+    if (levels.error) throw toNorwegianError(levels.error,'Kunne ikke kontrollere tofaktorstatus.');
+    if (factors.error) throw toNorwegianError(factors.error,'Kunne ikke hente autentiseringsappene.');
+    const factor = factors.data.totp.find(item=>item.status==='verified') ?? factors.data.totp[0];
+    return { required, enrolled:!!factor, verified:levels.data.currentLevel==='aal2', factorId:factor?.id };
+  }
+  async enrollTotp():Promise<TotpEnrollment> {
+    const result = await (await this.client).auth.mfa.enroll({ factorType:'totp',friendlyName:'Elevrådsnett' });
+    if (result.error) throw toNorwegianError(result.error,'Kunne ikke starte oppsettet av autentiseringsappen.');
+    return { factorId:result.data.id,qrCode:result.data.totp.qr_code,secret:result.data.totp.secret };
+  }
+  private async verifyTotpCode(factorId:string,code:string) {
+    const client = await this.client;
+    const challenge = await client.auth.mfa.challenge({ factorId:idSchema.parse(factorId) });
+    if (challenge.error) throw toNorwegianError(challenge.error,'Kunne ikke starte kodekontrollen.');
+    const verified = await client.auth.mfa.verify({ factorId,challengeId:challenge.data.id,code:totpCodeSchema.parse(code) });
+    if (verified.error) throw toNorwegianError(verified.error,'Koden ble ikke godkjent.');
+  }
+  async verifyTotp(input:{ factorId:string; code:string }) { await this.verifyTotpCode(input.factorId,input.code); }
+  async challengeTotp(input:{ factorId:string; code:string }) { await this.verifyTotpCode(input.factorId,input.code); }
 
   // Innlegg
   /** Innleggskortet slik serveren viser det etter en endring. */
@@ -387,7 +456,9 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
     const poll = await run((await this.client).from('polls').select('id').eq('post_id',parsed.postId).single());
     await run((await this.client).rpc('cast_organization_vote',{ p_poll_id:poll.id, p_option_id:parsed.optionId, p_organization_id:parsed.organizationId }));
   }
-  async reportPost():Promise<void> { throw new NotImplementedError('reportPost'); }
+  async reportPost(input:{ postId:string }):Promise<void> {
+    await run((await this.client).rpc('report_content',{ p_target_type:'post',p_target:idSchema.parse(input.postId),p_category:'annet',p_description:'Rapportert fra innleggsmenyen.' }),'Kunne ikke rapportere innlegget.');
+  }
 
   // Venneråd
   async listFriendConnections(schoolId:string):Promise<FriendConnection[]> {

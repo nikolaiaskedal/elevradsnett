@@ -1443,6 +1443,9 @@ isOneToOne: false
                 }
           }
           Functions: {
+            "admin_manage_user":
+{ Args: { "p_action": string,"p_reason"?: string,"p_school"?: string,"p_scope": string,"p_user": string }; Returns: undefined
+                           },
             "add_comment":
 { Args: { "p_body": string,"p_organization": string,"p_post": string }; Returns: {
               "actor_user_id": string,
@@ -1463,6 +1466,21 @@ isOneToOne: false
       } },
 "add_conversation_members":
 { Args: { "p_conversation": string,"p_members": (string)[] }; Returns: undefined
+                           },
+"appeal_moderation_report":
+{ Args: { "p_reason": string,"p_report": string }; Returns: undefined
+                           },
+"delete_all_placeholders":
+{ Args: { "p_scope": string }; Returns: Json
+                           },
+"delete_placeholder":
+{ Args: { "p_id": string,"p_scope": string,"p_type": string }; Returns: (string)[]
+                           },
+"get_admin_dashboard":
+{ Args: { "p_scope": string }; Returns: Json
+                           },
+"is_super_admin_account":
+{ Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "add_event_delegate":
 { Args: { "p_registration": string,"p_user": string }; Returns: string
@@ -1742,6 +1760,9 @@ isOneToOne: false
               "county": string,"grantable_roles": (Database["public"]['Enums']["admin_role"])[],"id": string,"my_role": Database["public"]['Enums']["admin_role"],"name": string,"school_name": string,"status": Database["public"]['Enums']["organization_status"],"type": Database["public"]['Enums']["organization_type"]
             }[]
                            },
+"list_moderation_queue":
+{ Args: { "p_scope": string }; Returns: Json
+                           },
 "list_my_blocks":
 { Args: Record<PropertyKey, never>; Returns: {
               "created_at": string,"display_name": string,"user_id": string
@@ -1831,6 +1852,15 @@ isOneToOne: false
                            },
 "report_message":
 { Args: { "p_category": string,"p_description"?: string,"p_message": string }; Returns: string
+                           },
+"report_content":
+{ Args: { "p_category": string,"p_description"?: string,"p_target": string,"p_target_type": string }; Returns: string
+                           },
+"set_admin_images":
+{ Args: { "p_default_cover": string,"p_default_profile": string,"p_locked": boolean,"p_organization": string,"p_scope": string }; Returns: undefined
+                           },
+"set_organization_status":
+{ Args: { "p_organization": string,"p_reason": string,"p_scope": string,"p_status": Database["public"]['Enums']["organization_status"] }; Returns: undefined
                            },
 "request_friend_school":
 { Args: { "p_school": string,"p_target": string }; Returns: string

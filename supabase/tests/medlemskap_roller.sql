@@ -163,6 +163,7 @@ end $$;
 
 -- Superadministrator tildeler styreadministrator, men ikke til seg selv.
 select set_config('request.jwt.claim.sub','f1000000-0000-4000-8000-000000000005',true);
+select set_config('request.jwt.claims','{"sub":"f1000000-0000-4000-8000-000000000005","aal":"aal2"}',true);
 do $$ declare v_cb uuid:=(select id from public.organizations where type='county_board' and county='Vestland'); begin
   perform public.assign_role('f1000000-0000-4000-8000-000000000002',v_cb,'board_admin',current_date);
   begin perform public.assign_role(auth.uid(),v_cb,'board_admin',current_date); raise exception 'superadmin tildelte seg selv';

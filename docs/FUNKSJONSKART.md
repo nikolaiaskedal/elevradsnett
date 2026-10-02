@@ -64,7 +64,7 @@ All tekst renses for HTML, styretegn og usynlige retningstegn før lagring, båd
 | Navn under avsender, «redigert» | Personen som publiserte. Er profilen deaktivert, står det «Tidligere tillitsvalgt». Redigerte innlegg merkes | Fungerer | `listFeed` | ja | ja | §1, §7, §10 |
 | ··· (flere valg) | Åpner menyen. Vises også på organisasjonssider | Fungerer | – | – | ja | §7 |
 | Meny: Del innlegget | Deler via systemdeling, ellers kopieres lenken | Fungerer | – | – | app | §7 (Deling) |
-| Meny: Rapporter innlegg | Rapporterer til moderatorene | Demo | `reportPost` | nei | app | §15 |
+| Meny: Rapporter innlegg | Oppretter en modereringssak for innlegget. Kategori og beskrivelse utvides sammen med øvrige innleggsinteraksjoner i prompt 7 | Fungerer | `reportPost` | ja (`report_content`) | app | §15 |
 | Meny: Rediger innlegg | Åpner innleggsdialogen med innlegget. Vises bare når serveren sier at brukeren kan endre det (`can_manage`) | Fungerer | `editPost` | ja (`update_post`) | app | §7 |
 | Meny: Vis endringshistorikk | Tidligere versjoner med dato, hvem som endret, målgruppe og skoleform. Bare for redigerte innlegg og administratorer | Fungerer | `listPostHistory` | ja (`get_post_history`) | app | §7 |
 | Meny: Slett innlegg | Sletter innlegget etter bekreftelse. Bare med `can_manage` | Fungerer | `deletePost` | ja (`delete_post`) | app | §7, §19 |
@@ -236,8 +236,9 @@ Uten innlogging vises innloggingen. Innlogget uten administratorrettigheter vise
 |---|---|---|---|---|---|---|
 | Organisasjon (velger og søk) | Velger blant organisasjonene brukeren administrerer: egne, eget lokallag (fylkesstyreregelen), skolene i området, eller alle for superadministrator. Søkefeltet vises ved mer enn åtte | Fungerer | `listAdminOrganizations` | ja | app | §4, §12 |
 | Merke for egen rolle | Skoleadministrator, styreadministrator (i området) eller superadministrator | Fungerer | `listAdminOrganizations` | ja | app | §4 |
-| Faner: Oversikt, Roller og verv, Forespørsler (med antall), Venneråd, Styreoverføring, Skoler, Moderering, CSV | Bytter fane. Venneråd vises bare for skoler der serveren oppgir skole- eller superadministrator | Fungerer | – | – | app | §4, §5, §7, §12 |
-| Oversikt: nøkkeltall | Aktive verv, interne rettigheter og forespørsler som venter | Fungerer | `listOrganizationRoles`, `listSchoolAdminRequests` | ja | app | §12 |
+| MFA-port for superadministrator | Krever autentiseringsapp (TOTP) og AAL2 før serveren gir superadministratorrettigheter. Støtter oppsett og ny kodekontroll | Fungerer | `getMfaStatus`, `enrollTotp`, `verifyTotp`, `challengeTotp` | ja (`has_role` kontrollerer `aal2`) | app | §17 |
+| Faner: Oversikt, Brukere, Roller og verv, Forespørsler, Venneråd, Styreoverføring, Organisasjoner, Innhold, Medier, Moderering, CSV | Bytter fane. Venneråd vises bare for skoler der serveren oppgir skole- eller superadministrator | Fungerer | – | – | app | §4, §5, §7, §12 |
+| Oversikt: aggregerte nøkkeltall | Aktive brukere/skoler, innlegg og åpne modereringssaker i valgt område. Privat meldingsinnhold inngår ikke | Fungerer | `getAdminDashboard` | ja (`get_admin_dashboard`) | app | §12 |
 | Oversikt: Behandle (forespørsler) | Går til Forespørsler | Fungerer | – | – | app | §4 |
 | Oversikt: Revisjonslogg | Siste endringer i organisasjonen med navn på den som endret og den det gjaldt | Fungerer | `listAuditLog` | ja (`list_audit_log`) | app | §4, §17, §22 |
 | Roller og verv: offentlige verv | Aktive verv med dato og hvem som ga dem. Deaktiverte brukere er merket | Fungerer | `listOrganizationRoles` | ja (`list_organization_roles`) | app | §4 |
@@ -255,8 +256,14 @@ Uten innlogging vises innloggingen. Innlogget uten administratorrettigheter vise
 | Styreoverføring: datoer, avkrysninger, valg av administrator | Statiske skjemafelt | Mangler | – | – (`complete_handover` finnes) | app | §5 |
 | Styreoverføring: Tilbake / Neste | Går mellom fire steg | Fungerer | – | – | app | §5 |
 | Styreoverføring: + Inviter ny bruker, Send invitasjoner | Viser bare en melding | Mangler | – | – | app | §5 |
-| Skoler: skolenavn | Viser bare en melding | Mangler | – | – (`deactivate_school` finnes) | app | §1, §12 |
-| Moderering: Behandle | Viser bare en melding | Mangler | – | – (`apply_moderation_action` finnes) | app | §15 |
+| Brukere: Administrer | Bytter skole, deaktiverer, reaktiverer eller anonymiserer/sletter personopplysninger med begrunnelse. Egen bruker kan ikke administreres, og selvdeaktivert profil krever samtykke før reaktivering | Fungerer | `getAdminDashboard`, `manageAdminUser` | ja (`admin_manage_user`) | app | §1, §10, §12 |
+| Organisasjoner: skole og status | Viser skoler avgrenset til eget område, lokallag, administratorantall og status. Deaktiverer eller reaktiverer med begrunnelse uten å fjerne historikk | Fungerer | `getAdminDashboard`, `setOrganizationStatus` | ja (`set_organization_status`) | app | §1, §12 |
+| Innhold: innlegg, kommentarer og arrangementer | Viser status og eierorganisasjon for innhold i eget område | Fungerer | `getAdminDashboard` | ja | app | §12 |
+| Medier: behandlingsstatus | Viser mediefiler, eier, behandlingsstatus og placeholdermerking | Fungerer | `getAdminDashboard` | ja | app | §11, §12 |
+| Standardbilder og bildelås | Viser om profil-/coverbildet er eget eller arvet, setter standarder og lar bare superadministrator låse | Fungerer | `getAdminDashboard`, `setAdminImages` | ja (`resolve_organization_images`, `set_admin_images`) | app | §12, §14 |
+| Placeholders: Slett / Slett alle | Superadministrator kan fjerne enkeltvise eller alle placeholders i valgt område; tilknyttede lagringsstier ryddes | Fungerer | `deletePlaceholder`, `deleteAllPlaceholders` | ja (`delete_placeholder`, `delete_all_placeholders`) | app | §11, §12 |
+| Moderering: kø og Behandle | Viser områdets rapporter, rapportør, innhold, status, moderator og historikk. For meldinger vises bare det ene innholdet rapportøren delte. Støtter skjul, slett, advarsel, begrensning, deaktivering, gjenoppretting og ingen handling | Fungerer | `listModerationReports`, `applyModerationAction` | ja (`list_moderation_queue`, `apply_moderation_action`) | app | §15 |
+| Moderering: klage og ny vurdering | Behandlede saker kan påklages av rapportøren eller den rapporterte; saken prioriteres på nytt i køen | Fungerer i tjenestelaget; brukerflate kobles til innholdsrapportering i prompt 7 | `appealModerationReport` | ja (`appeal_moderation_report`) | app | §15 |
 | CSV: Last ned mal | Viser bare en melding | Mangler | – | – | app | §13 |
 | CSV: Last opp UTF-8 CSV | Viser en fast forhåndsvisning, leser ingen fil | Mangler | – | – (`apply_school_import` finnes) | app | §13 |
 | CSV: Gå til bekreftelse | Viser bare en melding | Mangler | – | – | app | §13 |

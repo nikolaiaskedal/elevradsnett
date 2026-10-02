@@ -379,7 +379,7 @@ describe('createService',()=>{
   it('kaster en tydelig feil for metoder uten RPC',async()=>{
     const supabase = createService({ VITE_SUPABASE_URL:'https://x.supabase.co', VITE_SUPABASE_ANON_KEY:'anon' });
     await expect(supabase.setFollow({ organizationId:'x', following:true })).rejects.toBeInstanceOf(NotImplementedError);
-    await expect(supabase.reportPost({ postId:'x' })).rejects.toThrow('«reportPost» er ikke koblet til Supabase ennå');
+    await expect(supabase.reportPost({ postId:'x' })).rejects.toThrow('Kunne ikke rapportere innlegget');
   });
   it('starter demoen uten innlogging',async()=>{
     expect(await createService({}).getSession()).toEqual({ status:'anonymous' });
