@@ -15,11 +15,14 @@ import { FeedView } from '@/components/views/feed-view';
 import { LegalView } from '@/components/views/legal-view';
 import { LoginView } from '@/components/views/login-view';
 import { MessagesView } from '@/components/views/messages-view';
+import { NotificationsView } from '@/components/views/notifications-view';
+import { useNotifications } from '@/components/shared/use-notifications';
 import { OrganizationView } from '@/components/views/organization-view';
 import { PersonView } from '@/components/views/person-view';
 import { PostView } from '@/components/views/post-view';
 import { ProfileView } from '@/components/views/profile-view';
 import type { Conversation, Event, Organization, Post, Representation, Session } from '@/lib/domain/types';
+import type { FeedMode } from '@/lib/domain/search';
 import { errorMessage } from '@/lib/domain/validation';
 
 declare global { interface Document { modelContext?: { registerTool:(tool:{name:string;title?:string;description:string;inputSchema:object;annotations?:{readOnlyHint?:boolean;untrustedContentHint?:boolean};execute:(input:unknown)=>unknown},options?:{signal?:AbortSignal})=>void|Promise<void> } } }
@@ -30,11 +33,21 @@ type LoginRequest = { reason?:string; then?:(app:App)=>void };
 /** Sider som bare gir mening innlogget. Alt annet kan leses uten innlogging (§1). */
 const gated:Partial<Record<Route['view'],{ title:string; text:string }>> = {
   messages:{ title:'Meldinger', text:'Meldinger er personlige. Logg inn for å se samtalene dine.' },
+  notifications:{ title:'Varsler', text:'Logg inn for å se varslene dine og invitasjoner til nytt styre.' },
   profile:{ title:'Profil', text:'Logg inn for å se og endre profilen din.' },
   admin:{ title:'Administrasjon', text:'Logg inn for å administrere organisasjonene du har ansvar for.' },
 };
 
 const sessionKey = (s:Session)=>s.status==='active'||s.status==='deactivated'?`${s.status}:${s.user.id}`:s.status;
+
+/** Valget av feed huskes bare i denne nettleseren. Lagringen kan mangle (privat modus), og da brukes anbefalt. */
+const FEED_MODE_KEY = 'elevradsnett.feedMode';
+function storedFeedMode():FeedMode {
+  try { return window.localStorage.getItem(FEED_MODE_KEY)==='chronological'?'chronological':'recommended'; } catch { return 'recommended'; }
+}
+function rememberFeedMode(mode:FeedMode) {
+  try { window.localStorage.setItem(FEED_MODE_KEY,mode); } catch { /* Ingen lagring tilgjengelig */ }
+}
 
 export default function ElevradsnettApp() {
   const service = useService();
@@ -46,6 +59,10 @@ export default function ElevradsnettApp() {
   const [activeRepId,setActiveRepId] = useState<string|null>(null);
   const [organizations,setOrganizations] = useState<Organization[]>([]);
   const [posts,setPosts] = useState<Post[]>([]);
+  const [feedMode,setFeedMode] = useState<FeedMode>(storedFeedMode);
+  // Lastingen bruker valget fra forrige gang, uten å hente alt på nytt når valget endres.
+  const feedModeRef = useRef(feedMode);
+  feedModeRef.current = feedMode;
   const [liked,setLiked] = useState<string[]>([]);
   const [openComments,setOpenComments] = useState<string[]>([]);
   const [drafts,setDrafts] = useState<Record<string,string>>({});
@@ -70,7 +87,7 @@ export default function ElevradsnettApp() {
       const repId = signedIn?session.activeRepresentationId:null;
       const [orgs,feed,events] = await Promise.all([
         service.listOrganizations(),
-        service.listFeed({ representationId:repId, mode:'chronological' }),
+        service.listFeed({ representationId:repId, mode:feedModeRef.current }),
         service.listEvents(),
       ]);
       if (cancelled) return;
@@ -119,6 +136,7 @@ export default function ElevradsnettApp() {
     });
     return ()=>{ window.clearTimeout(timer); stop(); };
   },[service,signedIn,refreshConversations]);
+  const alerts = useNotifications(service,signedIn,reloadKey);
   const user = session&&(session.status==='active'||session.status==='deactivated')?session:null;
   const representations = user?.representations ?? [];
   const activeRep = signedIn?representations.find(r=>r.id===activeRepId) ?? null:null;
@@ -168,6 +186,7 @@ export default function ElevradsnettApp() {
     { label:'Hjem', route:{ view:'feed' }, on:route.view==='feed' },
     { label:'Arrangementer', route:{ view:'events' }, on:route.view==='events'||route.view==='event' },
     { label:'Meldinger', route:{ view:'messages' }, on:route.view==='messages', count:unread },
+    ...(signedIn?[{ label:'Varsler', route:{ view:'notifications' } as Route, on:route.view==='notifications', count:alerts.unread }]:[]),
     { label:'Profil', route:{ view:'profile' }, on:route.view==='profile' },
     ...(session&&session.status!=='anonymous'?[]:[{ label:'Logg inn', route:{ view:'login' } as Route, on:route.view==='login' }]),
   ];
@@ -215,14 +234,20 @@ export default function ElevradsnettApp() {
     /** Feeden hentes for den nye representasjonen før byttet vises, så alt skifter samtidig. */
     const switchTo = (rep:Representation)=>{
       service.switchRepresentation(rep.id)
-        .then(()=>service.listFeed({ representationId:rep.id, mode:'chronological' }))
+        .then(()=>service.listFeed({ representationId:rep.id, mode:feedMode }))
         .then(feed=>{
           setActiveRepId(rep.id); setPosts(feed); setLiked(feed.filter(p=>p.supported).map(p=>p.id));
           notify(`Du representerer nå ${rep.name}`);
         }).catch(fail);
     };
+    /** Anbefalt eller kronologisk feed (§6). Valget huskes i nettleseren. */
+    const changeFeedMode = (mode:FeedMode)=>{
+      service.listFeed({ representationId:activeRep?.id ?? null, mode }).then(feed=>{
+        setFeedMode(mode); rememberFeedMode(mode); setPosts(feed); setLiked(feed.filter(p=>p.supported).map(p=>p.id));
+      }).catch(fail);
+    };
     app = {
-      session, signedIn, switchRepresentation:switchTo, currentUser, representations, events,
+      session, signedIn, switchRepresentation:switchTo, currentUser, representations, events, feedMode, setFeedMode:changeFeedMode,
       organizations, posts, activeRep, liked, openComments, drafts, org, go, notify, reload,
       requireLogin:(reason,then)=>{ if (!needLogin(reason ?? 'Logg inn for å fortsette.',then ?? (()=>{}))) then?.(app!); },
       signOut:()=>{ service.signOut().then(()=>{ go({ view:'feed' }); notify('Du er logget ut'); reload(); }).catch(fail); },
@@ -303,6 +328,7 @@ export default function ElevradsnettApp() {
       case 'person': page=<PersonView id={route.id}/>; break;
       case 'messages': page=<MessagesView conversations={conversations} setConversations={setConversations} refresh={refreshConversations} selectedId={conversationId} onSelect={setConversationId} error={conversationsError}
         contactOrganizationId={contactOrganizationId} onContactHandled={clearContact}/>; break;
+      case 'notifications': page=<NotificationsView notifications={alerts.notifications} error={alerts.error} refresh={alerts.refresh}/>; break;
       case 'profile': page=<ProfileView/>; break;
       case 'login': page=<LoginView onDone={next=>{ signedInDone(next); go(returnTo.current.view==='login'?{ view:'feed' }:returnTo.current); }}/>; break;
       case 'admin': page=<AdminView/>; break;

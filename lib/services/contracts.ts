@@ -5,8 +5,12 @@ import type { AddCommentInput, AddDelegateInput, AssignPublicOfficeInput, Assign
 
 import type { OrganizationImages, Poll } from '@/lib/domain/types';
 import type { ReportPostInput } from '@/lib/domain/validation';
+import type { AppNotification, HandoverOverview, MyHandoverInvite, NotificationPreferences } from '@/lib/domain/notifications';
+import type { HandoverResponseInput, NotificationPreferencesInput, RescheduleHandoverInput, SearchInput, SetElectionDateInput, StartHandoverInput } from '@/lib/domain/validation';
+import type { SearchResult } from '@/lib/domain/search';
 
 export type { AddMembersInput, CreateGroupInput, ReportMessageInput, ReportPostInput };
+export type { HandoverResponseInput, NotificationPreferencesInput, RescheduleHandoverInput, SearchInput, SetElectionDateInput, StartHandoverInput };
 export type { AddCommentInput, AddDelegateInput, AssignPublicOfficeInput, AssignRoleInput, AttendanceInput, ChangeSchoolInput, DecideFriendRequestInput, DecideSchoolAdminRequestInput, DelegationResponseInput, EditPostInput, EventInput, EventInterestInput, EventRegistrationInput, EventStatusChangeInput, FriendRequestInput, OnboardingInput, PublishPostInput, RequestLoginCodeInput, SaveDraftInput, SchoolAdminRequestInput, SendMessageInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput };
 
 /**
@@ -165,6 +169,34 @@ export interface ElevradsnettService {
   getAttachmentUrl(path:string):Promise<string>;
   /** Kalles når det kommer nye meldinger eller endringer i samtalene. Returnerer en funksjon som avslutter lyttingen. */
   subscribeToMessages(listener:()=>void):()=>void;
+
+  // Søk (§6, prompt 8). Virker uten innlogging; serveren avgjør hva som er synlig.
+  /** Skoler, styrer, personer, arrangementer og innlegg. includeFormer tar med deaktiverte skoler og tidligere tillitsvalgte. */
+  search(input:SearchInput):Promise<SearchResult[]>;
+
+  // Varsler (§5, prompt 11). Lagres på serveren; e-post sendes som ett daglig sammendrag.
+  /** Egne varsler i plattformen, nyeste først. */
+  listNotifications():Promise<AppNotification[]>;
+  /** Merker varslene som lest. Uten liste: alle uleste. */
+  markNotificationsRead(ids?:string[]):Promise<void>;
+  getNotificationPreferences():Promise<NotificationPreferences>;
+  setNotificationPreferences(input:NotificationPreferencesInput):Promise<void>;
+  /** Kalles når det kommer nye varsler. Returnerer en funksjon som avslutter lyttingen. */
+  subscribeToNotifications(listener:()=>void):()=>void;
+
+  // Styreoverføring (§5). Serveren avgjør hvem som kan starte, gjenopprette og godta.
+  getHandoverOverview(organizationId:string):Promise<HandoverOverview>;
+  /** Dato for neste styreskifte. Kan endres hvis valget utsettes. */
+  setElectionDate(input:SetElectionDateInput):Promise<void>;
+  /** Starter overføringen og sender invitasjonene. Med recoveryReason er det en gjenoppretting fra styret. Returnerer id-en. */
+  startHandover(input:StartHandoverInput):Promise<string>;
+  rescheduleHandover(input:RescheduleHandoverInput):Promise<void>;
+  cancelHandover(handoverId:string):Promise<void>;
+  /** Aktiverer en planlagt overføring nå i stedet for på aktiveringsdatoen. */
+  activateHandoverNow(handoverId:string):Promise<void>;
+  /** Invitasjoner til den innloggede som venter på svar. */
+  listMyHandoverInvites():Promise<MyHandoverInvite[]>;
+  respondToHandoverInvite(input:HandoverResponseInput):Promise<void>;
 }
 
 /** Steg i publiseringen, så grensesnittet kan vise behandlingsstatus. */

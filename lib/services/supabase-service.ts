@@ -1,5 +1,9 @@
 import type { AddMembersInput, CreateGroupInput, ReportMessageInput } from './contracts';
 import { messagingServerMessages } from './messaging-errors';
+import { SupabaseVarsler, varslerServerMessages } from './supabase-varsler';
+import type { HandoverResponseInput, NotificationPreferencesInput, RescheduleHandoverInput, SearchInput, SetElectionDateInput, StartHandoverInput } from './contracts';
+import { SEARCH_MIN_LENGTH, type SearchKind, type SearchResult } from '@/lib/domain/search';
+import { searchInputSchema } from '@/lib/domain/validation';
 import { SupabaseMessaging } from './supabase-messaging';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { presentEvent, toEventCategory } from '@/lib/domain/events';
@@ -61,6 +65,7 @@ const toDelegate = (d:DelegateJson)=>({ id:d.id, userId:d.user_id, name:d.displa
 const serverMessages:Record<string,string> = {
   'not authorized':'Du har ikke tilgang til å gjøre dette.',
   ...messagingServerMessages,
+  ...varslerServerMessages,
   'invalid name':'Navnet må ha mellom 2 og 120 tegn.',
   'school not found':'Fant ikke skolen. Velg en aktiv skole fra listen.',
   'invalid election date':'Velg en dato fra i dag og inntil to år frem.',
@@ -145,9 +150,11 @@ async function run<R extends { data:unknown; error:unknown }>(promise:PromiseLik
 export class SupabaseElevradsnettService implements ElevradsnettService {
   private client:Promise<Client>;
   private messaging:SupabaseMessaging;
+  private varsler:SupabaseVarsler;
   constructor(client:SupabaseClient|Promise<SupabaseClient>) {
     this.client = Promise.resolve(client) as Promise<Client>;
     this.messaging = new SupabaseMessaging(this.client,run,()=>this.userId());
+    this.varsler = new SupabaseVarsler(this.client,run,()=>this.userId());
   }
 
   private async userId() {
@@ -659,6 +666,30 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
   setReadReceipts(enabled:boolean) { return this.messaging.setReadReceipts(enabled); }
   getAttachmentUrl(path:string) { return this.messaging.getAttachmentUrl(path); }
   subscribeToMessages(listener:()=>void) { return this.messaging.subscribeToMessages(listener); }
+
+  // Søk (search_directory, prompt 8)
+  async search(input:SearchInput):Promise<SearchResult[]> {
+    const p = searchInputSchema.parse(input);
+    if (p.query.length<SEARCH_MIN_LENGTH) return [];
+    const rows = await run((await this.client).rpc('search_directory',{ p_query:p.query, p_kinds:p.kinds, p_include_former:!!p.includeFormer, p_limit:40 }),'Kunne ikke søke.');
+    return rows.map(r=>({ kind:r.kind as SearchKind, id:r.id, title:r.title, subtitle:r.subtitle || undefined, organizationId:r.organization_id ?? undefined,
+      active:r.active, startsAt:r.starts_at ?? undefined }));
+  }
+
+  // Varsler og styreoverføring (supabase-varsler.ts)
+  listNotifications() { return this.varsler.listNotifications(); }
+  markNotificationsRead(ids?:string[]) { return this.varsler.markNotificationsRead(ids); }
+  getNotificationPreferences() { return this.varsler.getNotificationPreferences(); }
+  setNotificationPreferences(input:NotificationPreferencesInput) { return this.varsler.setNotificationPreferences(input); }
+  subscribeToNotifications(listener:()=>void) { return this.varsler.subscribeToNotifications(listener); }
+  getHandoverOverview(organizationId:string) { return this.varsler.getHandoverOverview(organizationId); }
+  setElectionDate(input:SetElectionDateInput) { return this.varsler.setElectionDate(input); }
+  startHandover(input:StartHandoverInput) { return this.varsler.startHandover(input); }
+  rescheduleHandover(input:RescheduleHandoverInput) { return this.varsler.rescheduleHandover(input); }
+  cancelHandover(handoverId:string) { return this.varsler.cancelHandover(handoverId); }
+  activateHandoverNow(handoverId:string) { return this.varsler.activateHandoverNow(handoverId); }
+  listMyHandoverInvites() { return this.varsler.listMyHandoverInvites(); }
+  respondToHandoverInvite(input:HandoverResponseInput) { return this.varsler.respondToHandoverInvite(input); }
 }
 
 function toOrganization(r:OrganizationRow):Organization {

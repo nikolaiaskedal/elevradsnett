@@ -6,9 +6,10 @@ import { isPastEvent } from '@/lib/domain/events';
 import { OrgRow } from '@/components/shared/org-row';
 import { PostCard } from '@/components/shared/post-card';
 import { SearchField } from '@/components/shared/ui';
+import { feedModeLabel } from '@/lib/domain/search';
 
 export function FeedView({query,setQuery}:{query:string;setQuery:(v:string)=>void}) {
-  const { currentUser, events, organizations, posts, org, go } = useApp();
+  const { currentUser, events, organizations, posts, org, go, signedIn, feedMode, setFeedMode } = useApp();
   const [scope,setScope] = useState<'all'|'county'>('all');
   const home = currentUser?.schoolId?org(currentUser.schoolId):undefined;
   const county = home?.county ?? 'Oslo';
@@ -38,11 +39,17 @@ export function FeedView({query,setQuery}:{query:string;setQuery:(v:string)=>voi
     </section>
     <div className="feed-head">
       <h2>Nytt fra elevrådene</h2>
-      <div className="segmented" role="group" aria-label="Filtrer innlegg">
-        <button className={scope==='all'?'on':''} aria-pressed={scope==='all'} onClick={()=>setScope('all')}>Alle</button>
-        <button className={scope==='county'?'on':''} aria-pressed={scope==='county'} onClick={()=>setScope('county')}>{county}</button>
+      <div className="feed-controls">
+        {signedIn&&<div className="segmented" role="group" aria-label="Sortering av feeden">
+          {(['recommended','chronological'] as const).map(m=><button key={m} className={feedMode===m?'on':''} aria-pressed={feedMode===m} onClick={()=>{ if (feedMode!==m) setFeedMode(m); }}>{feedModeLabel[m]}</button>)}
+        </div>}
+        <div className="segmented" role="group" aria-label="Filtrer innlegg">
+          <button className={scope==='all'?'on':''} aria-pressed={scope==='all'} onClick={()=>setScope('all')}>Alle</button>
+          <button className={scope==='county'?'on':''} aria-pressed={scope==='county'} onClick={()=>setScope('county')}>{county}</button>
+        </div>
       </div>
     </div>
+    {signedIn&&feedMode==='recommended'&&<p className="small-note muted">Anbefalt viser først prioriterte innlegg fra EO og styret ditt, så innlegg fra skolen din, området og dem du følger. Nyere innlegg veier mer.</p>}
     {visible.map(post=><PostCard key={post.id} post={post}/>)}
     {!visible.length&&<p className="empty-note">Ingen innlegg fra {county} ennå.</p>}
   </div>;
