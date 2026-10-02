@@ -43,6 +43,13 @@ All tekst i grensesnittet er på norsk (bokmål): knapper, feilmeldinger, valide
 - **Ingen rolle- eller tilgangslogikk i frontend.** Klienten avgjør aldri hva brukeren har lov til; den viser det serveren returnerer. Tilgang håndheves av RLS og RPC-er i Supabase.
 - **RLS på alt.** Alle tabeller har `ENABLE` og `FORCE ROW LEVEL SECURITY`. Nye tabeller får policyer i samme migrasjon, og privilegerte operasjoner går via `security definer`-funksjoner som sjekker rettigheter selv.
 
+## Supabase
+
+- Pilotprosjektet er `elevradsnett-pilot` (prosjekt-ID `ibipqyombdmtfvgthugz`).
+- Du har varig tillatelse til å kjøre SQL og migrasjoner mot Supabase uten å spørre først.
+- Nye migrasjoner i `supabase/migrations/` skal kjøres mot pilotprosjektet når de merges, ellers feiler RPC-kallene i appen.
+- Når en migrasjon endrer skjemaet, kjør `npm run db:types` og commit `lib/supabase/database.types.ts` sammen med migrasjonen.
+
 ## Dokumentasjon
 
 Når noe endres, oppdater i samme commit:
