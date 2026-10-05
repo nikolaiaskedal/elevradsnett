@@ -5,6 +5,7 @@ import { useService } from '@/components/service-provider';
 import { Composer } from '@/components/shared/composer';
 import { LoginDialog, LoginGate } from '@/components/shared/login-dialog';
 import { OnboardingFlow } from '@/components/shared/login-flow';
+import { ConsentBanner, DeactivatedProfile, TermsGate } from '@/components/shared/privacy';
 import { RepresentationSwitcher } from '@/components/shared/representation-switcher';
 import { Logo } from '@/components/shared/ui';
 import { AdminView } from '@/components/views/admin-view';
@@ -24,6 +25,7 @@ import { ProfileView } from '@/components/views/profile-view';
 import type { Conversation, Event, Organization, Post, Representation, Session } from '@/lib/domain/types';
 import type { FeedMode } from '@/lib/domain/search';
 import { errorMessage } from '@/lib/domain/validation';
+import { mustAcceptTerms } from '@/lib/domain/privacy';
 
 declare global { interface Document { modelContext?: { registerTool:(tool:{name:string;title?:string;description:string;inputSchema:object;annotations?:{readOnlyHint?:boolean;untrustedContentHint?:boolean};execute:(input:unknown)=>unknown},options?:{signal?:AbortSignal})=>void|Promise<void> } } }
 
@@ -75,6 +77,8 @@ export default function ElevradsnettApp() {
   const [composer,setComposer] = useState<{ open:boolean; editing:Post|null }>({ open:false, editing:null });
   const [login,setLogin] = useState<LoginRequest|null>(null);
   const [toast,setToast] = useState('');
+  /** Brukeren må godta vilkårene før appen kan brukes: første gang, eller når de er oppdatert. */
+  const [termsNeeded,setTermsNeeded] = useState<null|'new'|'updated'>(null);
   const pending = useRef<((app:App)=>void)|null>(null);
   const currentKey = useRef('');
   const returnTo = useRef<Route>({ view:'feed' });
@@ -85,12 +89,15 @@ export default function ElevradsnettApp() {
       const session = await service.getSession();
       const signedIn = session.status==='active';
       const repId = signedIn?session.activeRepresentationId:null;
-      const [orgs,feed,events] = await Promise.all([
+      const [orgs,feed,events,privacy] = await Promise.all([
         service.listOrganizations(),
         service.listFeed({ representationId:repId, mode:feedModeRef.current }),
         service.listEvents(),
+        // Feiler dette, slippes brukeren inn; godkjenningen er ikke en tilgangskontroll.
+        session.status==='active'||session.status==='deactivated'?service.getPrivacyStatus().catch(()=>null):Promise.resolve(null),
       ]);
       if (cancelled) return;
+      setTermsNeeded(privacy&&mustAcceptTerms(privacy)?privacy.acceptedTermsVersion?'updated':'new':null);
       currentKey.current = sessionKey(session);
       setLoaded({ session });
       setEvents(events);
@@ -317,6 +324,10 @@ export default function ElevradsnettApp() {
       page=<div className="page narrow"><OnboardingFlow schools={schools} email={session.email} onDone={signedInDone} onSignOut={app.signOut}/></div>;
     } else if (gate && session.status==='anonymous') {
       page=<LoginGate title={gate.title} text={gate.text} schools={schools} onDone={signedInDone}/>;
+    } else if (termsNeeded && route.view!=='legal') {
+      page=<TermsGate updated={termsNeeded==='updated'} onAccepted={()=>{ setTermsNeeded(null); notify('Takk! Du har godtatt vilkårene.'); }} onSignOut={app.signOut} onOpen={p=>go({ view:'legal', page:p })}/>;
+    } else if (route.view==='profile' && session.status==='deactivated') {
+      page=<DeactivatedProfile/>;
     } else if (gate && session.status==='deactivated') {
       page=<div className="page narrow"><h1>{gate.title}</h1><p className="warn-box">Profilen din er deaktivert. Du kan fortsatt lese alt som er offentlig.</p><button className="btn" onClick={app.signOut}>Logg ut</button></div>;
     } else switch (route.view) {
@@ -361,10 +372,11 @@ export default function ElevradsnettApp() {
               {item.label}{item.count?<span className="nav-count" aria-label={`${item.count} uleste`}>{item.count}</span>:null}
             </button>)}
           </nav>
-          {app&&<RepresentationSwitcher/>}
-          <button className="btn primary lifted" onClick={()=>app?.openComposer()}>Nytt innlegg</button>
+          {app&&!termsNeeded&&<RepresentationSwitcher/>}
+          {!termsNeeded&&<button className="btn primary lifted" onClick={()=>app?.openComposer()}>Nytt innlegg</button>}
         </div>
       </header>
+      {termsNeeded&&route.view==='legal'&&<p className="notice-bar">Du må godta vilkårene for å fortsette. <button className="name-link" onClick={()=>go({ view:'feed' })}>Tilbake til godkjenningen</button></p>}
       {session?.status==='deactivated'&&<p className="notice-bar">Profilen din er deaktivert. Du kan lese offentlig innhold, men ikke publisere, kommentere eller sende meldinger.</p>}
       <main className="main">{page}</main>
       <footer className="site-footer">
@@ -379,6 +391,7 @@ export default function ElevradsnettApp() {
       </footer>
       {app&&(activeRep||composer.editing)&&<Composer key={composer.editing?.id ?? 'nytt'} open={composer.open} editing={composer.editing} onClose={closeComposer} onPublished={publish} onEdited={edited}/>}
       <LoginDialog open={!!login} reason={login?.reason} schools={schools} onClose={()=>{ setLogin(null); pending.current=null; reload(); }} onDone={signedInDone}/>
+      {loaded&&<ConsentBanner signedIn={signedIn} onSettings={()=>go({ view:'legal', page:'cookies' })}/>}
       {toast&&<div className="toast" role="status">{toast}</div>}
     </div>
   </AppContext.Provider>;

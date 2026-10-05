@@ -9,8 +9,11 @@ import type { ReportPostInput } from '@/lib/domain/validation';
 import type { AppNotification, HandoverOverview, MyHandoverInvite, NotificationPreferences } from '@/lib/domain/notifications';
 import type { HandoverResponseInput, NotificationPreferencesInput, RescheduleHandoverInput, SearchInput, SetElectionDateInput, StartHandoverInput } from '@/lib/domain/validation';
 import type { SearchResult } from '@/lib/domain/search';
+import type { AdminDataRequest, PrivacyStatus } from '@/lib/domain/privacy';
+import type { AcceptTermsInput, ConsentInput, DecideDataRequestInput } from '@/lib/domain/validation';
 
 export type { AddMembersInput, CreateGroupInput, ReportMessageInput, ReportPostInput };
+export type { AcceptTermsInput, ConsentInput, DecideDataRequestInput };
 export type { HandoverResponseInput, NotificationPreferencesInput, RescheduleHandoverInput, SearchInput, SetElectionDateInput, StartHandoverInput };
 export type { AddCommentInput, AddDelegateInput, AdminImagesInput, AdminUserActionInput, AssignPublicOfficeInput, AssignRoleInput, AttendanceInput, ChangeSchoolInput, DecideFriendRequestInput, DecideSchoolAdminRequestInput, DelegationResponseInput, EditPostInput, EventInput, EventInterestInput, EventRegistrationInput, EventStatusChangeInput, FriendRequestInput, ModerationActionInput, ModerationAppealInput, OnboardingInput, OrganizationStatusActionInput, PublishPostInput, RequestLoginCodeInput, SaveDraftInput, SchoolAdminRequestInput, SendMessageInput, UpdateProfileInput, VerifyLoginCodeInput, VoteInput };
 
@@ -217,6 +220,27 @@ export interface ElevradsnettService {
   /** Invitasjoner til den innloggede som venter på svar. */
   listMyHandoverInvites():Promise<MyHandoverInvite[]>;
   respondToHandoverInvite(input:HandoverResponseInput):Promise<void>;
+
+  // Personvern (§10, §16, prompt 14). Virker også for deaktiverte profiler.
+  /** Godkjente vilkår, siste samtykke og egne forespørsler om sletting. */
+  getPrivacyStatus():Promise<PrivacyStatus>;
+  /** Godtar gjeldende vilkår og personvernerklæring. Serveren avviser utdaterte versjoner. */
+  acceptTerms(input:AcceptTermsInput):Promise<void>;
+  /** Lagrer valget for valgfrie tjenester. Uten innlogging med en tilfeldig id fra nettleseren. Tidligere valg trekkes tilbake. */
+  recordConsent(input:ConsentInput):Promise<void>;
+  /** Deaktiverer egen profil. Verv og rettigheter avsluttes. Siste administrator stoppes. */
+  deactivateAccount():Promise<void>;
+  /** Aktiverer en profil brukeren deaktiverte selv. */
+  reactivateAccount():Promise<void>;
+  /** Alle egne data som JSON, for nedlasting. */
+  exportMyData():Promise<Record<string,unknown>>;
+  /** Ber om sletting av egne personopplysninger. Superadministrator gjennomfører. */
+  requestDeletion():Promise<void>;
+  cancelDataRequest(requestId:string):Promise<void>;
+  /** Forespørsler om sletting. Bare superadministrator. */
+  listDataRequests():Promise<AdminDataRequest[]>;
+  /** Under behandling, gjennomført (sletter personopplysningene) eller avslått. Bare superadministrator. */
+  decideDataRequest(input:DecideDataRequestInput):Promise<void>;
 }
 
 /** Steg i publiseringen, så grensesnittet kan vise behandlingsstatus. */

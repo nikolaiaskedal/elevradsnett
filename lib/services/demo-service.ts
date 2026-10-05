@@ -1,6 +1,11 @@
 import type { AddMembersInput, CreateGroupInput, ReportMessageInput } from './contracts';
 import { DemoMessaging, type DemoMessagingHost } from './demo-messaging';
 import { DemoVarsler, type DemoVarslerHost } from './demo-varsler';
+import { personvernServerMessages } from './supabase-personvern';
+import type { AcceptTermsInput, ConsentInput, DecideDataRequestInput } from './contracts';
+import { LEGAL_VERSIONS } from '@/lib/domain/legal';
+import type { AdminDataRequest, DataRequest, PrivacyStatus } from '@/lib/domain/privacy';
+import { acceptTermsSchema, consentSchema, decideDataRequestSchema } from '@/lib/domain/validation';
 import type { HandoverResponseInput, NotificationPreferencesInput, RescheduleHandoverInput, SearchInput, SetElectionDateInput, StartHandoverInput } from './contracts';
 import { SEARCH_MIN_LENGTH, type SearchResult } from '@/lib/domain/search';
 import { searchInputSchema } from '@/lib/domain/validation';
@@ -1205,4 +1210,121 @@ export class DemoElevradsnettService implements ElevradsnettService {
   activateHandoverNow(handoverId:string) { return this.varsler.activateHandoverNow(handoverId); }
   listMyHandoverInvites() { return this.varsler.listMyHandoverInvites(); }
   respondToHandoverInvite(input:HandoverResponseInput) { return this.varsler.respondToHandoverInvite(input); }
+
+  // ---- Personvern (§10, §16). Spiller rollen til RPC-ene i 202610150001_personvern.sql. ----
+  /** Ida har godtatt gjeldende vilkår. Nye brukere godtar dem i onboarding. */
+  private accepted:{ userId:string; termsVersion:string; privacyVersion:string; acceptedAt:string }[] = [{ userId:demo.currentUser.id, termsVersion:LEGAL_VERSIONS.terms, privacyVersion:LEGAL_VERSIONS.privacy, acceptedAt:'2026-09-01T10:00:00.000Z' }];
+  private consents:{ userId?:string; anonymousId?:string; version:string; purposes:Record<string,boolean>; grantedAt:string }[] = [];
+  private dataRequests:(DataRequest & { userId:string; handledBy?:string })[] = [];
+  private deactivatedByUser = false;
+  /** Innlogget med profil, også deaktivert. */
+  private requireProfile() {
+    if (this.status!=='active' && this.status!=='deactivated') throw new Error('Du må logge inn først.');
+    return this.user;
+  }
+  /** Som holds_last_admin_role: en administratorrolle ingen andre aktive har. */
+  private holdsLastAdminRole(userId:string) {
+    return this.grants.some(g=>g.userId===userId && g.role!=='content_manager' && this.live(g) && !this.grants.some(o=>o.id!==g.id && o.userId!==userId && o.role===g.role
+      && (g.role==='super_admin' || o.organizationId===g.organizationId) && this.live(o) && this.people.get(o.userId)?.active!==false));
+  }
+  private endAllRoles(userId:string) {
+    const end = (x:{ status:GrantStatus; startDate:string; endDate:string|null })=>{ if (x.status==='active' || x.status==='invited') { x.status = 'ended'; x.endDate = x.startDate>today()?x.startDate:today(); } };
+    this.memberships.filter(m=>m.userId===userId).forEach(end);
+    this.grants.filter(g=>g.userId===userId).forEach(end);
+    for (const r of this.requests) if (r.userId===userId && r.status==='pending') r.status = 'cancelled';
+  }
+  async getPrivacyStatus():Promise<PrivacyStatus> {
+    const user = this.requireProfile();
+    const accepted = this.accepted.filter(a=>a.userId===user.id).at(-1);
+    const consent = this.consents.filter(c=>c.userId===user.id).at(-1);
+    return structuredClone({
+      status:this.status==='active'?'active':'deactivated', deactivatedByUser:this.deactivatedByUser,
+      termsVersion:LEGAL_VERSIONS.terms, privacyVersion:LEGAL_VERSIONS.privacy, cookiesVersion:LEGAL_VERSIONS.cookies,
+      acceptedTermsVersion:accepted?.termsVersion ?? null, acceptedPrivacyVersion:accepted?.privacyVersion ?? null, acceptedAt:accepted?.acceptedAt ?? null,
+      consent:consent?{ version:consent.version, purposes:consent.purposes, grantedAt:consent.grantedAt }:null,
+      requests:this.dataRequests.filter(r=>r.userId===user.id).map(({ userId:_u, handledBy:_h, ...r })=>r).reverse(),
+    } satisfies PrivacyStatus);
+  }
+  async acceptTerms(input:AcceptTermsInput) {
+    const value = acceptTermsSchema.parse(input);
+    const user = this.requireProfile();
+    if (value.termsVersion!==LEGAL_VERSIONS.terms || value.privacyVersion!==LEGAL_VERSIONS.privacy) throw new Error(personvernServerMessages['outdated legal version']);
+    this.accepted.push({ userId:user.id, ...value, acceptedAt:new Date().toISOString() });
+  }
+  async recordConsent(input:ConsentInput) {
+    const value = consentSchema.parse(input);
+    if (value.version!==LEGAL_VERSIONS.cookies) throw new Error(personvernServerMessages['outdated legal version']);
+    const userId = this.status==='active' || this.status==='deactivated'?this.user.id:undefined;
+    if (!userId && !value.anonymousId) throw new Error(personvernServerMessages['invalid consent']);
+    this.consents.push({ userId, anonymousId:userId?undefined:value.anonymousId, version:value.version, purposes:value.purposes, grantedAt:new Date().toISOString() });
+  }
+  async deactivateAccount() {
+    const user = this.requireUser();
+    if (this.holdsLastAdminRole(user.id)) throw new Error(personvernServerMessages['you are last administrator']);
+    this.endAllRoles(user.id);
+    this.status = 'deactivated';
+    this.deactivatedByUser = true;
+    this.activeRepresentationId = null;
+    const me = this.people.get(user.id);
+    if (me) me.active = false;
+    if (user.schoolId) this.log(user.schoolId,'profile.deactivated_by_user',user.id);
+  }
+  async reactivateAccount() {
+    const user = this.requireProfile();
+    if (this.status!=='deactivated') throw new Error('Profilen er allerede aktiv.');
+    if (!this.deactivatedByUser) throw new Error(personvernServerMessages['deactivated by administrator']);
+    this.status = 'active';
+    this.deactivatedByUser = false;
+    const me = this.people.get(user.id);
+    if (me) me.active = true;
+  }
+  async exportMyData() {
+    const user = this.requireProfile();
+    const orgName = (id:string)=>this.organizations.find(o=>o.id===id)?.name ?? id;
+    return structuredClone({
+      exportedAt:new Date().toISOString(),
+      profile:{ id:user.id, name:user.name, email:user.email, status:this.status, deactivatedByUser:this.deactivatedByUser, currentSchool:user.schoolId?orgName(user.schoolId):null },
+      schoolHistory:this.schoolHistory,
+      publicOffices:this.memberships.filter(m=>m.userId===user.id).map(m=>({ organization:orgName(m.organizationId), title:m.title, startDate:m.startDate, endDate:m.endDate, status:m.status })),
+      internalRoles:this.grants.filter(g=>g.userId===user.id).map(g=>({ organization:orgName(g.organizationId), role:g.role, startDate:g.startDate, endDate:g.endDate, status:g.status })),
+      posts:this.posts.filter(p=>p.actorName===user.name).map(p=>({ id:p.id, organization:p.organizationName, body:p.body, audience:p.audience })),
+      eventInterests:this.events.filter(e=>this.interests.has(e.id)).map(e=>({ event:e.title })),
+      termsAccepted:this.accepted.filter(a=>a.userId===user.id).map(({ userId:_u, ...a })=>a),
+      consents:this.consents.filter(c=>c.userId===user.id).map(({ userId:_u, anonymousId:_a, ...c })=>c),
+      privacyRequests:this.dataRequests.filter(r=>r.userId===user.id).map(r=>({ kind:r.kind, status:r.status, createdAt:r.createdAt })),
+    }) as Record<string,unknown>;
+  }
+  async requestDeletion() {
+    const user = this.requireProfile();
+    if (this.dataRequests.some(r=>r.userId===user.id && (r.status==='pending' || r.status==='processing'))) throw new Error('Dette er allerede registrert.');
+    this.dataRequests.push({ id:this.nextId('dsr'), userId:user.id, kind:'deletion', status:'pending', createdAt:new Date().toISOString(), completedAt:null, notes:null });
+  }
+  async cancelDataRequest(requestId:string) {
+    const user = this.requireProfile();
+    const request = this.dataRequests.find(r=>r.id===requestId && r.userId===user.id && r.status==='pending');
+    if (!request) throw new Error('Forespørselen er allerede behandlet.');
+    request.status = 'cancelled';
+  }
+  async listDataRequests():Promise<AdminDataRequest[]> {
+    this.requireSuperAdmin();
+    return structuredClone(this.dataRequests.map(({ handledBy, ...r })=>{
+      const person = this.people.get(r.userId);
+      return { ...r, userName:person?.name ?? 'Ukjent', email:'', schoolName:person?.schoolId?this.organizations.find(o=>o.id===person.schoolId)?.name ?? null:null,
+        handledByName:handledBy?this.people.get(handledBy)?.name ?? null:null };
+    }));
+  }
+  async decideDataRequest(input:DecideDataRequestInput) {
+    const value = decideDataRequestSchema.parse(input);
+    this.requireSuperAdmin();
+    const request = this.dataRequests.find(r=>r.id===value.requestId);
+    if (!request || (request.status!=='pending' && request.status!=='processing')) throw new Error('Forespørselen er allerede behandlet.');
+    if (request.userId===this.user.id) throw new Error('Du kan ikke administrere din egen bruker her.');
+    if (value.status==='completed') {
+      if (this.holdsLastAdminRole(request.userId)) throw new Error('Organisasjonen må ha minst én administrator. Gi rollen til en etterfølger før denne fjernes.');
+      this.endAllRoles(request.userId);
+      const person = this.people.get(request.userId);
+      if (person) Object.assign(person,{ name:'Slettet bruker', schoolId:null, active:false });
+    }
+    Object.assign(request,{ status:value.status, notes:value.notes || null, handledBy:this.user.id, completedAt:value.status==='processing'?null:new Date().toISOString() });
+  }
 }

@@ -345,3 +345,26 @@ export const searchInputSchema = z.object({
   includeFormer:z.boolean().optional(),
 });
 export type SearchInput = z.input<typeof searchInputSchema>;
+
+// ---- Personvern (§10, §16, prompt 14) ----
+export const acceptTermsSchema = z.object({
+  termsVersion:z.string().trim().min(1, 'Mangler versjon.'),
+  privacyVersion:z.string().trim().min(1, 'Mangler versjon.'),
+});
+export type AcceptTermsInput = z.input<typeof acceptTermsSchema>;
+
+export const consentSchema = z.object({
+  version:z.string().trim().min(1, 'Mangler versjon.'),
+  purposes:z.record(z.string().regex(/^[a-z_]{2,40}$/, 'Ukjent formål.'), z.boolean()).refine(p=>Object.keys(p).length<=10, 'For mange formål.'),
+  /** Tilfeldig id fra nettleseren. Brukes bare uten innlogging. */
+  anonymousId:z.string().regex(/^[A-Za-z0-9-]{16,64}$/, 'Ugyldig id.').optional(),
+});
+export type ConsentInput = z.input<typeof consentSchema>;
+
+export const DATA_REQUEST_NOTES_MAX_LENGTH = 2000;
+export const decideDataRequestSchema = z.object({
+  requestId:idSchema,
+  status:z.enum(['processing','completed','rejected'], 'Ukjent status.'),
+  notes:z.string().trim().max(DATA_REQUEST_NOTES_MAX_LENGTH, `Notatet kan ha maks ${DATA_REQUEST_NOTES_MAX_LENGTH} tegn.`).optional(),
+}).refine(v=>v.status!=='rejected' || (v.notes ?? '').length>=5,{ message:'Skriv en begrunnelse på minst fem tegn.', path:['notes'] });
+export type DecideDataRequestInput = z.input<typeof decideDataRequestSchema>;

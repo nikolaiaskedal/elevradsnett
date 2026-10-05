@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useApp } from '@/components/app-context';
 import { useService } from '@/components/service-provider';
 import { PersonCvSections } from '@/components/shared/cv';
+import { PrivacySection } from '@/components/shared/privacy';
 import { prepareAvatar } from '@/components/shared/image';
 import { SchoolPicker } from '@/components/shared/login-flow';
 import { Avatar, ConfirmButton, Status } from '@/components/shared/ui';
@@ -123,6 +124,8 @@ export function ProfileView() {
       </dl>
       <div className="actions" style={{ marginTop:12 }}><button className="btn" onClick={signOut}>Logg ut</button></div>
     </section>
+
+    <PrivacySection/>
   </div>;
 }
 
