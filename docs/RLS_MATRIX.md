@@ -144,6 +144,20 @@ Nye samtaler er begrenset til 30 per bruker per døgn (`check_conversation_rate_
 - Den første superadministratoren kan ikke tildeles i appen (`assign_role` stopper selvtildeling). Prosjekteieren kjører `supabase/manual/gjor_meg_til_superadmin.sql` i SQL Editor; den krever en eksisterende aktiv profil, er idempotent og logger `role.bootstrapped`.
 - Skolebytte (`change_school`) avslutter verv og rettigheter ved gammel skole med sluttdato, gir ingen rettigheter ved ny skole, og stopper siste skoleadministrator.
 
+## Personvern (prompt 14)
+
+| Tabell eller RPC | Hvem | Regler |
+|---|---|---|
+| `legal_document_versions` | Alle | Lese publiserte versjoner. Skrives bare i migrasjoner. `current_legal_version` gir gjeldende versjon |
+| `legal_acceptances` | Innlogget | Lese egne godkjenninger. Skrives bare av `accept_terms`, som avviser andre enn gjeldende versjon. Profilen må finnes (aktiv eller deaktivert) |
+| `consent_records` | Innlogget, anonym via RPC | Lese egne (`consent_own_read`). Direkte skriving er fjernet (`consent_own_all`). `record_consent` lagrer valget med versjon og merker tidligere valg som trukket tilbake. Uten innlogging kreves en tilfeldig nettleser-id, og maks ti valg per id i timen |
+| `deactivate_my_account` | Innlogget, aktiv profil | Deaktiverer egen profil, avslutter verv og rettigheter, tar brukeren ut av vanlige grupper. Stoppes hvis brukeren er siste administrator i en organisasjon |
+| `reactivate_my_account` | Deaktivert profil | Bare når brukeren deaktiverte profilen selv (`deactivated_by_user`). Verv gis ikke tilbake |
+| `get_my_privacy`, `export_my_data` | Innlogget, også deaktivert | Egne data. Eksporten logges som en fullført forespørsel i `data_subject_requests` og i revisjonsloggen |
+| `request_personal_data`, `cancel_personal_data_request` | Innlogget, også deaktivert | Be om sletting, og trekke en ventende forespørsel. Én åpen forespørsel per type |
+| `list_data_subject_requests`, `decide_data_subject_request` | Superadministrator | Se og behandle forespørsler om sletting. Kan ikke behandle egen. Avslag krever begrunnelse |
+| `erase_personal_data`, `end_all_roles`, `holds_last_admin_role` | Ingen (bare serverfunksjoner) | Sletter navn, e-post (også i `auth.users`), bilde, meldingsinnhold, vedlegg, varsler, følging, reaksjoner og samtykker; avslutter verv; logger `privacy.erased`. Innlegg og kommentarer blir stående med «Slettet bruker». Brukes også av «Slett» i `admin_manage_user` |
+
 ## Sanntid
 
 `messages`, `conversation_members` og `notifications` er med i publikasjonen `supabase_realtime`. Sanntid følger de samme RLS-reglene som vanlig lesing. Appen lytter på nye meldinger og egne samtalemedlemskap, og henter samtalelisten på nytt via RPC når noe endres.

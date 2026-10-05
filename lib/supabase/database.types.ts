@@ -599,6 +599,31 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"legal_acceptances": {
+                  Row: {
+                    "accepted_at": string,"id": string,"privacy_version": string,"terms_version": string,"user_id": string
+                  }
+                  Insert: {
+                    "accepted_at"?: string,"id"?: string,"privacy_version": string,"terms_version": string,"user_id": string
+                  }
+                  Update: {
+                    "accepted_at"?: string,"id"?: string,"privacy_version"?: string,"terms_version"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "legal_acceptances_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "legal_acceptances_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "public_profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"legal_document_versions": {
                   Row: {
                     "body": string,"id": string,"kind": string,"published_at": string,"version": string
@@ -1028,6 +1053,19 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"placeholder_content": {
+                  Row: {
+                    "created_at": string,"target_id": string,"target_type": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"target_id": string,"target_type": string
+                  }
+                  Update: {
+                    "created_at"?: string,"target_id"?: string,"target_type"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"poll_options": {
                   Row: {
                     "id": string,"label": string,"poll_id": string,"position": number
@@ -1046,19 +1084,6 @@ isOneToOne: false
       referencedRelation: "polls"
       referencedColumns: ["id"]
     }
-                  ]
-                },"placeholder_content": {
-                  Row: {
-                    "created_at": string,"target_id": string,"target_type": string
-                  }
-                  Insert: {
-                    "created_at"?: string,"target_id": string,"target_type": string
-                  }
-                  Update: {
-                    "created_at"?: string,"target_id"?: string,"target_type"?: string
-                  }
-                  Relationships: [
-
                   ]
                 },"poll_votes": {
                   Row: {
@@ -1568,7 +1593,10 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "activate_handover":
+            "accept_terms":
+{ Args: { "p_privacy_version": string,"p_terms_version": string }; Returns: undefined
+                           },
+"activate_handover":
 { Args: { "p_handover": string }; Returns: undefined
                            },
 "add_comment":
@@ -1661,6 +1689,9 @@ isOneToOne: false
 "cancel_handover":
 { Args: { "p_handover": string }; Returns: undefined
                            },
+"cancel_personal_data_request":
+{ Args: { "p_request": string }; Returns: undefined
+                           },
 "cancel_school_admin_request":
 { Args: { "p_request": string }; Returns: undefined
                            },
@@ -1737,8 +1768,17 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"current_legal_version":
+{ Args: { "p_kind": string }; Returns: string
+                           },
+"deactivate_my_account":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
 "deactivate_school":
 { Args: { "p_reason": string,"p_school": string }; Returns: undefined
+                           },
+"decide_data_subject_request":
+{ Args: { "p_notes"?: string,"p_request": string,"p_status": string }; Returns: undefined
                            },
 "decide_friend_request":
 { Args: { "p_accept": boolean,"p_connection": string }; Returns: undefined
@@ -1780,17 +1820,26 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"end_all_roles":
+{ Args: { "p_actor": string,"p_user": string }; Returns: undefined
+                           },
 "end_friend_connection":
 { Args: { "p_connection": string }; Returns: undefined
                            },
 "end_public_office":
 { Args: { "p_membership": string }; Returns: undefined
                            },
+"erase_personal_data":
+{ Args: { "p_actor": string,"p_user": string }; Returns: undefined
+                           },
 "event_audience_allows":
 { Args: { "p_event": string,"p_org": string }; Returns: boolean
                            },
 "expire_roles":
 { Args: { "p_today"?: string }; Returns: number
+                           },
+"export_my_data":
+{ Args: Record<PropertyKey, never>; Returns: Json
                            },
 "get_admin_dashboard":
 { Args: { "p_scope": string }; Returns: Json
@@ -1815,6 +1864,9 @@ isOneToOne: false
 { Args: Record<PropertyKey, never>; Returns: {
               "read_receipts": boolean
             }[]
+                           },
+"get_my_privacy":
+{ Args: Record<PropertyKey, never>; Returns: Json
                            },
 "get_my_roles":
 { Args: Record<PropertyKey, never>; Returns: {
@@ -1890,6 +1942,9 @@ isOneToOne: false
 "hide_message":
 { Args: { "p_message": string }; Returns: undefined
                            },
+"holds_last_admin_role":
+{ Args: { "p_user": string }; Returns: boolean
+                           },
 "is_active_user":
 { Args: { "p_user"?: string }; Returns: boolean
                            },
@@ -1925,6 +1980,9 @@ isOneToOne: false
 { Args: { "p_conversation": string }; Returns: {
               "display_name": string,"is_admin": boolean,"me": boolean,"school_name": string,"user_id": string
             }[]
+                           },
+"list_data_subject_requests":
+{ Args: Record<PropertyKey, never>; Returns: Json
                            },
 "list_delegate_candidates":
 { Args: { "p_query"?: string,"p_registration": string }; Returns: {
@@ -2067,6 +2125,9 @@ isOneToOne: false
               "bucket": string,"id": number,"path": string
             }[]
                            },
+"placeholder_content_counts":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
 "publish_post":
 { Args: { "p_audience": Database["public"]['Enums']["audience_type"],"p_body": string,"p_organization_id": string,"p_school_level_target"?: string,"p_status": Database["public"]['Enums']["content_status"] }; Returns: {
               "actor_user_id": string,
@@ -2095,6 +2156,12 @@ isOneToOne: false
 "queue_storage_deletion":
 { Args: { "p_bucket": string,"p_path": string,"p_reason": string }; Returns: undefined
                            },
+"reactivate_my_account":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"record_consent":
+{ Args: { "p_anonymous_id": string,"p_purposes": Json,"p_version": string }; Returns: undefined
+                           },
 "record_media_check":
 { Args: { "p_bucket": string,"p_height": number,"p_mime": string,"p_path": string,"p_reason": string,"p_size": number,"p_status": string,"p_user": string,"p_width": number }; Returns: undefined
                            },
@@ -2103,6 +2170,9 @@ isOneToOne: false
                            },
 "remove_event_delegate":
 { Args: { "p_delegate": string }; Returns: undefined
+                           },
+"remove_placeholder_content":
+{ Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "report_message":
 { Args: { "p_category": string,"p_description"?: string,"p_message": string }; Returns: string
@@ -2165,6 +2235,9 @@ isOneToOne: false
                            },
 "search_tsquery":
 { Args: { "p_config": unknown,"p_query": string }; Returns: unknown
+                           },
+"seed_placeholder_conversations":
+{ Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "send_message":
 { Args: { "p_attachments"?: Json,"p_body": string,"p_conversation": string }; Returns: {

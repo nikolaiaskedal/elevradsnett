@@ -775,3 +775,26 @@ button.result-row:hover { border-color: var(--navy-200); background: var(--soft)
 .result-row strong { display: block; font-weight: 600; overflow-wrap: anywhere; }
 .result-row small { display: block; color: var(--navy-300); line-height: 1.5; overflow-wrap: anywhere; }
 .result-row .grow { min-width: 0; }
+
+/* ---------- Personvern (prompt 14) ---------- */
+.prose ul, .terms-summary { list-style: disc; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.legal-list { display: flex; flex-direction: column; border: 1px solid var(--navy-100); border-radius: 9px; overflow: hidden; }
+.legal-list > div { display: grid; grid-template-columns: minmax(130px, 200px) 1fr; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--hair); }
+.legal-list > div:first-child { border-top: 0; }
+.legal-list dt { font-weight: 600; color: var(--navy); }
+.legal-list dd { margin: 0; line-height: 1.6; }
+.legal .name-link { display: inline; font-weight: 600; text-decoration: underline; }
+.terms-box { border: 1px solid var(--navy-200); background: var(--soft); border-radius: 9px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; line-height: 1.6; }
+.terms-summary { line-height: 1.6; color: var(--ink); }
+.row-card.wrap { flex-wrap: wrap; }
+.consent-banner { position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 80; display: flex; justify-content: center; }
+.consent-inner { width: 100%; max-width: 760px; background: var(--white); border: 1px solid var(--navy-200); border-radius: 13px; box-shadow: var(--shadow-panel); padding: 18px 20px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.consent-inner h2 { font-size: 1.05em; }
+.consent-inner p { line-height: 1.6; margin-top: 4px; }
+.consent-actions { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; }
+.consent-actions .btn { min-width: 110px; justify-content: center; }
+@media (max-width: 480px) {
+  .legal-list > div { grid-template-columns: 1fr; gap: 2px; }
+  .consent-actions { width: 100%; }
+  .consent-actions .btn { flex: 1; }
+}

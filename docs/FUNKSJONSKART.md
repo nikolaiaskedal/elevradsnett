@@ -29,6 +29,8 @@ Fra prompt 3 laster appen mot Supabase: økt, organisasjoner, innlegg (fra promp
 | Nytt innlegg (toppmeny) | Åpner innleggsdialogen. Uten innlogging: innloggingsdialogen først. Uten verv: melding om at verv trengs | Fungerer | – | – | ja | §7 |
 | Innloggingsdialog | Åpnes av handlinger som krever innlogging, og fullfører handlingen etterpå. Lukk (×) avbryter | Fungerer | `requestLoginCode`, `verifyLoginCode` | ja | app | §1, §7 |
 | Varsel om deaktivert profil | Vises øverst når profilen er deaktivert | Fungerer | `getSession` | ja | app | §10 |
+| Godkjenning av vilkår | Vises i stedet for siden når brukeren ikke har godtatt gjeldende versjon av vilkårene og personvernerklæringen (første gang eller etter endring). Hovedpunkter, lenker til fulltekst, avkrysning, «Godta og fortsett» og «Logg ut». Informasjonssidene kan leses med en lenke tilbake | Fungerer | `getPrivacyStatus`, `acceptTerms` | ja (`get_my_privacy`, `accept_terms`) | app | §16 |
+| Banner for samtykke | Vises bare når en valgfri tjeneste er slått på i `lib/domain/legal.ts` (ingen i piloten). «Godta» (oransje), «Avvis» (hvit, like stor) og «Velg selv» | Fungerer (av i piloten) | `recordConsent` | ja (`record_consent`) | app | §16 |
 | Bunnmeny: Personvern, Vilkår, Informasjonskapsler, Kontakt | Åpner informasjonssidene | Fungerer | – | – | app | §16 |
 | Bunnmeny: Administrasjon | Åpner administrasjonen | Fungerer | – | – | app | §12 |
 | Lastefeil og Prøv igjen | Viser feilmeldingen hvis data ikke kan lastes, og laster på nytt | Fungerer | alle lesemetoder | – | app | §19 |
@@ -217,6 +219,11 @@ Uten innlogging vises innloggingen i stedet for profilen.
 | Se CV-en slik andre ser den | Åpner `#/person/<id>` | Fungerer | – | – | app | §8 |
 | Innlogging: e-post, Telefonnummer og Feide («Kommer senere») | Visning. Telefonnummer kan ikke lagres i piloten | Fungerer | `getSession` | ja | app | §1, §3 |
 | Logg ut | Logger ut og går til Hjem | Fungerer | `signOut` | ja | app | §3 |
+| Personvern og konto: godkjente vilkår | Når brukeren godtok vilkårene, og lenke til personvernerklæringen | Fungerer | `getPrivacyStatus` | ja (`get_my_privacy`) | app | §16 |
+| Personvern og konto: Last ned dataene mine | Laster ned alt om brukeren som JSON | Fungerer | `exportMyData` | ja (`export_my_data`) | app | §10, §16 |
+| Personvern og konto: Be om sletting / Trekk | Ber om sletting etter bekreftelse, viser status, og lar en ventende forespørsel trekkes | Fungerer | `requestDeletion`, `cancelDataRequest` | ja (`request_personal_data`, `cancel_personal_data_request`) | app | §10, §16 |
+| Personvern og konto: Deaktiver profilen | Deaktiverer etter bekreftelse. Verv og rettigheter avsluttes. Siste administrator stoppes | Fungerer | `deactivateAccount` | ja (`deactivate_my_account`) | app | §10 |
+| Deaktivert profil: Aktiver profilen igjen | Vises på Profil når brukeren deaktiverte profilen selv. Ellers en forklaring. Nedlasting og sletting virker også deaktivert | Fungerer | `reactivateAccount` | ja (`reactivate_my_account`) | app | §10 |
 
 ## Logg inn (`#/logg-inn`, innloggingsdialogen og innlogging på Meldinger, Profil og Administrasjon)
 
@@ -233,6 +240,7 @@ Samme flyt alle steder. Fra `#/logg-inn` sendes brukeren tilbake til siden de ko
 | Onboarding: Søk etter skole og treffliste | Velger skole | Fungerer | – | – | ja | §3 |
 | Onboarding: Navn | Fritekst, 2–120 tegn | Fungerer | – | – | ja | §3 |
 | Onboarding: Dato for neste valg | Valgfri dato, fra i dag og inntil to år frem | Fungerer | `completeOnboarding` | ja | app | §5 |
+| Onboarding: Vilkår og personvern | Hovedpunktene, lenker til vilkårene og personvernerklæringen (ny fane) og påkrevd avkrysning før «Fullfør» og «Hopp over» | Fungerer | `acceptTerms` | ja (`accept_terms`) | app | §16 |
 | Onboarding: Fortsett / Tilbake / Fullfør / Hopp over | Oppretter profilen med skole og eventuell valgdato | Fungerer | `completeOnboarding` | ja (`complete_onboarding`) | ja | §3, §5 |
 | Onboarding: Logg ut | Avbryter onboarding | Fungerer | `signOut` | ja | app | §3 |
 | Allerede innlogget: Til forsiden / Logg ut | Vises på `#/logg-inn` når brukeren er logget inn | Fungerer | `signOut` | ja | app | §3 |
@@ -246,7 +254,7 @@ Uten innlogging vises innloggingen. Innlogget uten administratorrettigheter vise
 | Organisasjon (velger og søk) | Velger blant organisasjonene brukeren administrerer: egne, eget lokallag (fylkesstyreregelen), skolene i området, eller alle for superadministrator. Søkefeltet vises ved mer enn åtte | Fungerer | `listAdminOrganizations` | ja | app | §4, §12 |
 | Merke for egen rolle | Skoleadministrator, styreadministrator (i området) eller superadministrator | Fungerer | `listAdminOrganizations` | ja | app | §4 |
 | MFA-port for superadministrator | Vises bare når serveren sier at tofaktor kreves (`admin_mfa_required`). Av i piloten: innlogging med e-postkode er nok. Når kravet slås på: oppsett og kodekontroll med autentiseringsapp (TOTP) | Fungerer (av i piloten) | `getMfaStatus`, `enrollTotp`, `verifyTotp`, `challengeTotp` | ja (`has_role` bruker `super_admin_session_ok`) | app | §17 |
-| Faner: Oversikt, Brukere, Roller og verv, Forespørsler, Venneråd, Styreoverføring, Organisasjoner, Innhold, Medier, Moderering, CSV | Bytter fane. Venneråd vises bare for skoler der serveren oppgir skole- eller superadministrator | Fungerer | – | – | app | §4, §5, §7, §12 |
+| Faner: Oversikt, Brukere, Roller og verv, Forespørsler, Venneråd, Styreoverføring, Organisasjoner, Innhold, Medier, Moderering, Personvern, CSV | Bytter fane. Venneråd vises bare for skoler der serveren oppgir skole- eller superadministrator. Personvern vises bare når serveren oppgir superadministrator | Fungerer | – | – | app | §4, §5, §7, §12 |
 | Oversikt: aggregerte nøkkeltall | Aktive brukere/skoler, innlegg og åpne modereringssaker i valgt område. Privat meldingsinnhold inngår ikke | Fungerer | `getAdminDashboard` | ja (`get_admin_dashboard`) | app | §12 |
 | Oversikt: Behandle (forespørsler) | Går til Forespørsler | Fungerer | – | – | app | §4 |
 | Oversikt: Revisjonslogg | Siste endringer i organisasjonen med navn på den som endret og den det gjaldt | Fungerer | `listAuditLog` | ja (`list_audit_log`) | app | §4, §17, §22 |
@@ -283,6 +291,7 @@ Uten innlogging vises innloggingen. Innlogget uten administratorrettigheter vise
 | Eksempelinnhold: Av / På | Superadministrator skrur eksempelinnhold på eller av. På: seks eksempelbrukere med verv ved hver sin pilotskole, åtte innlegg fra dem, fire arrangementer, og to direktemeldinger og én gruppe med hver aktiv bruker. Alt er merket «(eksempel)». Av: alt slettes, også kommentarer, reaksjoner og samtaler med eksempelbrukerne. «På» igjen gir nye brukere eksempelsamtalene | Fungerer (demo: bare bryteren) | `getPlaceholderContentStatus`, `setPlaceholderContent` | ja (`get_placeholder_content_status`, `set_placeholder_content`) | app | §11, §12 |
 | Moderering: kø og Behandle | Viser områdets rapporter, rapportør, innhold, status, moderator og historikk. For meldinger vises bare det ene innholdet rapportøren delte. Støtter skjul, slett, advarsel, begrensning, deaktivering, gjenoppretting og ingen handling | Fungerer | `listModerationReports`, `applyModerationAction` | ja (`list_moderation_queue`, `apply_moderation_action`) | app | §15 |
 | Moderering: klage og ny vurdering | Behandlede saker kan påklages av rapportøren eller den rapporterte; saken prioriteres på nytt i køen | Fungerer i tjenestelaget; brukerflate kobles til innholdsrapportering i prompt 7 | `appealModerationReport` | ja (`appeal_moderation_report`) | app | §15 |
+| Personvern: forespørsler om sletting | Liste med status. «Behandle»: Under behandling, Avslå (med begrunnelse) eller Slett personopplysningene (bekreftelse). Kan ikke angres | Fungerer | `listDataRequests`, `decideDataRequest` | ja (`list_data_subject_requests`, `decide_data_subject_request`) | app | §10, §16 |
 | CSV: Last ned mal | Viser bare en melding | Mangler | – | – | app | §13 |
 | CSV: Last opp UTF-8 CSV | Viser en fast forhåndsvisning, leser ingen fil | Mangler | – | – (`apply_school_import` finnes) | app | §13 |
 | CSV: Gå til bekreftelse | Viser bare en melding | Mangler | – | – | app | §13 |
@@ -291,7 +300,8 @@ Uten innlogging vises innloggingen. Innlogget uten administratorrettigheter vise
 
 | Kontroll | Hva den gjør | Status | Tjenestemetode | Supabase | I designet | Kravpunkt |
 |---|---|---|---|---|---|---|
-| Faner: Personvern, Vilkår, Informasjonskapsler, Kontakt | Bytter side | Fungerer | – | – | app | §16 |
+| Faner: Personvern, Vilkår, Informasjonskapsler, Kontakt | Bytter side. Personvernerklæringen, vilkårene og informasjonskapsler har versjon og dato (`lib/domain/legal.ts`) | Fungerer | – | – | app | §16 |
+| Informasjonskapsler: Dine valg | Valg per valgfri tjeneste, «Lagre valgene» og «Trekk tilbake alt». Ingen tjenester i piloten, så det står at det ikke er noe å velge | Fungerer | `recordConsent` | ja (`record_consent`) | app | §16 |
 | E-postlenke teknisk@elev.no | Åpner e-postklient | Fungerer | – | – | app | §16 |
 
 ## Innlegg (`#/innlegg/<id>`)
@@ -330,5 +340,4 @@ Finnes i databasen (prompt 2), men er ikke koblet til en knapp. Kolonnen *Prompt
 
 | RPC eller tabell | Hva den gjør | Status | Prompt | Kravpunkt |
 |---|---|---|---|---|
-| `request_personal_data` | Forespørsel om eksport eller sletting av egne data | Mangler kontroll | 14 | §10, §16 |
 | `resolve_organization_images` | Bildehierarkiet eget → lokallag → fylke → global, med lås og kilde. Vises på organisasjonssiden fra prompt 6 (`get_organization_images`); standardbilder og lås kommer i adminpanelet | Delvis | 12 | §14 |

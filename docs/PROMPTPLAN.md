@@ -18,8 +18,21 @@ Planen deler `docs/KRAVSPEC.md` inn i prompter som sendes én om gangen, hver i 
 | 10. Meldinger | Ferdig, med ett manuelt steg (migrasjonen med `drop policy`, se *Utgangspunkt etter prompt 10*) | se git-loggen |
 | 11. Varsler og styreoverføring | Ferdig, med manuelle steg (se *Før neste prompt (etter prompt 8 og 11)*) | se git-loggen |
 | 12. Adminpanel og moderering | Ferdig, migrasjon må kjøres manuelt | se git-loggen |
+| 14. Juridiske sider og personvern | Ferdig i pilotversjon; migrasjonen er kjørt i pilotprosjektet. Avklaringer for Elevorganisasjonen gjenstår (se *Utgangspunkt etter prompt 14*) | se git-loggen |
 
-Prompt 1–12 er ferdige. Neste prompt er **13** (CSV-import). Kjør først de manuelle stegene i rekkefølge: *Før neste prompt (etter prompt 6 og 7)*, deretter *Før neste prompt (etter prompt 8 og 11)*, `supabase/manual/gjenstar_fra_prompt9.sql`, `supabase/migrations/202610100001_meldinger.sql` og `supabase/migrations/202610120003_admin_moderering.sql` i SQL Editor i pilotprosjektet. Sjekk også at stegene 3–6 under *Før prompt 4* er gjort (e-postmal, OTP-innstillinger og GitHub-variablene).
+Prompt 1–12 og 14 er ferdige. Prompt 13 (CSV-import) er utsatt til etter piloten, siden pilotskolene allerede er lastet inn. Neste prompt er **16** (sikkerhet og klargjøring), deretter 15. Kjør først de manuelle stegene i rekkefølge: *Før neste prompt (etter prompt 6 og 7)*, deretter *Før neste prompt (etter prompt 8 og 11)*, `supabase/manual/gjenstar_fra_prompt9.sql`, `supabase/migrations/202610100001_meldinger.sql` og `supabase/migrations/202610120003_admin_moderering.sql` i SQL Editor i pilotprosjektet. Sjekk også at stegene 3–6 under *Før prompt 4* er gjort (e-postmal, OTP-innstillinger og GitHub-variablene).
+
+## Utgangspunkt etter prompt 14 (5. oktober 2026)
+
+- **Juridiske sider (§16):** Personvernerklæring, vilkår, informasjonskapsler og kontakt er skrevet ut i `components/views/legal-view.tsx`, med versjon `2026-10-05` i `lib/domain/legal.ts` og `legal_document_versions`. En test sjekker at versjonene er like.
+- **Godkjenning av vilkår:** nye brukere krysser av i onboarding. Brukere som ikke har godtatt gjeldende versjon (også de sju som finnes i piloten), ser en side for godkjenning før appen (`accept_terms`, `legal_acceptances`). Ny versjon av vilkårene gir ny godkjenning.
+- **Samtykke:** banneret og valgene på siden om informasjonskapsler er bygget, men vises først når en valgfri tjeneste er slått på i `OPTIONAL_PURPOSES` (PostHog i prompt 17). `record_consent` lagrer valget med versjon, også uten innlogging. Direkte skriving i `consent_records` er fjernet.
+- **Egen konto (§10):** Profil → Personvern og konto: last ned alle egne data (`export_my_data`), be om sletting og trekke forespørselen, og deaktivere profilen (`deactivate_my_account`; verv og rettigheter avsluttes, siste administrator stoppes). En deaktivert bruker kan aktivere profilen igjen, laste ned data og be om sletting.
+- **Sletting:** superadministrator behandler forespørslene under Administrasjon → Personvern. `erase_personal_data` sletter navn, e-post (også i innloggingen), bilde, meldingsinnhold, vedlegg og annet personlig, og avslutter økter. Innlegg blir stående med «Slettet bruker». «Slett» under Brukere bruker nå den samme funksjonen.
+- **Dokumentasjon:** `docs/PRIVACY_AND_RETENTION.md` (grunnlag, datatyper, databehandlere, lagringstid, bilderutiner og åpne spørsmål), `docs/PERSONVERNBRUDD.md` og `docs/DPIA.md` (mal).
+- Databasetestene ligger i `supabase/tests/personvern.sql`.
+- **Gjenstår, må avklares av Elevorganisasjonen før piloten:** behandlingsgrunnlag og interesseavveiing, aldersgrense og informasjon til foresatte, databehandleravtaler (Supabase, Gmail), godkjenning av tekstene, og hvem som svarer på personvernhenvendelser. Se *Åpne spørsmål* i `docs/PRIVACY_AND_RETENTION.md`.
+- Automatisk sletting etter lagringstid er ikke bygget; den bør inn i `run_daily_jobs`.
 
 ## Utgangspunkt etter prompt 8 og 11 (2. oktober 2026)
 

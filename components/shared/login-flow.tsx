@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { schoolPlace } from '@/components/format';
 import { useService } from '@/components/service-provider';
+import { TermsSummary } from '@/components/shared/privacy';
 import { Avatar, SearchField } from '@/components/shared/ui';
+import { LEGAL_VERSIONS } from '@/lib/domain/legal';
 import type { Organization, Session } from '@/lib/domain/types';
 import { emailSchema, errorMessage, isoDate, loginCodeSchema, LOGIN_CODE_LENGTH, MAX_ELECTION_DAYS_AHEAD } from '@/lib/domain/validation';
 
@@ -124,6 +126,7 @@ export function OnboardingFlow({schools,email,onDone,onSignOut,headingLevel=1,he
   const [schoolId,setSchoolId] = useState('');
   const [name,setName] = useState('');
   const [election,setElection] = useState('');
+  const [accepted,setAccepted] = useState(false);
   const [error,setError] = useState('');
   const [busy,setBusy] = useState(false);
   const Heading = headingLevel===1?'h1':'h2';
@@ -137,9 +140,12 @@ export function OnboardingFlow({schools,email,onDone,onSignOut,headingLevel=1,he
   };
   const finish = async(withElection:boolean)=>{
     if (!school) return;
+    if (!accepted) { setError('Kryss av for at du har lest og godtar vilkårene og personvernerklæringen.'); return; }
     setBusy(true); setError('');
     try {
       await service.completeOnboarding({ schoolId:school.id, displayName:name.trim(), nextElection:withElection&&election?election:undefined });
+      // Feiler godkjenningen, spør appen om den igjen etter innlogging.
+      await service.acceptTerms({ termsVersion:LEGAL_VERSIONS.terms, privacyVersion:LEGAL_VERSIONS.privacy }).catch(()=>{});
       onDone(await service.getSession());
     } catch (e) { setError(errorMessage(e)); setBusy(false); }
   };
@@ -159,6 +165,15 @@ export function OnboardingFlow({schools,email,onDone,onSignOut,headingLevel=1,he
         <div><Heading id={headingId}>Når er neste elevrådsvalg?</Heading><p className="muted">Valgfritt. Vi bruker datoen til å minne elevrådet på å gi det nye styret tilgang i tide.</p></div>
         <label className="field"><span>Dato for neste valg</span><input type="date" value={election} min={isoDate(today)} max={isoDate(latest)} onChange={e=>setElection(e.target.value)}/></label>
         <div className="summary-box"><strong>{name.trim()} · {school?.schoolName ?? school?.name}</strong><p>E-post: {email}{election?` · Neste valg ${new Date(`${election}T12:00:00`).toLocaleDateString('nb-NO',{ day:'numeric', month:'long', year:'numeric' })}`:''}</p></div>
+        <div className="terms-box">
+          <strong>Vilkår og personvern</strong>
+          <TermsSummary/>
+          <p>Les <a href="#/info/terms" target="_blank" rel="noopener">vilkårene</a> og <a href="#/info/privacy" target="_blank" rel="noopener">personvernerklæringen</a> (åpnes i ny fane).</p>
+          <div className="check-row">
+            <input type="checkbox" id="onboarding-terms" checked={accepted} onChange={e=>{ setAccepted(e.target.checked); setError(''); }}/>
+            <label htmlFor="onboarding-terms">Jeg har lest og godtar vilkårene og personvernerklæringen.</label>
+          </div>
+        </div>
       </>}
       {error&&<p className="form-error" role="alert">{error}</p>}
       <div className="actions">

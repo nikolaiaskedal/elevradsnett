@@ -7,7 +7,8 @@ import { auditActionLabel, initialsOf, kindLabel, officeSuggestions, roleLabel }
 import { formatDate, formatRelative } from '@/lib/domain/time';
 import type { AdminOrganization, AssignablePerson, AuditEntry, FriendConnection, InternalRole, OrganizationRoleEntry, SchoolAdminRequest } from '@/lib/domain/types';
 import type { AdminDashboard, AdminUser, MfaStatus, ModerationAction, ModerationReport, TotpEnrollment } from '@/lib/domain/admin';
-import { errorMessage, OFFICE_TITLE_MAX_LENGTH, REQUEST_TEXT_MAX_LENGTH } from '@/lib/domain/validation';
+import { DATA_REQUEST_NOTES_MAX_LENGTH, errorMessage, OFFICE_TITLE_MAX_LENGTH, REQUEST_TEXT_MAX_LENGTH } from '@/lib/domain/validation';
+import { dataRequestStatusLabel, type AdminDataRequest } from '@/lib/domain/privacy';
 
 // Administrasjonen viser bare det serveren svarer: hvilke organisasjoner brukeren administrerer, og hvilke
 // rettigheter som kan tildeles der. Oversikt, Roller og verv, Forespørsler og Venneråd er koblet til tjenestelaget.
@@ -15,7 +16,7 @@ import { errorMessage, OFFICE_TITLE_MAX_LENGTH, REQUEST_TEXT_MAX_LENGTH } from '
 
 type Notify = (text:string)=>void;
 type LoadResult<T> = { data:T|null; error:string; refresh:()=>void };
-const adminTabs = [['overview','Oversikt'],['users','Brukere'],['roles','Roller og verv'],['requests','Forespørsler'],['friends','Venneråd'],['handover','Styreoverføring'],['schools','Organisasjoner'],['content','Innhold'],['media','Medier'],['moderation','Moderering'],['import','CSV']] as const;
+const adminTabs = [['overview','Oversikt'],['users','Brukere'],['roles','Roller og verv'],['requests','Forespørsler'],['friends','Venneråd'],['handover','Styreoverføring'],['schools','Organisasjoner'],['content','Innhold'],['media','Medier'],['moderation','Moderering'],['privacy','Personvern'],['import','CSV']] as const;
 type AdminTab = typeof adminTabs[number][0];
 
 /** Henter data på nytt når nøkkelen endres. Feil vises i stedet for dataene. */
@@ -57,7 +58,8 @@ export function AdminView(){
   const org = orgs.data.find(o=>o.id===orgId) ?? orgs.data[0];
   const decidable = (requests.data ?? []).filter(r=>r.canDecide);
   // Venneråd styres av skoleadministrator (eller superadministrator), slik serveren har oppgitt rollen.
-  const tabs = adminTabs.filter(([id])=>id!=='friends' || (org.type==='school' && org.myRole!=='board_admin'));
+  // Forespørsler om sletting behandles av superadministrator, slik serveren har oppgitt rollen.
+  const tabs = adminTabs.filter(([id])=>(id!=='friends' || (org.type==='school' && org.myRole!=='board_admin')) && (id!=='privacy' || org.myRole==='super_admin'));
   const shownTab:AdminTab = tabs.some(([id])=>id===tab)?tab:'overview';
   return <div className="page">
     <div className="page-head split">
@@ -79,7 +81,7 @@ export function AdminView(){
       :shownTab==='friends'?<Friends key={org.id} org={org} onNotify={notify}/>
       :shownTab==='handover'?<HandoverPanel key={org.id} org={org} onNotify={notify}/>:shownTab==='schools'?<Schools dashboard={dashboard} org={org} onNotify={notify}/>
       :shownTab==='content'?<Content dashboard={dashboard}/>:shownTab==='media'?<Media dashboard={dashboard} org={org} onNotify={notify}/>
-      :shownTab==='moderation'?<Moderation org={org} onNotify={notify}/>:<CsvImport onNotify={notify}/>}
+      :shownTab==='moderation'?<Moderation org={org} onNotify={notify}/>:shownTab==='privacy'?<DataRequests onNotify={notify}/>:<CsvImport onNotify={notify}/>}
     </div>
   </div>;
 }
@@ -404,6 +406,47 @@ function Moderation({org,onNotify}:{org:AdminOrganization;onNotify:Notify}){
   const service=useService();const reports=useLoad(()=>service.listModerationReports(org.id),`moderation:${org.id}`);const [selected,setSelected]=useState<ModerationReport|null>(null);const [action,setAction]=useState<ModerationAction>('hide');const [reason,setReason]=useState('');const [busy,setBusy]=useState(false);const [error,setError]=useState('');const open=(reports.data??[]).filter(r=>['open','reviewing','appealed'].includes(r.status));
   const submit=async()=>{if(!selected)return;setBusy(true);setError('');try{await service.applyModerationAction({reportId:selected.id,action,reason});onNotify('Modereringssaken er behandlet');setSelected(null);setReason('');reports.refresh();}catch(e){setError(errorMessage(e));}finally{setBusy(false);}};
   return <section className="card"><div className="card-head"><div><h2>Modereringskø</h2><p className="muted">Private meldinger vises bare når konkret innhold er rapportert. Klager prioriteres for ny vurdering.</p></div><Status tone={open.length?'coral':'green'}>{open.length} åpne</Status></div>{reports.error&&<p className="form-error">{reports.error}</p>}{!reports.data&&!reports.error&&<p className="muted">Henter …</p>}<div className="list">{reports.data?.map(report=><div className="row-card" key={report.id}><Status tone={report.status==='appealed'?'coral':'gray'}>{report.status==='appealed'?'Klage':report.targetType}</Status><span className="grow"><strong>{report.category}</strong><small>{report.targetSummary} · {report.reporterName} · {formatRelative(report.createdAt)}</small></span><button className="btn ghost" onClick={()=>setSelected(report)}>Behandle</button></div>)}</div>{selected&&<div className="admin-action"><h3>{selected.category}</h3><blockquote>{selected.targetSummary}</blockquote>{selected.description&&<p>{selected.description}</p>}{selected.sharedMessageExcerpt&&<p className="note-box"><strong>Delt meldingsinnhold:</strong> {selected.sharedMessageExcerpt}</p>} {!!selected.actions.length&&<div className="list">{selected.actions.map(a=><p key={a.id}><strong>{moderationLabels[a.action]}:</strong> {a.reason}</p>)}</div>}<label className="field"><span>Handling</span><select value={action} onChange={e=>setAction(e.target.value as ModerationAction)}>{Object.entries(moderationLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><label className="field"><span>Begrunnelse</span><textarea value={reason} onChange={e=>setReason(e.target.value)} maxLength={1000}/></label>{error&&<p className="form-error">{error}</p>}<div className="actions"><button className="btn ghost" onClick={()=>setSelected(null)}>Avbryt</button><button className="btn primary" disabled={busy||reason.trim().length<3} onClick={()=>void submit()}>Lagre vurdering</button></div></div>}</section>;
+}
+
+/** Forespørsler om sletting av personopplysninger (§10, §16). Bare superadministrator; serveren sjekker rettigheten. */
+function DataRequests({onNotify}:{onNotify:Notify}){
+  const service = useService();
+  const requests = useLoad(()=>service.listDataRequests(),'data-requests');
+  const [selected,setSelected] = useState<AdminDataRequest|null>(null);
+  const [notes,setNotes] = useState('');
+  const [busy,setBusy] = useState(false);
+  const [error,setError] = useState('');
+  const open = (requests.data ?? []).filter(r=>r.status==='pending' || r.status==='processing');
+  const decide = async(status:'processing'|'completed'|'rejected',done:string)=>{
+    if (!selected) return;
+    setBusy(true); setError('');
+    try { await service.decideDataRequest({ requestId:selected.id, status, notes:notes.trim() || undefined }); onNotify(done); setSelected(null); setNotes(''); requests.refresh(); }
+    catch (e) { setError(errorMessage(e)); }
+    finally { setBusy(false); }
+  };
+  return <section className="card">
+    <div className="card-head"><div><h2>Forespørsler om sletting</h2><p className="muted">Sletting fjerner navn, e-post, bilde, meldinger og innlogging. Innlegg og kommentarer blir stående hos organisasjonen med «Slettet bruker» som avsender. Kan ikke angres.</p></div><Status tone={open.length?'coral':'green'}>{open.length} åpne</Status></div>
+    {requests.error&&<p className="form-error" role="alert">{requests.error}</p>}
+    {!requests.data&&!requests.error&&<p className="muted">Henter …</p>}
+    {requests.data&&!requests.data.length&&<p className="muted">Ingen forespørsler.</p>}
+    <div className="list">{requests.data?.map(r=><div className="row-card wrap" key={r.id}>
+      <Status tone={r.status==='pending'?'coral':r.status==='processing'?'blue':'gray'}>{dataRequestStatusLabel[r.status]}</Status>
+      <span className="grow"><strong>{r.userName}</strong><small>{[r.email,r.schoolName,formatDate(r.createdAt),r.handledByName?`behandlet av ${r.handledByName}`:'',r.notes?`«${r.notes}»`:''].filter(Boolean).join(' · ')}</small></span>
+      {(r.status==='pending' || r.status==='processing')&&<button className="btn ghost" onClick={()=>{ setSelected(r); setNotes(r.notes ?? ''); setError(''); }}>Behandle</button>}
+    </div>)}</div>
+    {selected&&<div className="admin-action">
+      <h3>Sletting for {selected.userName}</h3>
+      <p className="muted">Sjekk at forespørselen kommer fra personen selv. Er personen siste administrator i en organisasjon, må rollen gis til en annen først.</p>
+      <label className="field"><span>Notat (begrunnelse ved avslag)</span><textarea value={notes} onChange={e=>setNotes(e.target.value)} maxLength={DATA_REQUEST_NOTES_MAX_LENGTH}/></label>
+      {error&&<p className="form-error" role="alert">{error}</p>}
+      <div className="actions">
+        <button className="btn ghost" onClick={()=>setSelected(null)}>Avbryt</button>
+        {selected.status==='pending'&&<button className="btn" disabled={busy} onClick={()=>void decide('processing','Forespørselen er merket som under behandling')}>Under behandling</button>}
+        <button className="btn" disabled={busy} onClick={()=>void decide('rejected','Forespørselen er avslått')}>Avslå</button>
+        <ConfirmButton label="Slett personopplysningene" question={`Slette personopplysningene til ${selected.userName}? Det kan ikke angres.`} confirmLabel="Slett" disabled={busy} onConfirm={()=>void decide('completed','Personopplysningene er slettet')}/>
+      </div>
+    </div>}
+  </section>;
 }
 
 function CsvImport({onNotify}:{onNotify:Notify}){

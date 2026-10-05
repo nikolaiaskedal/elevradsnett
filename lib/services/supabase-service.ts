@@ -1,6 +1,8 @@
 import type { AddMembersInput, CreateGroupInput, ReportMessageInput } from './contracts';
 import { messagingServerMessages } from './messaging-errors';
 import { SupabaseVarsler, varslerServerMessages } from './supabase-varsler';
+import { SupabasePersonvern, personvernServerMessages } from './supabase-personvern';
+import type { AcceptTermsInput, ConsentInput, DecideDataRequestInput } from './contracts';
 import type { HandoverResponseInput, NotificationPreferencesInput, RescheduleHandoverInput, SearchInput, SetElectionDateInput, StartHandoverInput } from './contracts';
 import { SEARCH_MIN_LENGTH, type SearchKind, type SearchResult } from '@/lib/domain/search';
 import { searchInputSchema } from '@/lib/domain/validation';
@@ -67,6 +69,7 @@ const serverMessages:Record<string,string> = {
   'not authorized':'Du har ikke tilgang til å gjøre dette.',
   ...messagingServerMessages,
   ...varslerServerMessages,
+  ...personvernServerMessages,
   'invalid name':'Navnet må ha mellom 2 og 120 tegn.',
   'school not found':'Fant ikke skolen. Velg en aktiv skole fra listen.',
   'invalid election date':'Velg en dato fra i dag og inntil to år frem.',
@@ -156,10 +159,12 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
   private client:Promise<Client>;
   private messaging:SupabaseMessaging;
   private varsler:SupabaseVarsler;
+  private personvern:SupabasePersonvern;
   constructor(client:SupabaseClient|Promise<SupabaseClient>) {
     this.client = Promise.resolve(client) as Promise<Client>;
     this.messaging = new SupabaseMessaging(this.client,run,()=>this.userId());
     this.varsler = new SupabaseVarsler(this.client,run,()=>this.userId());
+    this.personvern = new SupabasePersonvern(this.client,run);
   }
 
   private async userId() {
@@ -765,6 +770,18 @@ export class SupabaseElevradsnettService implements ElevradsnettService {
   activateHandoverNow(handoverId:string) { return this.varsler.activateHandoverNow(handoverId); }
   listMyHandoverInvites() { return this.varsler.listMyHandoverInvites(); }
   respondToHandoverInvite(input:HandoverResponseInput) { return this.varsler.respondToHandoverInvite(input); }
+
+  // Personvern (supabase-personvern.ts)
+  getPrivacyStatus() { return this.personvern.getPrivacyStatus(); }
+  acceptTerms(input:AcceptTermsInput) { return this.personvern.acceptTerms(input); }
+  recordConsent(input:ConsentInput) { return this.personvern.recordConsent(input); }
+  deactivateAccount() { return this.personvern.deactivateAccount(); }
+  reactivateAccount() { return this.personvern.reactivateAccount(); }
+  exportMyData() { return this.personvern.exportMyData(); }
+  requestDeletion() { return this.personvern.requestDeletion(); }
+  cancelDataRequest(requestId:string) { return this.personvern.cancelDataRequest(requestId); }
+  listDataRequests() { return this.personvern.listDataRequests(); }
+  decideDataRequest(input:DecideDataRequestInput) { return this.personvern.decideDataRequest(input); }
 }
 
 function toOrganization(r:OrganizationRow):Organization {
